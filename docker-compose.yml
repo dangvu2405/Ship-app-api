@@ -1,0 +1,39 @@
+services:
+  app:
+    build: .
+    container_name: ship-app-api
+    volumes:
+      - .:/var/www
+    depends_on:
+      - db
+    networks:
+      - ship-network
+
+  db:
+    image: mysql:8.0
+    container_name: ship-mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: ship_db
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    networks:
+      - ship-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: ship-api-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx:/etc/nginx/conf.d/
+    depends_on:
+      - app
+    networks:
+      - ship-network
+
+networks:
+  ship-network:
+    driver: bridge
