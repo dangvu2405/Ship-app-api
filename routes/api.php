@@ -23,16 +23,60 @@ Route::get('/health', function () {
     ]);
 });
 
+// Authentication routes (public)
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+    Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
+    
+    // Protected auth routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
+        Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']);
+    });
+});
+
 // Protected routes (require authentication)
+// Optional: add ->middleware('permission:companies') etc. per resource for authorization
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
+        $user = $request->user();
+        $user->load(['employee', 'roles.permissions']);
+
         return response()->json([
             'success' => true,
-            'data' => $request->user(),
+            'message' => 'OK',
+            'data' => $user,
         ]);
     });
-    
-    // Add your protected API routes here
-    // Example:
-    // Route::apiResource('users', UserController::class);
+
+    Route::apiResource('companies', \App\Http\Controllers\Api\CompanyController::class);
+    Route::apiResource('offices', \App\Http\Controllers\Api\OfficeController::class);
+    Route::apiResource('departments', \App\Http\Controllers\Api\DepartmentController::class);
+    Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
+    Route::apiResource('employees', \App\Http\Controllers\Api\EmployeeController::class);
+    Route::apiResource('drivers', \App\Http\Controllers\Api\DriverController::class);
+    Route::apiResource('vehicles', \App\Http\Controllers\Api\VehicleController::class);
+    Route::apiResource('vehicle_assignments', \App\Http\Controllers\Api\VehicleAssignmentController::class);
+    Route::apiResource('vehicle_expenses', \App\Http\Controllers\Api\VehicleExpenseController::class);
+    Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
+    Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
+    Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
+    Route::apiResource('allowances', \App\Http\Controllers\Api\AllowanceController::class);
+    Route::apiResource('deductions', \App\Http\Controllers\Api\DeductionController::class);
+    Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
+
+    Route::get('payrolls/my-salary', [\App\Http\Controllers\Api\PayrollController::class, 'mySalary']);
+    Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
+    Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
+    Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
+    Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);
+
+    Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
+    Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])->name('roles.permissions');
+    Route::apiResource('roles', \App\Http\Controllers\Api\RoleController::class);
+    Route::get('permissions', [\App\Http\Controllers\Api\PermissionController::class, 'index']);
+    Route::get('permissions/{permission}', [\App\Http\Controllers\Api\PermissionController::class, 'show']);
+
+    Route::get('reports/dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
+    Route::get('reports/payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
 });

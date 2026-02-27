@@ -157,44 +157,26 @@ class DatabaseSeeder extends Seeder
             'status' => 'active',
         ]);
 
-        // Create Roles
-        $adminRole = Role::create([
-            'name' => 'admin',
-            'description' => 'Administrator',
-        ]);
+        // Roles and permissions (full spec: run RolesAndPermissionsSeeder)
+        $this->call(RolesAndPermissionsSeeder::class);
 
-        $managerRole = Role::create([
-            'name' => 'manager',
-            'description' => 'Manager',
-        ]);
+        $adminRole = Role::where('name', 'admin')->first();
+        $managerRole = Role::where('name', 'manager')->first();
+        $driverRole = Role::firstOrCreate(
+            ['name' => 'driver'],
+            ['description' => 'Driver']
+        );
 
-        $driverRole = Role::create([
-            'name' => 'driver',
-            'description' => 'Driver',
-        ]);
-
-        // Assign Roles
-        $adminUser->roles()->attach($adminRole->id);
-        $adminUser->roles()->attach($managerRole->id);
-        $driverUser->roles()->attach($driverRole->id);
-
-        // Create Permissions
-        $permissions = [
-            ['code' => 'payroll.view', 'name' => 'View Payroll'],
-            ['code' => 'payroll.create', 'name' => 'Create Payroll'],
-            ['code' => 'payroll.approve', 'name' => 'Approve Payroll'],
-            ['code' => 'employee.view', 'name' => 'View Employee'],
-            ['code' => 'employee.create', 'name' => 'Create Employee'],
-            ['code' => 'trip.view', 'name' => 'View Trip'],
-            ['code' => 'trip.create', 'name' => 'Create Trip'],
-        ];
-
-        foreach ($permissions as $perm) {
-            Permission::create($perm);
+        // Assign Roles to seeded users
+        if ($adminRole && ! $adminUser->roles()->where('name', 'admin')->exists()) {
+            $adminUser->roles()->attach($adminRole->id);
         }
-
-        // Assign permissions to roles
-        $adminRole->permissions()->attach(Permission::pluck('id'));
+        if ($managerRole && ! $adminUser->roles()->where('name', 'manager')->exists()) {
+            $adminUser->roles()->attach($managerRole->id);
+        }
+        if ($driverRole && ! $driverUser->roles()->where('name', 'driver')->exists()) {
+            $driverUser->roles()->attach($driverRole->id);
+        }
 
         // Create Allowances
         Allowance::create([

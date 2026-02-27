@@ -1,0 +1,120 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Company Ship API",
+        "description": "API quản lý vận tải - công ty, nhân sự, xe, chuyến đi, lương",
+        "version": "1.0"
+    },
+    "servers": [
+        {
+            "url": "/api",
+            "description": "API Server"
+        }
+    ],
+    "paths": {
+        "/health": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Health check",
+                "operationId": "7ac248e49d1fc87f638bceab5eb25fbe",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Đăng nhập",
+                "description": "Đăng nhập - lấy token",
+                "operationId": "67d6d0fdd54fba132e1b6f55ca254183",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "admin@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Thành công - trả về user và token"
+                    },
+                    "401": {
+                        "description": "Sai email hoặc mật khẩu"
+                    },
+                    "422": {
+                        "description": "Validation lỗi"
+                    }
+                }
+            }
+        },
+        "/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Đăng xuất",
+                "description": "Đăng xuất - thu hồi token hiện tại",
+                "operationId": "28d48c13fca984400ac8de99f54ee13a",
+                "responses": {
+                    "200": {
+                        "description": "Đăng xuất thành công"
+                    },
+                    "401": {
+                        "description": "Chưa đăng nhập"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "Dùng token trả về từ POST /api/login",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Đăng nhập, đăng xuất, token"
+        },
+        {
+            "name": "System",
+            "description": "System"
+        }
+    ]
+}

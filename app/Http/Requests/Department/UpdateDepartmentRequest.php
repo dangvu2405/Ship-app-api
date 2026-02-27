@@ -1,0 +1,23 @@
+<?php
+
+namespace App\Http\Requests\Department;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class UpdateDepartmentRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'office_id' => 'sometimes|exists:offices,id',
+            'parent_id' => 'nullable|exists:departments,id',
+            'code' => 'sometimes|string|max:50',
+            'name' => 'sometimes|string|max:255',
+        ];
+    }
+}

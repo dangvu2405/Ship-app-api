@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Exception;
+use Throwable;
 
 class BaseController extends Controller
 {
@@ -94,5 +98,51 @@ class BaseController extends Controller
     protected function validationErrorResponse($errors, string $message = 'Validation failed'): JsonResponse
     {
         return $this->errorResponse($message, 422, $errors);
+    }
+
+    /**
+     * Handle exceptions and return formatted error response
+     *
+     * @param Throwable $e
+     * @param string|null $customMessage
+     * @return JsonResponse
+     */
+    protected function handleException(Throwable $e, ?string $customMessage = null): JsonResponse
+    {
+        // Log the exception
+        Log::error('API Exception', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        // If it's an ApiException, use its status code and message
+        if ($e instanceof ApiException) {
+            return $this->errorResponse(
+                $customMessage ?: $e->getMessage(),
+                $e->getStatusCode(),
+                $e->getErrors()
+            );
+        }
+
+        // Database errors
+        if ($e instanceof \Illuminate\Database\QueryException) {
+            $message = $customMessage ?: 'Database error occurred';
+            if (config('app.debug')) {
+                $message .= ': ' . $e->getMessage();
+            }
+            return $this->errorResponse($message, 500);
+        }
+
+        // General exception
+        $message = $customMessage ?: ($e->getMessage() ?: 'An error occurred');
+        
+        // Don't expose internal errors in production
+        if (!config('app.debug') && !($e instanceof Exception && $e->getCode() < 500)) {
+            $message = 'An error occurred. Please try again later.';
+        }
+
+        return $this->errorResponse($message, 500);
     }
 }

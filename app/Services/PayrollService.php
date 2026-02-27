@@ -13,6 +13,7 @@ use App\Models\EmployeeAllowance;
 use App\Models\EmployeeDeduction;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PayrollService
 {
@@ -26,6 +27,15 @@ class PayrollService
     {
         DB::beginTransaction();
         try {
+            // Validate inputs
+            if ($month < 1 || $month > 12) {
+                throw new Exception('Invalid month. Month must be between 1 and 12.');
+            }
+            
+            if ($year < 2000 || $year > 2100) {
+                throw new Exception('Invalid year.');
+            }
+            
             // Create or get payroll
             $payroll = Payroll::firstOrCreate(
                 [
@@ -45,15 +55,25 @@ class PayrollService
                 })
                 ->get();
 
+            if ($employees->isEmpty()) {
+                throw new Exception('No active employees found for this company.');
+            }
+
             foreach ($employees as $employee) {
                 $this->calculateEmployeePayroll($payroll, $employee, $month, $year);
             }
 
             DB::commit();
             return $payroll->fresh();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
-            throw $e;
+            Log::error('Payroll generation failed', [
+                'company_id' => $companyId,
+                'month' => $month,
+                'year' => $year,
+                'error' => $e->getMessage(),
+            ]);
+            throw new Exception('Failed to generate payroll: ' . $e->getMessage());
         }
     }
 

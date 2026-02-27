@@ -1,0 +1,24 @@
+<?php
+
+namespace App\Http\Requests\Driver;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreDriverRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        return [
+            'employee_id' => 'required|exists:employees,id|unique:drivers,employee_id',
+            'license_no' => 'required|string|max:50',
+            'license_class' => 'nullable|string|max:20',
+            'expired_date' => 'nullable|date',
+            'available_status' => 'required|in:available,busy,offline',
+        ];
+    }
+}

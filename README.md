@@ -54,6 +54,22 @@ In order to ensure that the Laravel community is welcoming to all, please review
 
 If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
 
+## 🚀 Deployment với Nginx
+
+### Docker (Development)
+```bash
+docker-compose up -d
+# API: http://localhost:8080/api
+```
+
+### Production với PHP-FPM
+```bash
+sudo ./nginx/setup.sh
+# API: http://localhost/api
+```
+
+Xem chi tiết tại: [nginx/README.md](nginx/README.md)
+
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
