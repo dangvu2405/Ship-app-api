@@ -23,16 +23,18 @@ Route::get('/health', function () {
     ]);
 });
 
-// Authentication routes (public)
+// Authentication routes
 Route::prefix('auth')->group(function () {
+    // Public routes
     Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
     Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
+    Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']); // Public - chỉ cần refresh_token
     
     // Protected auth routes
-    // Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
-        Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']);
-    // });
+        Route::post('/logout-all', [\App\Http\Controllers\Api\AuthController::class, 'logoutAll']);
+    });
 });
 
 // Protected routes (require authentication)

@@ -4,16 +4,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\BaseController;
 use App\Models\User;
+use App\Models\RefreshToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
 
 /**
  * @OA\Tag(name="Auth", description="Đăng nhập, đăng xuất, token")
  */
 class AuthController extends BaseController
 {
+    // Token expiration times (in minutes)
+    private const ACCESS_TOKEN_EXPIRATION = 60; // 1 hour
+    private const REFRESH_TOKEN_EXPIRATION = 60 * 24 * 7; // 7 days
     /**
      * Đăng nhập - lấy token
      *
@@ -54,8 +59,23 @@ class AuthController extends BaseController
                 return $this->errorResponse('Invalid credentials', 401);
             }
 
-            // Create token using Sanctum
-            $token = $user->createToken('auth-token')->plainTextToken;
+            // Tạo access token với Sanctum (lưu trong personal_access_tokens để validate)
+            $accessToken = $user->createToken(
+                'auth-token',
+                ['*'],
+                Carbon::now()->addMinutes(self::ACCESS_TOKEN_EXPIRATION)
+            );
+
+            // Tạo refresh token (lưu vào database)
+            $refreshToken = RefreshToken::create([
+                'user_id' => $user->id,
+                'token' => RefreshToken::generateToken(),
+                'access_token_id' => $accessToken->accessToken->id,
+                'expires_at' => Carbon::now()->addMinutes(self::REFRESH_TOKEN_EXPIRATION),
+                'is_revoked' => false,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
 
             // Update last login
             $user->update(['last_login_at' => now()]);
@@ -65,7 +85,10 @@ class AuthController extends BaseController
 
             return $this->successResponse([
                 'user' => $user,
-                'token' => $token,
+                'access_token' => $accessToken->plainTextToken, // Client lưu vào localStorage
+                'refresh_token' => $refreshToken->token, // Client lưu vào localStorage
+                'token_type' => 'Bearer',
+                'expires_in' => self::ACCESS_TOKEN_EXPIRATION * 60, // seconds
             ], 'Login successful');
         } catch (\Exception $e) {
             return $this->handleException($e, 'Login failed');
@@ -87,12 +110,64 @@ class AuthController extends BaseController
     public function logout(Request $request)
     {
         try {
-            // Revoke current token
-            $request->user()->currentAccessToken()->delete();
+            $user = $request->user();
+            
+            if ($user) {
+                // Revoke current access token
+                $currentToken = $user->currentAccessToken();
+                if ($currentToken) {
+                    // Revoke associated refresh token
+                    RefreshToken::where('access_token_id', $currentToken->id)
+                        ->update(['is_revoked' => true]);
+                    
+                    $currentToken->delete();
+                }
+            }
+
+            // Nếu có refresh_token trong request, revoke nó
+            if ($request->has('refresh_token')) {
+                RefreshToken::where('token', $request->refresh_token)
+                    ->update(['is_revoked' => true]);
+            }
 
             return $this->successResponse(null, 'Logout successful');
         } catch (\Exception $e) {
             return $this->handleException($e, 'Logout failed');
+        }
+    }
+
+    /**
+     * Revoke all refresh tokens của user (logout all devices)
+     *
+     * @OA\Post(
+     *     path="/api/auth/logout-all",
+     *     tags={"Auth"},
+     *     summary="Đăng xuất tất cả thiết bị",
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Đăng xuất thành công"),
+     *     @OA\Response(response=401, description="Chưa đăng nhập")
+     * )
+     */
+    public function logoutAll(Request $request)
+    {
+        try {
+            if (!$request->user()) {
+                return $this->unauthorizedResponse('Unauthenticated');
+            }
+
+            $user = $request->user();
+            
+            // Revoke all refresh tokens
+            RefreshToken::where('user_id', $user->id)
+                ->where('is_revoked', false)
+                ->update(['is_revoked' => true]);
+            
+            // Delete all access tokens
+            $user->tokens()->delete();
+
+            return $this->successResponse(null, 'Logged out from all devices');
+        } catch (\Exception $e) {
+            return $this->handleException($e, 'Logout all failed');
         }
     }
 
@@ -147,28 +222,83 @@ class AuthController extends BaseController
     }
 
     /**
-     * Làm mới token
+     * Refresh token - chỉ cần refresh_token từ request
      *
      * @OA\Post(
      *     path="/api/auth/refresh",
      *     tags={"Auth"},
-     *     summary="Làm mới token",
-     *     security={{"sanctum":{}}},
+     *     summary="Làm mới access token",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"refresh_token"},
+     *             @OA\Property(property="refresh_token", type="string", example="refresh_token_string")
+     *         )
+     *     ),
      *     @OA\Response(response=200, description="Token mới"),
-     *     @OA\Response(response=401, description="Chưa đăng nhập")
+     *     @OA\Response(response=401, description="Refresh token không hợp lệ")
      * )
      */
     public function refresh(Request $request)
     {
-        try {
-            // Revoke current token
-            $request->user()->currentAccessToken()->delete();
+        $validator = Validator::make($request->all(), [
+            'refresh_token' => 'required|string',
+        ]);
 
-            // Create new token
-            $token = $request->user()->createToken('auth-token')->plainTextToken;
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator->errors());
+        }
+
+        try {
+            // Tìm refresh token trong database
+            $refreshToken = RefreshToken::where('token', $request->refresh_token)
+                ->where('is_revoked', false)
+                ->first();
+
+            // Validate refresh token
+            if (!$refreshToken || !$refreshToken->isValid()) {
+                return $this->errorResponse('Invalid or expired refresh token', 401);
+            }
+
+            $user = $refreshToken->user;
+
+            // Kiểm tra user còn active không
+            if ($user->status !== 'active') {
+                $refreshToken->revoke();
+                return $this->errorResponse('User account is inactive', 401);
+            }
+
+            // Revoke old access token nếu có
+            if ($refreshToken->access_token_id) {
+                $refreshToken->accessToken?->delete();
+            }
+
+            // Revoke old refresh token (token rotation - bảo mật hơn)
+            $refreshToken->revoke();
+
+            // Tạo access token mới (lưu trong personal_access_tokens)
+            $newAccessToken = $user->createToken(
+                'auth-token',
+                ['*'],
+                Carbon::now()->addMinutes(self::ACCESS_TOKEN_EXPIRATION)
+            );
+
+            // Tạo refresh token mới (lưu vào database)
+            $newRefreshToken = RefreshToken::create([
+                'user_id' => $user->id,
+                'token' => RefreshToken::generateToken(),
+                'access_token_id' => $newAccessToken->accessToken->id,
+                'expires_at' => Carbon::now()->addMinutes(self::REFRESH_TOKEN_EXPIRATION),
+                'is_revoked' => false,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
 
             return $this->successResponse([
-                'token' => $token,
+                'access_token' => $newAccessToken->plainTextToken, // Client cập nhật vào localStorage
+                'refresh_token' => $newRefreshToken->token, // Client cập nhật vào localStorage
+                'token_type' => 'Bearer',
+                'expires_in' => self::ACCESS_TOKEN_EXPIRATION * 60, // seconds
             ], 'Token refreshed successfully');
         } catch (\Exception $e) {
             return $this->handleException($e, 'Token refresh failed');

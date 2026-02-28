@@ -78,6 +78,11 @@ class User extends Authenticatable
         return $this->hasMany(ExportLog::class);
     }
 
+    public function refreshTokens()
+    {
+        return $this->hasMany(RefreshToken::class);
+    }
+
     // Helper methods
     public function hasRole($roleName)
     {
