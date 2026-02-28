@@ -18,7 +18,7 @@ class AuthController extends BaseController
      * Đăng nhập - lấy token
      *
      * @OA\Post(
-     *     path="/login",
+     *     path="/api/auth/login",
      *     tags={"Auth"},
      *     summary="Đăng nhập",
      *     @OA\RequestBody(
@@ -76,7 +76,7 @@ class AuthController extends BaseController
      * Đăng xuất - thu hồi token hiện tại
      *
      * @OA\Post(
-     *     path="/logout",
+     *     path="/api/auth/logout",
      *     tags={"Auth"},
      *     summary="Đăng xuất",
      *     security={{"sanctum":{}}},
@@ -97,7 +97,25 @@ class AuthController extends BaseController
     }
 
     /**
-     * Register new user
+     * Đăng ký tài khoản mới
+     *
+     * @OA\Post(
+     *     path="/api/auth/register",
+     *     tags={"Auth"},
+     *     summary="Đăng ký tài khoản",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"username","email","password","password_confirmation"},
+     *             @OA\Property(property="username", type="string", example="newuser"),
+     *             @OA\Property(property="email", type="string", format="email", example="newuser@example.com"),
+     *             @OA\Property(property="password", type="string", format="password", example="password123"),
+     *             @OA\Property(property="password_confirmation", type="string", format="password", example="password123")
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Đăng ký thành công"),
+     *     @OA\Response(response=422, description="Validation lỗi")
+     * )
      */
     public function register(Request $request)
     {
@@ -129,7 +147,16 @@ class AuthController extends BaseController
     }
 
     /**
-     * Refresh token
+     * Làm mới token
+     *
+     * @OA\Post(
+     *     path="/api/auth/refresh",
+     *     tags={"Auth"},
+     *     summary="Làm mới token",
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Token mới"),
+     *     @OA\Response(response=401, description="Chưa đăng nhập")
+     * )
      */
     public function refresh(Request $request)
     {

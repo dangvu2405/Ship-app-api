@@ -8,11 +8,21 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * @OA\Tag(name="Reports", description="Báo cáo tổng hợp")
+ */
 class ReportsController extends BaseController
 {
     /**
-     * Dashboard summary (cached 1 hour).
-     * GET /reports/dashboard?month=&year=
+     * @OA\Get(
+     *     path="/api/reports/dashboard",
+     *     tags={"Reports"},
+     *     summary="Dashboard tổng hợp",
+     *     description="Trả về số liệu tổng hợp (cached 1 giờ)",
+     *     @OA\Parameter(name="month", in="query", description="Tháng", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="year", in="query", description="Năm", @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Thành công")
+     * )
      */
     public function dashboard(Request $request): JsonResponse
     {
@@ -31,8 +41,16 @@ class ReportsController extends BaseController
     }
 
     /**
-     * Payroll summary by company/month/year (cached 24h).
-     * GET /reports/payroll-summary?company_id=&month=&year=
+     * @OA\Get(
+     *     path="/api/reports/payroll-summary",
+     *     tags={"Reports"},
+     *     summary="Tổng hợp bảng lương theo công ty",
+     *     description="Trả về chi tiết bảng lương công ty theo tháng/năm (cached 24h)",
+     *     @OA\Parameter(name="company_id", in="query", required=true, description="ID công ty", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="month", in="query", description="Tháng", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="year", in="query", description="Năm", @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Thành công")
+     * )
      */
     public function payrollSummary(Request $request): JsonResponse
     {

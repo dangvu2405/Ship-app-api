@@ -29,15 +29,15 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
     
     // Protected auth routes
-    Route::middleware('auth:sanctum')->group(function () {
+    // Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
         Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']);
-    });
+    // });
 });
 
 // Protected routes (require authentication)
 // Optional: add ->middleware('permission:companies') etc. per resource for authorization
-Route::middleware('auth:sanctum')->group(function () {
+// Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         $user = $request->user();
         $user->load(['employee', 'roles.permissions']);
@@ -79,4 +79,4 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('reports/dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
     Route::get('reports/payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
-});
+// });

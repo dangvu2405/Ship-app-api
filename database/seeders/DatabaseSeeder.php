@@ -234,5 +234,8 @@ class DatabaseSeeder extends Seeder
             'max_km' => null,
             'bonus_per_km' => 2000,
         ]);
+
+        // Uncomment the line below to seed 1000 records for all tables
+        // $this->call(BulkDataSeeder::class);
     }
 }
