@@ -235,6 +235,9 @@ class DatabaseSeeder extends Seeder
             'bonus_per_km' => 2000,
         ]);
 
+        // Seed the remaining business/system tables so every table has data.
+        $this->call(AllTablesSeeder::class);
+
         // Uncomment the line below to seed 1000 records for all tables
         // $this->call(BulkDataSeeder::class);
     }
