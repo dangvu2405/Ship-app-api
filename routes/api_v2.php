@@ -15,8 +15,7 @@ use Src\Interface\Http\Controllers\Employee\EmployeeController;
 |
 */
 
-// Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
-
+Route::middleware(['auth:sanctum', 'role:admin', 'throttle:60,1'])->group(function () {
     // Employee Module (Clean Architecture)
     Route::prefix('v2/employees')->group(function () {
         Route::get('/', [EmployeeController::class, 'index']);
@@ -25,5 +24,4 @@ use Src\Interface\Http\Controllers\Employee\EmployeeController;
         Route::put('/{employee}', [EmployeeController::class, 'update']);
         Route::delete('/{employee}', [EmployeeController::class, 'destroy']);
     });
-
-// });
+});

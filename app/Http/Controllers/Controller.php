@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
  * @OA\Info(
  *     title="Company Ship API",
  *     version="1.0",
- *     description="API quản lý vận tải - công ty, nhân sự, xe, chuyến đi, lương"
+ *     description="API quản lý vận tải - công ty, nhân sự, xe, chuyến đi, lương. Hầu hết endpoint yêu cầu đăng nhập Sanctum và role admin."
  * )
  * @OA\Server(
  *     url="/api",
@@ -17,7 +17,10 @@ namespace App\Http\Controllers;
  *     type="http",
  *     scheme="bearer",
  *     bearerFormat="JWT",
- *     description="Dùng token trả về từ POST /api/login"
+ *     description="Dùng token Bearer trả về từ POST /api/auth/login"
+ * )
+ * @OA\SecurityRequirement(
+ *     securityScheme="sanctum"
  * )
  *
  * @OA\PathItem(

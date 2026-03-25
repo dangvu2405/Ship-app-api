@@ -21,6 +21,7 @@ class AuthController extends BaseController
      *     path="/api/auth/login",
      *     tags={"Auth"},
      *     summary="Đăng nhập",
+ *     security={},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -102,7 +103,8 @@ class AuthController extends BaseController
      * @OA\Post(
      *     path="/api/auth/register",
      *     tags={"Auth"},
-     *     summary="Đăng ký tài khoản",
+ *     summary="Đăng ký tài khoản (chỉ admin)",
+ *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -113,7 +115,8 @@ class AuthController extends BaseController
      *             @OA\Property(property="password_confirmation", type="string", format="password", example="password123")
      *         )
      *     ),
-     *     @OA\Response(response=201, description="Đăng ký thành công"),
+ *     @OA\Response(response=201, description="Đăng ký thành công"),
+ *     @OA\Response(response=403, description="Chỉ admin được phép"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
      */
