@@ -58,7 +58,7 @@ final class EloquentEmployeeQueryRepository implements EmployeeQueryRepositoryIn
             $query->where(function ($q) use ($keyword) {
                 foreach (self::SEARCHABLE_COLUMNS as $index => $column) {
                     $method = $index === 0 ? 'where' : 'orWhere';
-                    $q->{$method}($column, 'like', '%' . $keyword . '%');
+                    $q->{$method}($column, 'like', '%'.$keyword.'%');
                 }
             });
         }
@@ -126,14 +126,15 @@ final class EloquentEmployeeQueryRepository implements EmployeeQueryRepositoryIn
         return EmployeeModel::query()
             ->where('office_id', $officeId)
             ->where('status', 'active')
-            ->get()
+            ->orderBy('id')
+            ->lazy()
             ->map(fn (EmployeeModel $model) => [
                 'id' => $model->id,
                 'code' => $model->code,
                 'name' => $model->name,
                 'type' => $model->type,
             ])
-            ->toArray();
+            ->all();
     }
 
     /**
@@ -147,12 +148,13 @@ final class EloquentEmployeeQueryRepository implements EmployeeQueryRepositoryIn
             ->whereHas('office', function ($query) use ($companyId) {
                 $query->where('company_id', $companyId);
             })
-            ->get()
+            ->orderBy('id')
+            ->lazy()
             ->map(fn (EmployeeModel $model) => [
                 'id' => $model->id,
                 'code' => $model->code,
                 'name' => $model->name,
             ])
-            ->toArray();
+            ->all();
     }
 }

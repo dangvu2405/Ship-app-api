@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('drivers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('employee_id')->unique()->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('employee_id')->unique();
             $table->string('license_no', 50);
             $table->string('license_class', 20)->nullable();
             $table->date('expired_date')->nullable();

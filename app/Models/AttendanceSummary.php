@@ -6,22 +6,22 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PayrollDetail extends Model
+class AttendanceSummary extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'payroll_id',
+        'payroll_period_id',
         'employee_id',
-        'base_salary',
         'working_days',
-        'overtime',
-        'bonus',
-        'allowance',
-        'deduction',
-        'fuel_cost',
-        'tax',
-        'net_salary',
+        'actual_days',
+        'leave_paid_days',
+        'leave_unpaid_days',
+        'overtime_hours',
+        'status',
+        'approved_at',
+        'approved_by',
+        'source',
         'meta_json',
         'created_by',
         'updated_by',
@@ -29,21 +29,18 @@ class PayrollDetail extends Model
     ];
 
     protected $casts = [
-        'base_salary' => 'decimal:2',
-        'working_days' => 'integer',
-        'overtime' => 'decimal:2',
-        'bonus' => 'decimal:2',
-        'allowance' => 'decimal:2',
-        'deduction' => 'decimal:2',
-        'fuel_cost' => 'decimal:2',
-        'tax' => 'decimal:2',
-        'net_salary' => 'decimal:2',
+        'working_days' => 'decimal:2',
+        'actual_days' => 'decimal:2',
+        'leave_paid_days' => 'decimal:2',
+        'leave_unpaid_days' => 'decimal:2',
+        'overtime_hours' => 'decimal:2',
+        'approved_at' => 'datetime',
         'meta_json' => 'array',
     ];
 
-    public function payroll()
+    public function payrollPeriod()
     {
-        return $this->belongsTo(Payroll::class);
+        return $this->belongsTo(PayrollPeriod::class);
     }
 
     public function employee()
@@ -51,9 +48,9 @@ class PayrollDetail extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function adjustments()
+    public function approvedByUser()
     {
-        return $this->hasMany(PayrollAdjustment::class);
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function createdByUser()

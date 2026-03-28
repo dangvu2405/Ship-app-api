@@ -3,7 +3,6 @@
 namespace App\Exports;
 
 use App\Models\Payroll;
-use App\Models\PayrollDetail;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -21,7 +20,10 @@ class PayrollExport implements FromCollection, WithHeadings, WithMapping, WithSt
 
     public function collection()
     {
-        return $this->payroll->details()->with('employee')->get();
+        return $this->payroll->details()
+            ->with('employee')
+            ->orderBy('id')
+            ->lazy();
     }
 
     public function headings(): array

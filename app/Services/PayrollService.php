@@ -2,22 +2,25 @@
 
 namespace App\Services;
 
+use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\EmployeeAllowance;
+use App\Models\EmployeeDeduction;
 use App\Models\Payroll;
 use App\Models\PayrollDetail;
-use App\Models\Attendance;
 use App\Models\Trip;
 use App\Models\TripBonusRule;
 use App\Models\VehicleExpense;
-use App\Models\EmployeeAllowance;
-use App\Models\EmployeeDeduction;
 use Carbon\Carbon;
+use Exception;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PayrollService
 {
     protected const STANDARD_WORKING_DAYS = 22;
+
     protected const TAX_RATE = 0.1; // 10%
 
     /**
@@ -31,11 +34,11 @@ class PayrollService
             if ($month < 1 || $month > 12) {
                 throw new Exception('Invalid month. Month must be between 1 and 12.');
             }
-            
+
             if ($year < 2000 || $year > 2100) {
                 throw new Exception('Invalid year.');
             }
-            
+
             // Create or get payroll
             $payroll = Payroll::firstOrCreate(
                 [
@@ -48,22 +51,25 @@ class PayrollService
                 ]
             );
 
-            // Get all active employees
-            $employees = Employee::where('status', 'active')
+            $employeesQuery = Employee::query()
+                ->where('status', 'active')
                 ->whereHas('office', function ($query) use ($companyId) {
                     $query->where('company_id', $companyId);
                 })
-                ->get();
+                ->orderBy('id');
 
-            if ($employees->isEmpty()) {
+            if (! $employeesQuery->exists()) {
                 throw new Exception('No active employees found for this company.');
             }
 
-            foreach ($employees as $employee) {
-                $this->calculateEmployeePayroll($payroll, $employee, $month, $year);
+            $bonusRules = TripBonusRule::orderBy('min_km')->get();
+
+            foreach ($employeesQuery->lazy() as $employee) {
+                $this->calculateEmployeePayroll($payroll, $employee, $month, $year, $bonusRules);
             }
 
             DB::commit();
+
             return $payroll->fresh();
         } catch (Exception $e) {
             DB::rollBack();
@@ -73,18 +79,15 @@ class PayrollService
                 'year' => $year,
                 'error' => $e->getMessage(),
             ]);
-            throw new Exception('Failed to generate payroll: ' . $e->getMessage());
+            throw new Exception('Failed to generate payroll: '.$e->getMessage());
         }
     }
 
     /**
      * Calculate payroll for a single employee
      */
-    protected function calculateEmployeePayroll(Payroll $payroll, Employee $employee, int $month, int $year): PayrollDetail
+    protected function calculateEmployeePayroll(Payroll $payroll, Employee $employee, int $month, int $year, Collection $bonusRules): PayrollDetail
     {
-        $startDate = Carbon::create($year, $month, 1)->startOfMonth();
-        $endDate = Carbon::create($year, $month, 1)->endOfMonth();
-
         // Base salary calculation
         $baseSalary = $this->calculateBaseSalary($employee, $month, $year);
 
@@ -95,7 +98,7 @@ class PayrollService
         $overtime = $this->calculateOvertime($employee, $month, $year);
 
         // Bonus (for drivers based on trips)
-        $bonus = $this->calculateBonus($employee, $month, $year);
+        $bonus = $this->calculateBonus($employee, $month, $year, $bonusRules);
 
         // Allowances
         $allowance = $this->calculateAllowances($employee);
@@ -145,7 +148,7 @@ class PayrollService
     protected function calculateBaseSalary(Employee $employee, int $month, int $year): float
     {
         $position = $employee->position;
-        if (!$position) {
+        if (! $position) {
             return 0;
         }
 
@@ -154,6 +157,7 @@ class PayrollService
         if ($employee->type === 'office') {
             // Office staff: base_salary * working_days / standard_days
             $workingDays = $this->getWorkingDays($employee, $month, $year);
+
             return ($baseSalary * $workingDays) / self::STANDARD_WORKING_DAYS;
         }
 
@@ -189,13 +193,14 @@ class PayrollService
 
         // Overtime rate: 1.5x hourly rate
         $hourlyRate = $employee->position->base_salary / (self::STANDARD_WORKING_DAYS * 8);
+
         return $totalOvertime * $hourlyRate * 1.5;
     }
 
     /**
      * Calculate bonus for drivers based on trips
      */
-    protected function calculateBonus(Employee $employee, int $month, int $year): float
+    protected function calculateBonus(Employee $employee, int $month, int $year, Collection $bonusRules): float
     {
         if ($employee->type !== 'driver') {
             return 0;
@@ -204,14 +209,11 @@ class PayrollService
         $startDate = Carbon::create($year, $month, 1)->startOfMonth();
         $endDate = Carbon::create($year, $month, 1)->endOfMonth();
 
-        // Get total distance for completed trips
         $totalKm = Trip::where('driver_id', $employee->id)
             ->where('status', 'completed')
             ->whereBetween('start_time', [$startDate, $endDate])
             ->sum('distance_km');
 
-        // Get bonus rules
-        $bonusRules = TripBonusRule::orderBy('min_km')->get();
         $bonus = 0;
 
         foreach ($bonusRules as $rule) {
@@ -279,6 +281,7 @@ class PayrollService
     {
         $payroll = Payroll::findOrFail($payrollId);
         $payroll->update(['status' => 'approved']);
+
         return $payroll;
     }
 
@@ -292,6 +295,7 @@ class PayrollService
             'status' => 'locked',
             'locked_at' => now(),
         ]);
+
         return $payroll;
     }
 }

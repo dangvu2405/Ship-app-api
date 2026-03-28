@@ -6,54 +6,32 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PayrollDetail extends Model
+class EmployeeSalaryConfig extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'payroll_id',
         'employee_id',
+        'effective_from',
+        'effective_to',
         'base_salary',
-        'working_days',
-        'overtime',
-        'bonus',
-        'allowance',
-        'deduction',
-        'fuel_cost',
-        'tax',
-        'net_salary',
-        'meta_json',
+        'currency',
+        'pay_frequency',
+        'notes',
         'created_by',
         'updated_by',
         'deleted_by',
     ];
 
     protected $casts = [
+        'effective_from' => 'date',
+        'effective_to' => 'date',
         'base_salary' => 'decimal:2',
-        'working_days' => 'integer',
-        'overtime' => 'decimal:2',
-        'bonus' => 'decimal:2',
-        'allowance' => 'decimal:2',
-        'deduction' => 'decimal:2',
-        'fuel_cost' => 'decimal:2',
-        'tax' => 'decimal:2',
-        'net_salary' => 'decimal:2',
-        'meta_json' => 'array',
     ];
-
-    public function payroll()
-    {
-        return $this->belongsTo(Payroll::class);
-    }
 
     public function employee()
     {
         return $this->belongsTo(Employee::class);
-    }
-
-    public function adjustments()
-    {
-        return $this->hasMany(PayrollAdjustment::class);
     }
 
     public function createdByUser()

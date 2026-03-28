@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->foreignId('employee_id')->nullable()->constrained()->nullOnDelete();
+            $table->unsignedBigInteger('employee_id')->nullable();
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();

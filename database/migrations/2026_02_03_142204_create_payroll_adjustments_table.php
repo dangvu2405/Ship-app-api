@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('payroll_adjustments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('payroll_detail_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('payroll_detail_id');
             $table->enum('type', ['addition', 'deduction'])->default('addition');
             $table->text('reason');
             $table->decimal('amount', 15, 2);

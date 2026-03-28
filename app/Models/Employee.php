@@ -84,6 +84,16 @@ class Employee extends Model
         return $this->hasMany(PayrollDetail::class);
     }
 
+    public function salaryConfigs()
+    {
+        return $this->hasMany(EmployeeSalaryConfig::class);
+    }
+
+    public function attendanceSummaries()
+    {
+        return $this->hasMany(AttendanceSummary::class);
+    }
+
     public function user()
     {
         return $this->hasOne(User::class);
