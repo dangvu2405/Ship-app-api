@@ -128,6 +128,22 @@ class DatabaseSeeder extends Seeder
             'join_date' => '2022-06-01',
         ]);
 
+        $hr1 = Employee::create([
+            'code' => 'EMP004',
+            'name' => 'Helen HR',
+            'email' => 'helen.hr@abctransport.com',
+            'phone' => '0912345681',
+            'dob' => '1988-10-10',
+            'gender' => 'female',
+            'address' => '444 HR Street',
+            'office_id' => $office->id,
+            'department_id' => $hrDept->id,
+            'position_id' => $staffPosition->id,
+            'type' => 'office',
+            'status' => 'active',
+            'join_date' => '2022-01-01',
+        ]);
+
         // Create Driver
         Driver::create([
             'employee_id' => $driver1->id,
@@ -157,11 +173,29 @@ class DatabaseSeeder extends Seeder
             'status' => 'active',
         ]);
 
+        $hrUser = User::create([
+            'username' => 'hr_admin',
+            'email' => 'hr@abctransport.com',
+            'password' => Hash::make('password'),
+            'employee_id' => $hr1->id,
+            'status' => 'active',
+        ]);
+
+        $staffUser = User::create([
+            'username' => 'staff1',
+            'email' => 'staff1@abctransport.com',
+            'password' => Hash::make('password'),
+            'employee_id' => $staff1->id,
+            'status' => 'active',
+        ]);
+
         // Roles and permissions (full spec: run RolesAndPermissionsSeeder)
         $this->call(RolesAndPermissionsSeeder::class);
 
         $adminRole = Role::where('name', 'admin')->first();
         $managerRole = Role::where('name', 'manager')->first();
+        $hrRole = Role::where('name', 'hr')->first();
+        $staffRole = Role::where('name', 'staff')->first();
         $driverRole = Role::firstOrCreate(
             ['name' => 'driver'],
             ['description' => 'Driver']
@@ -176,6 +210,12 @@ class DatabaseSeeder extends Seeder
         }
         if ($driverRole && ! $driverUser->roles()->where('name', 'driver')->exists()) {
             $driverUser->roles()->attach($driverRole->id);
+        }
+        if ($hrRole && ! $hrUser->roles()->where('name', 'hr')->exists()) {
+            $hrUser->roles()->attach($hrRole->id);
+        }
+        if ($staffRole && ! $staffUser->roles()->where('name', 'staff')->exists()) {
+            $staffUser->roles()->attach($staffRole->id);
         }
 
         // Create Allowances

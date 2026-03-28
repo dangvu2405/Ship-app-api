@@ -7,9 +7,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\App;
 
 /**
  * @OA\Tag(name="Auth", description="Đăng nhập, đăng xuất, token")
@@ -162,6 +164,39 @@ class AuthController extends BaseController
             ], 'Token refreshed successfully');
         } catch (\Exception $e) {
             return $this->handleException($e, 'Token refresh failed');
+        }
+    }
+
+    /**
+     * Get test accounts for dynamic login buttons
+     */
+    public function testAccounts(): JsonResponse
+    {
+        // Only allow in local or testing environments
+        if (App::environment('production')) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        try {
+            $roles = Role::all();
+            $accounts = $roles->map(function ($role) {
+                $user = User::whereHas('roles', function ($q) use ($role) {
+                    $q->where('name', $role->name);
+                })->first();
+
+                return [
+                    'role' => $role->name,
+                    'role_display' => $role->description ?? $role->name,
+                    'email' => $user ? $user->email : "no-user-{$role->name}@test.com",
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $accounts
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }
