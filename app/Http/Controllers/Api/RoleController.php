@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Role\StoreRoleRequest;
+use App\Http\Requests\Role\SyncPermissionsRequest;
 use App\Http\Requests\Role\UpdateRoleRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Role;
@@ -147,14 +150,14 @@ class RoleController extends BaseController
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )
      */
-    public function syncPermissions(Request $request, string $role): JsonResponse
+    public function syncPermissions(SyncPermissionsRequest $request, string $role): JsonResponse
     {
         $model = Role::find($role);
         if (! $model) {
             return $this->notFoundResponse('Role not found');
         }
-        $request->validate(['permission_ids' => 'array', 'permission_ids.*' => 'exists:permissions,id']);
-        $model->permissions()->sync($request->input('permission_ids', []));
+        $validated = $request->validated();
+        $model->permissions()->sync($validated['permission_ids']);
 
         return $this->successResponse($model->fresh('permissions'), 'Permissions synced successfully');
     }

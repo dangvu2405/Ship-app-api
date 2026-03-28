@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -32,12 +34,12 @@ class Invoice extends Model
         'paid_at' => 'datetime',
     ];
 
-    public function trip()
+    public function trip(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Trip::class);
     }
 
-    public function customer()
+    public function customer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }

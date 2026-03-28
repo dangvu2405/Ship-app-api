@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,12 +24,12 @@ class VehicleAssignment extends Model
         'to_date' => 'date',
     ];
 
-    public function vehicle()
+    public function vehicle(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
     }
 
-    public function driver()
+    public function driver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Employee::class, 'driver_id');
     }

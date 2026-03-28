@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -8,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, \App\Traits\HasAuditLogs;
 
     protected $fillable = [
         'code',
@@ -25,17 +27,17 @@ class Company extends Model
     ];
 
     // Relationships
-    public function offices()
+    public function offices(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Office::class);
     }
 
-    public function payrolls()
+    public function payrolls(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Payroll::class);
     }
 
-    public function payrollPeriods()
+    public function payrollPeriods(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PayrollPeriod::class);
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -37,42 +39,42 @@ class Payroll extends Model
         'paid_at' => 'datetime',
     ];
 
-    public function company()
+    public function company(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Company::class);
     }
 
-    public function payrollPeriod()
+    public function payrollPeriod(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(PayrollPeriod::class);
     }
 
-    public function calculatedByUser()
+    public function calculatedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'calculated_by');
     }
 
-    public function approvedByUser()
+    public function approvedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function createdByUser()
+    public function createdByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function updatedByUser()
+    public function updatedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function deletedByUser()
+    public function deletedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'deleted_by');
     }
 
-    public function details()
+    public function details(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PayrollDetail::class);
     }

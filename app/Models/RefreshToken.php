@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -27,12 +29,12 @@ class RefreshToken extends Model
     ];
 
     // Relationships
-    public function user()
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function accessToken()
+    public function accessToken(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(PersonalAccessToken::class, 'access_token_id');
     }

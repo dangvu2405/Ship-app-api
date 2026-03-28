@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -8,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trip extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, \App\Traits\HasAuditLogs;
 
     protected $fillable = [
         'code',
@@ -31,22 +33,22 @@ class Trip extends Model
         'end_time' => 'datetime',
     ];
 
-    public function customer()
+    public function customer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    public function driver()
+    public function driver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Employee::class, 'driver_id');
     }
 
-    public function vehicle()
+    public function vehicle(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
     }
 
-    public function invoice()
+    public function invoice(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Invoice::class);
     }

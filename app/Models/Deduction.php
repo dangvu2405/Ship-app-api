@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,7 +17,7 @@ class Deduction extends Model
         'name',
     ];
 
-    public function employeeDeductions()
+    public function employeeDeductions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(EmployeeDeduction::class);
     }

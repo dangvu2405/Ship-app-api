@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Models\Attendance;
@@ -149,10 +151,10 @@ class PayrollService
     {
         $position = $employee->position;
         if (! $position) {
-            return 0;
+            return 0.0;
         }
 
-        $baseSalary = $position->base_salary;
+        $baseSalary = (float) $position->base_salary;
 
         if ($employee->type === 'office') {
             // Office staff: base_salary * working_days / standard_days
@@ -265,13 +267,31 @@ class PayrollService
     }
 
     /**
-     * Calculate tax
+     * Calculate tax (Progressive Tax Bracket - VN Simplified)
      */
     protected function calculateTax(float $taxableIncome): float
     {
-        // Simple tax calculation: 10% of taxable income
-        // You can implement more complex tax brackets here
-        return $taxableIncome * self::TAX_RATE;
+        // Thuế suất 누진 (Luỹ tiến từng phần) - Mô phỏng
+        // Bậc 1: Dưới 5 triệu VND (5%)
+        // Bậc 2: Từ 5 - 10 triệu VND (10%)
+        // Bậc 3: Từ 10 triệu trở lên (15%)
+        $tax = 0;
+
+        if ($taxableIncome > 10000000) {
+            $tax += ($taxableIncome - 10000000) * 0.15;
+            $taxableIncome = 10000000;
+        }
+        
+        if ($taxableIncome > 5000000) {
+            $tax += ($taxableIncome - 5000000) * 0.10;
+            $taxableIncome = 5000000;
+        }
+
+        if ($taxableIncome > 0) {
+            $tax += $taxableIncome * 0.05;
+        }
+
+        return $tax;
     }
 
     /**

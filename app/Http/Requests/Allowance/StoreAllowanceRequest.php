@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests\Allowance;
 
 use Illuminate\Foundation\Http\FormRequest;

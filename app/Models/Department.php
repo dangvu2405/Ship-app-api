@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -18,22 +20,22 @@ class Department extends Model
     ];
 
     // Relationships
-    public function office()
+    public function office(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Office::class);
     }
 
-    public function parent()
+    public function parent(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Department::class, 'parent_id');
     }
 
-    public function children()
+    public function children(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Department::class, 'parent_id');
     }
 
-    public function employees()
+    public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Employee::class);
     }

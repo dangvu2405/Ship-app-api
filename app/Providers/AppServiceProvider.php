@@ -22,6 +22,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Ghi lại Log Login
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Login::class,
+            \App\Listeners\LogSuccessfulLogin::class
+        );
+
         // Register Clean Architecture API routes (v2)
         Route::prefix('api')
             ->middleware('api')

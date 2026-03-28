@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,12 +21,12 @@ class Customer extends Model
         'address',
     ];
 
-    public function trips()
+    public function trips(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Trip::class);
     }
 
-    public function invoices()
+    public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Invoice::class);
     }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -38,32 +40,32 @@ class AttendanceSummary extends Model
         'meta_json' => 'array',
     ];
 
-    public function payrollPeriod()
+    public function payrollPeriod(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(PayrollPeriod::class);
     }
 
-    public function employee()
+    public function employee(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Employee::class);
     }
 
-    public function approvedByUser()
+    public function approvedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function createdByUser()
+    public function createdByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function updatedByUser()
+    public function updatedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function deletedByUser()
+    public function deletedByUser(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'deleted_by');
     }

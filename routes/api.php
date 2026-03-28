@@ -28,10 +28,9 @@ Route::prefix('auth')->group(function () {
     Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
 });
 
-// Protected routes: admin only
-Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+// Token protected routes (All users)
+Route::middleware(['auth:sanctum'])->group(function () {
     Route::prefix('auth')->group(function () {
-        Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
         Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
         Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']);
     });
@@ -45,6 +44,15 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
             'message' => 'OK',
             'data' => $user,
         ]);
+    });
+
+    Route::get('payrolls/my-salary', [\App\Http\Controllers\Api\PayrollController::class, 'mySalary']);
+});
+
+// Protected routes: admin only
+Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
+    Route::prefix('auth')->group(function () {
+        Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
     });
 
     Route::apiResource('companies', \App\Http\Controllers\Api\CompanyController::class);
@@ -63,14 +71,19 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::apiResource('deductions', \App\Http\Controllers\Api\DeductionController::class);
     Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
 
-    Route::get('payrolls/my-salary', [\App\Http\Controllers\Api\PayrollController::class, 'mySalary']);
-    Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
-    Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
+    Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])
+        ->middleware('permission:payroll.approve')
+        ->name('payrolls.approve');
+    Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])
+        ->middleware('permission:payroll.lock')
+        ->name('payrolls.lock');
     Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
     Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);
 
     Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
-    Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])->name('roles.permissions');
+    Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])
+        ->middleware('permission:role.manage')
+        ->name('roles.permissions');
     Route::apiResource('roles', \App\Http\Controllers\Api\RoleController::class);
     Route::get('permissions', [\App\Http\Controllers\Api\PermissionController::class, 'index']);
     Route::get('permissions/{permission}', [\App\Http\Controllers\Api\PermissionController::class, 'show']);

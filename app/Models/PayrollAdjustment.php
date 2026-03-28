@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,7 +23,7 @@ class PayrollAdjustment extends Model
         'amount' => 'decimal:2',
     ];
 
-    public function payrollDetail()
+    public function payrollDetail(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(PayrollDetail::class);
     }

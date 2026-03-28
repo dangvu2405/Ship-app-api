@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,7 +24,7 @@ class Allowance extends Model
         'taxable' => 'boolean',
     ];
 
-    public function employeeAllowances()
+    public function employeeAllowances(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(EmployeeAllowance::class);
     }

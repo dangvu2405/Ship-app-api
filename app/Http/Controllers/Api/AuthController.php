@@ -1,13 +1,15 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Api\BaseController;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 
 /**
  * @OA\Tag(name="Auth", description="Đăng nhập, đăng xuất, token")
@@ -21,7 +23,7 @@ class AuthController extends BaseController
      *     path="/api/auth/login",
      *     tags={"Auth"},
      *     summary="Đăng nhập",
- *     security={},
+     *     security={},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -35,23 +37,16 @@ class AuthController extends BaseController
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
      */
-    public function login(Request $request)
+    public function login(LoginRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|string|min:6',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
+        $validated = $request->validated();
 
         try {
-            $user = User::where('email', $request->email)
+            $user = User::where('email', $validated['email'])
                 ->where('status', 'active')
                 ->first();
 
-            if (!$user || !Hash::check($request->password, $user->password)) {
+            if (!$user || !Hash::check($validated['password'], $user->password)) {
                 return $this->errorResponse('Invalid credentials', 401);
             }
 
@@ -85,7 +80,7 @@ class AuthController extends BaseController
      *     @OA\Response(response=401, description="Chưa đăng nhập")
      * )
      */
-    public function logout(Request $request)
+    public function logout(Request $request): JsonResponse
     {
         try {
             // Revoke current token
@@ -103,8 +98,8 @@ class AuthController extends BaseController
      * @OA\Post(
      *     path="/api/auth/register",
      *     tags={"Auth"},
- *     summary="Đăng ký tài khoản (chỉ admin)",
- *     security={{"sanctum":{}}},
+     *     summary="Đăng ký tài khoản (chỉ admin)",
+     *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -115,28 +110,20 @@ class AuthController extends BaseController
      *             @OA\Property(property="password_confirmation", type="string", format="password", example="password123")
      *         )
      *     ),
- *     @OA\Response(response=201, description="Đăng ký thành công"),
- *     @OA\Response(response=403, description="Chỉ admin được phép"),
+     *     @OA\Response(response=201, description="Đăng ký thành công"),
+     *     @OA\Response(response=403, description="Chỉ admin được phép"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
      */
-    public function register(Request $request)
+    public function register(RegisterRequest $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'username' => 'required|string|max:255|unique:users,username',
-            'email' => 'required|email|max:255|unique:users,email',
-            'password' => 'required|string|min:6|confirmed',
-        ]);
-
-        if ($validator->fails()) {
-            return $this->validationErrorResponse($validator->errors());
-        }
+        $validated = $request->validated();
 
         try {
             $user = User::create([
-                'username' => $request->username,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'username' => $validated['username'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
                 'status' => 'active',
             ]);
 
@@ -161,7 +148,7 @@ class AuthController extends BaseController
      *     @OA\Response(response=401, description="Chưa đăng nhập")
      * )
      */
-    public function refresh(Request $request)
+    public function refresh(Request $request): JsonResponse
     {
         try {
             // Revoke current token

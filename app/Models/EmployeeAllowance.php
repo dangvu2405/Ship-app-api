@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,12 +22,12 @@ class EmployeeAllowance extends Model
         'amount' => 'decimal:2',
     ];
 
-    public function employee()
+    public function employee(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Employee::class);
     }
 
-    public function allowance()
+    public function allowance(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Allowance::class);
     }

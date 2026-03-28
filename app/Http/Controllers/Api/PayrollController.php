@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Payroll\StorePayrollRequest;
+use App\Http\Requests\Payroll\UpdatePayrollRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Payroll;
 use App\Services\PayrollService;
@@ -124,7 +127,7 @@ class PayrollController extends BaseController
      *     @OA\Response(response=422, description="Bảng lương đã khóa")
      * )
      */
-    public function update(Request $request, string $payroll): JsonResponse
+    public function update(UpdatePayrollRequest $request, string $payroll): JsonResponse
     {
         $model = Payroll::find($payroll);
         if (! $model) {
@@ -133,7 +136,7 @@ class PayrollController extends BaseController
         if ($model->status === 'locked') {
             return $this->errorResponse('Payroll is locked and cannot be updated', 422);
         }
-        $model->update($request->only(['status']));
+        $model->update($request->validated());
 
         $this->invalidatePayrollCache($model->company_id, $model->month, $model->year);
 

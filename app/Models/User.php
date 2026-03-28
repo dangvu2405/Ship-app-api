@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -53,32 +55,32 @@ class User extends Authenticatable
     }
 
     // Relationships
-    public function employee()
+    public function employee(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Employee::class);
     }
 
-    public function roles()
+    public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles');
     }
 
-    public function loginLogs()
+    public function loginLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(LoginLog::class);
     }
 
-    public function auditLogs()
+    public function auditLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(AuditLog::class);
     }
 
-    public function exportLogs()
+    public function exportLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ExportLog::class);
     }
 
-    public function refreshTokens()
+    public function refreshTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(RefreshToken::class);
     }

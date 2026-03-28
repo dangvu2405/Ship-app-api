@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Report\PayrollSummaryRequest;
 use App\Models\Company;
 use App\Models\Payroll;
 use Illuminate\Http\JsonResponse;
@@ -52,11 +55,12 @@ class ReportsController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function payrollSummary(Request $request): JsonResponse
+    public function payrollSummary(PayrollSummaryRequest $request): JsonResponse
     {
-        $companyId = (int) $request->input('company_id');
-        $month = (int) $request->input('month', now()->month);
-        $year = (int) $request->input('year', now()->year);
+        $validated = $request->validated();
+        $companyId = (int) $validated['company_id'];
+        $month = (int) ($validated['month'] ?? now()->month);
+        $year = (int) ($validated['year'] ?? now()->year);
         $key = "payroll:{$companyId}:{$month}:{$year}";
 
         $data = Cache::remember($key, 86400, function () use ($companyId, $month, $year) {

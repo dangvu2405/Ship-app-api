@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -8,7 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, \App\Traits\HasAuditLogs;
 
     protected $fillable = [
         'code',
@@ -34,67 +36,67 @@ class Employee extends Model
     ];
 
     // Relationships
-    public function office()
+    public function office(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Office::class);
     }
 
-    public function department()
+    public function department(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
-    public function position()
+    public function position(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Position::class);
     }
 
-    public function driver()
+    public function driver(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Driver::class);
     }
 
-    public function attendances()
+    public function attendances(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Attendance::class);
     }
 
-    public function employeeAllowances()
+    public function employeeAllowances(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(EmployeeAllowance::class);
     }
 
-    public function employeeDeductions()
+    public function employeeDeductions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(EmployeeDeduction::class);
     }
 
-    public function trips()
+    public function trips(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Trip::class, 'driver_id');
     }
 
-    public function vehicleAssignments()
+    public function vehicleAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(VehicleAssignment::class, 'driver_id');
     }
 
-    public function payrollDetails()
+    public function payrollDetails(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(PayrollDetail::class);
     }
 
-    public function salaryConfigs()
+    public function salaryConfigs(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(EmployeeSalaryConfig::class);
     }
 
-    public function attendanceSummaries()
+    public function attendanceSummaries(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(AttendanceSummary::class);
     }
 
-    public function user()
+    public function user(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(User::class);
     }
