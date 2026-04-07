@@ -15,6 +15,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Public routes
+Route::get('/', function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'Company Ship API',
+        'version' => 'v1',
+    ]);
+});
+
 Route::get('/health', function () {
     return response()->json([
         'success' => true,
