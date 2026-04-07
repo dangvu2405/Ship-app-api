@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Example\StoreExampleUserRequest;
+use App\Http\Requests\Example\UpdateExampleUserRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 /**
  * Example API Controller
@@ -29,15 +30,9 @@ class ExampleController extends BaseController
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreExampleUserRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users',
-            'password' => 'required|string|min:8',
-        ]);
-
-        $user = User::create($validated);
+        $user = User::create($request->validated());
 
         return $this->successResponse($user, 'User created successfully', 201);
     }
@@ -49,7 +44,7 @@ class ExampleController extends BaseController
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return $this->notFoundResponse('User not found');
         }
 
@@ -59,20 +54,15 @@ class ExampleController extends BaseController
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id): JsonResponse
+    public function update(UpdateExampleUserRequest $request, string $id): JsonResponse
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return $this->notFoundResponse('User not found');
         }
 
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,' . $id,
-        ]);
-
-        $user->update($validated);
+        $user->update($request->validated());
 
         return $this->successResponse($user, 'User updated successfully');
     }
@@ -84,7 +74,7 @@ class ExampleController extends BaseController
     {
         $user = User::find($id);
 
-        if (!$user) {
+        if (! $user) {
             return $this->notFoundResponse('User not found');
         }
 

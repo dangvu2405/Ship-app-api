@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Requests\Role;
+namespace App\Http\Requests\Payroll;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class SyncPermissionsRequest extends FormRequest
+class MySalaryRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -19,8 +19,8 @@ class SyncPermissionsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'permission_ids' => 'sometimes|array',
-            'permission_ids.*' => 'integer|exists:permissions,id',
+            'month' => 'nullable|integer|min:1|max:12',
+            'year' => 'nullable|integer|min:2000|max:2100',
         ];
     }
 }

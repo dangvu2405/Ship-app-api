@@ -23,8 +23,6 @@ class PayrollService
 {
     protected const STANDARD_WORKING_DAYS = 22;
 
-    protected const TAX_RATE = 0.1; // 10%
-
     /**
      * Generate payroll for a company in a specific month/year
      */
@@ -300,7 +298,19 @@ class PayrollService
     public function approvePayroll(int $payrollId): Payroll
     {
         $payroll = Payroll::findOrFail($payrollId);
-        $payroll->update(['status' => 'approved']);
+
+        if ($payroll->status === 'locked') {
+            throw new Exception('Locked payroll cannot be approved.');
+        }
+
+        if ($payroll->status !== 'draft') {
+            throw new Exception('Only draft payroll can be approved.');
+        }
+
+        $payroll->update([
+            'status' => 'approved',
+            'approved_at' => now(),
+        ]);
 
         return $payroll;
     }
@@ -311,6 +321,15 @@ class PayrollService
     public function lockPayroll(int $payrollId): Payroll
     {
         $payroll = Payroll::findOrFail($payrollId);
+
+        if ($payroll->status === 'locked') {
+            throw new Exception('Payroll is already locked.');
+        }
+
+        if ($payroll->status !== 'approved') {
+            throw new Exception('Only approved payroll can be locked.');
+        }
+
         $payroll->update([
             'status' => 'locked',
             'locked_at' => now(),

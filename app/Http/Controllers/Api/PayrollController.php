@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Payroll\StorePayrollRequest;
+use App\Http\Requests\Payroll\MySalaryRequest;
 use App\Http\Requests\Payroll\UpdatePayrollRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Payroll;
+use App\Services\PayrollQueryService;
 use App\Services\PayrollService;
+use App\Services\PayrollWorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * @OA\Tag(name="Payrolls", description="Quản lý bảng lương")
@@ -22,11 +24,21 @@ class PayrollController extends BaseController
 
     protected PayrollService $payrollService;
 
+    protected PayrollQueryService $payrollQueryService;
+
+    protected PayrollWorkflowService $payrollWorkflowService;
+
     protected array $allowedSortColumns = ['id', 'company_id', 'month', 'year', 'status', 'locked_at', 'created_at'];
 
-    public function __construct(PayrollService $payrollService)
+    public function __construct(
+        PayrollService $payrollService,
+        PayrollQueryService $payrollQueryService,
+        PayrollWorkflowService $payrollWorkflowService
+    )
     {
         $this->payrollService = $payrollService;
+        $this->payrollQueryService = $payrollQueryService;
+        $this->payrollWorkflowService = $payrollWorkflowService;
     }
 
     /**
@@ -133,12 +145,12 @@ class PayrollController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('Payroll not found');
         }
-        if ($model->status === 'locked') {
-            return $this->errorResponse('Payroll is locked and cannot be updated', 422);
-        }
-        $model->update($request->validated());
 
-        $this->invalidatePayrollCache($model->company_id, $model->month, $model->year);
+        try {
+            $model = $this->payrollWorkflowService->update($model, $request->validated());
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
 
         return $this->successResponse($model->fresh(['company', 'details.employee']), 'Payroll updated successfully');
     }
@@ -160,15 +172,12 @@ class PayrollController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('Payroll not found');
         }
-        if ($model->status === 'locked') {
-            return $this->errorResponse('Payroll is locked and cannot be deleted', 422);
-        }
-        $companyId = $model->company_id;
-        $month = $model->month;
-        $year = $model->year;
-        $model->delete();
 
-        $this->invalidatePayrollCache($companyId, $month, $year);
+        try {
+            $this->payrollWorkflowService->delete($model);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
 
         return $this->successResponse(null, 'Payroll deleted successfully');
     }
@@ -191,11 +200,10 @@ class PayrollController extends BaseController
             return $this->notFoundResponse('Payroll not found');
         }
         try {
-            $payroll = $this->payrollService->approvePayroll((int) $id);
+            $payroll = $this->payrollWorkflowService->approve((int) $id);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 422);
         }
-        $this->invalidatePayrollCache($payroll->company_id, $payroll->month, $payroll->year);
 
         return $this->successResponse($payroll->fresh(['company', 'details.employee']), 'Payroll approved successfully');
     }
@@ -218,11 +226,10 @@ class PayrollController extends BaseController
             return $this->notFoundResponse('Payroll not found');
         }
         try {
-            $payroll = $this->payrollService->lockPayroll((int) $id);
+            $payroll = $this->payrollWorkflowService->lock((int) $id);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 422);
         }
-        $this->invalidatePayrollCache($payroll->company_id, $payroll->month, $payroll->year);
 
         return $this->successResponse($payroll->fresh(['company', 'details.employee']), 'Payroll locked successfully');
     }
@@ -239,27 +246,12 @@ class PayrollController extends BaseController
      */
     public function export(string $id): JsonResponse
     {
-        $payroll = Payroll::with(['company', 'details.employee'])->find($id);
+        $payroll = $this->payrollQueryService->findByIdForExport((int) $id);
         if (! $payroll) {
             return $this->notFoundResponse('Payroll not found');
         }
 
-        $export = [
-            'payroll' => $payroll,
-            'details' => $payroll->details->map(fn ($d) => [
-                'employee_code' => $d->employee->code ?? null,
-                'employee_name' => $d->employee->name ?? null,
-                'base_salary' => $d->base_salary,
-                'working_days' => $d->working_days,
-                'overtime' => $d->overtime,
-                'bonus' => $d->bonus,
-                'allowance' => $d->allowance,
-                'deduction' => $d->deduction,
-                'fuel_cost' => $d->fuel_cost,
-                'tax' => $d->tax,
-                'net_salary' => $d->net_salary,
-            ]),
-        ];
+        $export = $this->payrollQueryService->buildExportPayload($payroll);
 
         return $this->successResponse($export, 'OK');
     }
@@ -275,31 +267,23 @@ class PayrollController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function mySalary(Request $request): JsonResponse
+    public function mySalary(MySalaryRequest $request): JsonResponse
     {
         $user = $request->user();
-        $employee = $user->employee;
-        if (! $employee) {
+        if (! $user->employee) {
             return $this->successResponse(null, 'No employee linked to your account');
         }
-        $month = (int) $request->input('month', now()->month);
-        $year = (int) $request->input('year', now()->year);
 
-        $payroll = Payroll::whereHas('details', fn ($q) => $q->where('employee_id', $employee->id))
-            ->where('month', $month)
-            ->where('year', $year)
-            ->with(['company', 'details' => fn ($q) => $q->where('employee_id', $employee->id)->with('employee')])
-            ->first();
+        $validated = $request->validated();
+        $month = (int) ($validated['month'] ?? now()->month);
+        $year = (int) ($validated['year'] ?? now()->year);
+
+        $payroll = $this->payrollQueryService->findMySalary($user, $month, $year);
 
         if (! $payroll) {
             return $this->successResponse(null, 'No payroll found for this period');
         }
 
         return $this->successResponse($payroll);
-    }
-
-    private function invalidatePayrollCache(int $companyId, int $month, int $year): void
-    {
-        Cache::forget("payroll:{$companyId}:{$month}:{$year}");
     }
 }

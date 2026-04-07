@@ -156,8 +156,9 @@ class RoleController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('Role not found');
         }
+
         $validated = $request->validated();
-        $model->permissions()->sync($validated['permission_ids']);
+        $model->permissions()->sync($validated['permission_ids'] ?? []);
 
         return $this->successResponse($model->fresh('permissions'), 'Permissions synced successfully');
     }

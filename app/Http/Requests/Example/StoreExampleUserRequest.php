@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Requests\Role;
+namespace App\Http\Requests\Example;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class SyncPermissionsRequest extends FormRequest
+class StoreExampleUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -19,8 +19,9 @@ class SyncPermissionsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'permission_ids' => 'sometimes|array',
-            'permission_ids.*' => 'integer|exists:permissions,id',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:8',
         ];
     }
 }

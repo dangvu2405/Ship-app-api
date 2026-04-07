@@ -2,30 +2,47 @@ services:
   app:
     build: .
     container_name: ship-app-api
+    restart: unless-stopped
     volumes:
       - .:/var/www
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: ship_db
+      DB_USERNAME: root
+      DB_PASSWORD: root
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - ship-network
 
   db:
     image: mysql:8.0
     container_name: ship-mysql
-    restart: always
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
     environment:
       MYSQL_DATABASE: ship_db
       MYSQL_ROOT_PASSWORD: root
     ports:
       - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
     networks:
       - ship-network
 
   nginx:
     image: nginx:alpine
     container_name: ship-api-nginx
+    restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${API_HTTP_PORT:-8080}:80"
     volumes:
       - .:/var/www
       - ./docker/nginx:/etc/nginx/conf.d/

@@ -4,20 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\BaseController;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
-use App\Models\User;
-use App\Models\Role;
+use App\Services\AuthService;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\App;
 
 /**
  * @OA\Tag(name="Auth", description="Đăng nhập, đăng xuất, token")
  */
 class AuthController extends BaseController
 {
+    public function __construct(private readonly AuthService $authService) {}
+
     /**
      * Đăng nhập - lấy token
      *
@@ -25,7 +26,7 @@ class AuthController extends BaseController
      *     path="/api/auth/login",
      *     tags={"Auth"},
      *     summary="Đăng nhập",
-     *     security={},
+ *     security={},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -44,27 +45,11 @@ class AuthController extends BaseController
         $validated = $request->validated();
 
         try {
-            $user = User::where('email', $validated['email'])
-                ->where('status', 'active')
-                ->first();
+            $result = $this->authService->login($validated['email'], $validated['password']);
 
-            if (!$user || !Hash::check($validated['password'], $user->password)) {
-                return $this->errorResponse('Invalid credentials', 401);
-            }
-
-            // Create token using Sanctum
-            $token = $user->createToken('auth-token')->plainTextToken;
-
-            // Update last login
-            $user->update(['last_login_at' => now()]);
-
-            // Load relationships
-            $user->load(['employee', 'roles.permissions']);
-
-            return $this->successResponse([
-                'user' => $user,
-                'token' => $token,
-            ], 'Login successful');
+            return $this->successResponse($result, 'Login successful');
+        } catch (AuthenticationException $e) {
+            return $this->errorResponse($e->getMessage(), 401);
         } catch (\Exception $e) {
             return $this->handleException($e, 'Login failed');
         }
@@ -85,8 +70,7 @@ class AuthController extends BaseController
     public function logout(Request $request): JsonResponse
     {
         try {
-            // Revoke current token
-            $request->user()->currentAccessToken()->delete();
+            $this->authService->logout($request->user());
 
             return $this->successResponse(null, 'Logout successful');
         } catch (\Exception $e) {
@@ -100,8 +84,8 @@ class AuthController extends BaseController
      * @OA\Post(
      *     path="/api/auth/register",
      *     tags={"Auth"},
-     *     summary="Đăng ký tài khoản (chỉ admin)",
-     *     security={{"sanctum":{}}},
+ *     summary="Đăng ký tài khoản (chỉ admin)",
+ *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -112,8 +96,8 @@ class AuthController extends BaseController
      *             @OA\Property(property="password_confirmation", type="string", format="password", example="password123")
      *         )
      *     ),
-     *     @OA\Response(response=201, description="Đăng ký thành công"),
-     *     @OA\Response(response=403, description="Chỉ admin được phép"),
+ *     @OA\Response(response=201, description="Đăng ký thành công"),
+ *     @OA\Response(response=403, description="Chỉ admin được phép"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
      */
@@ -122,15 +106,7 @@ class AuthController extends BaseController
         $validated = $request->validated();
 
         try {
-            $user = User::create([
-                'username' => $validated['username'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'status' => 'active',
-            ]);
-
-            // Load relationships
-            $user->load(['employee', 'roles.permissions']);
+            $user = $this->authService->register($validated);
 
             return $this->successResponse($user, 'Registration successful', 201);
         } catch (\Exception $e) {
@@ -153,50 +129,13 @@ class AuthController extends BaseController
     public function refresh(Request $request): JsonResponse
     {
         try {
-            // Revoke current token
-            $request->user()->currentAccessToken()->delete();
-
-            // Create new token
-            $token = $request->user()->createToken('auth-token')->plainTextToken;
+            $token = $this->authService->refresh($request->user());
 
             return $this->successResponse([
                 'token' => $token,
             ], 'Token refreshed successfully');
         } catch (\Exception $e) {
             return $this->handleException($e, 'Token refresh failed');
-        }
-    }
-
-    /**
-     * Get test accounts for dynamic login buttons
-     */
-    public function testAccounts(): JsonResponse
-    {
-        // Only allow in local or testing environments
-        if (App::environment('production')) {
-            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
-        }
-
-        try {
-            $roles = Role::all();
-            $accounts = $roles->map(function ($role) {
-                $user = User::whereHas('roles', function ($q) use ($role) {
-                    $q->where('name', $role->name);
-                })->first();
-
-                return [
-                    'role' => $role->name,
-                    'role_display' => $role->description ?? $role->name,
-                    'email' => $user ? $user->email : "no-user-{$role->name}@test.com",
-                ];
-            });
-
-            return response()->json([
-                'success' => true,
-                'data' => $accounts
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }

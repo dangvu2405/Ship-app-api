@@ -56,11 +56,25 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 ## 🚀 Deployment với Nginx
 
-### Docker (Development)
+### Docker (Development — chỉ backend API)
+
+Docker Compose nằm trong thư mục này; **không** có `docker-compose` ở root monorepo. Frontend chạy bằng `npm run dev` trên máy.
+
 ```bash
-docker-compose up -d
-# API: http://localhost:8080/api
+cd ship-app-api
+cp docker/env.docker.example .env   # lần đầu; tạo APP_KEY: php artisan key:generate
+docker compose up -d --build
+# API: http://localhost:8080/api  (đổi cổng host: export API_HTTP_PORT=9080)
+# MySQL: localhost:3306  user root / pass root  database ship_db
 ```
+
+Sau khi container chạy (và DB healthy), trong container hoặc host (nếu đã có PHP/Composer):
+
+```bash
+docker compose exec app php artisan migrate --force
+```
+
+**Frontend (Vite):** đặt `VITE_API_ORIGIN` trong `ship-app/.env` **trùng `APP_URL`** (chỉ origin, không `/api`). Dev dùng base `/api` + proxy tới origin đó; `VITE_PROXY_TARGET` vẫn hoạt động như alias.
 
 ### Production với PHP-FPM
 ```bash
@@ -69,6 +83,17 @@ sudo ./nginx/setup.sh
 ```
 
 Xem chi tiết tại: [nginx/README.md](nginx/README.md)
+
+## 🧹 Tối ưu dung lượng dự án
+
+- Audit dung lượng: [docs/PROJECT_SIZE_AUDIT.md](docs/PROJECT_SIZE_AUDIT.md)
+- Dọn cache/log local an toàn:
+
+```bash
+./scripts/optimize_project_size.sh
+```
+
+- Docker build context đã được tối ưu qua `.dockerignore`.
 
 ## License
 

@@ -37,6 +37,11 @@ class ReportsApiTest extends TestCase
                 'data' => [
                     'companies_count',
                     'payrolls_count',
+                    'companies' => ['total', 'active'],
+                    'employees' => ['total', 'active'],
+                    'vehicles' => ['total', 'active'],
+                    'trips' => ['total', 'pending', 'completed'],
+                    'payrolls' => ['total', 'pending', 'completed'],
                 ],
             ]);
     }
@@ -62,5 +67,27 @@ class ReportsApiTest extends TestCase
         $response = $this->getJson('/api/reports/dashboard');
 
         $response->assertStatus(403);
+    }
+
+    public function test_dashboard_validates_month_year_range(): void
+    {
+        $admin = $this->getAdminUser();
+        Sanctum::actingAs($admin);
+
+        $response = $this->getJson('/api/reports/dashboard?month=13&year=1800');
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['month', 'year']);
+    }
+
+    public function test_payroll_summary_requires_company_id(): void
+    {
+        $admin = $this->getAdminUser();
+        Sanctum::actingAs($admin);
+
+        $response = $this->getJson('/api/reports/payroll-summary?month=3&year=2026');
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors('company_id');
     }
 }

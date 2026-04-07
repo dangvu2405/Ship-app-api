@@ -91,6 +91,75 @@ class PayrollApiTest extends TestCase
         $this->assertNotNull(Payroll::find($payroll->id)->locked_at);
     }
 
+    public function test_cannot_approve_non_draft_payroll(): void
+    {
+        $admin = $this->getAdminUser();
+        $company = Company::factory()->create();
+        $period = $this->createPeriod($company);
+
+        $payroll = Payroll::factory()->create([
+            'company_id' => $company->id,
+            'payroll_period_id' => $period->id,
+            'status' => 'approved',
+            'month' => 5,
+            'year' => 2026,
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/approve");
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+            ]);
+    }
+
+    public function test_cannot_lock_non_approved_payroll(): void
+    {
+        $admin = $this->getAdminUser();
+        $company = Company::factory()->create();
+        $period = $this->createPeriod($company);
+
+        $payroll = Payroll::factory()->create([
+            'company_id' => $company->id,
+            'payroll_period_id' => $period->id,
+            'status' => 'draft',
+            'month' => 5,
+            'year' => 2026,
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/lock");
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+            ]);
+    }
+
+    public function test_cannot_update_locked_payroll(): void
+    {
+        $admin = $this->getAdminUser();
+        $company = Company::factory()->create();
+        $period = $this->createPeriod($company);
+
+        $payroll = Payroll::factory()->create([
+            'company_id' => $company->id,
+            'payroll_period_id' => $period->id,
+            'status' => 'locked',
+            'month' => 5,
+            'year' => 2026,
+            'locked_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->putJson("/api/payrolls/{$payroll->id}", [
+            'status' => 'approved',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+            ]);
+    }
+
     public function test_cannot_delete_locked_payroll(): void
     {
         $admin = $this->getAdminUser();
