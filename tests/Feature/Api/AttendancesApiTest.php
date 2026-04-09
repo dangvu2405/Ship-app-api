@@ -29,7 +29,7 @@ class AttendancesApiTest extends TestCase
 
         Attendance::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/attendances');
+        $response = $this->getJson('/api/v1/attendances');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -42,7 +42,7 @@ class AttendancesApiTest extends TestCase
 
         $employee = Employee::factory()->create();
 
-        $response = $this->postJson('/api/attendances', [
+        $response = $this->postJson('/api/v1/attendances', [
             'employee_id' => $employee->id,
             'date' => '2026-03-15',
             'check_in' => '08:00',
@@ -63,7 +63,7 @@ class AttendancesApiTest extends TestCase
 
         $att = Attendance::factory()->create();
 
-        $response = $this->getJson('/api/attendances/' . $att->id);
+        $response = $this->getJson('/api/v1/attendances/' . $att->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $att->id]);
@@ -76,7 +76,7 @@ class AttendancesApiTest extends TestCase
 
         $att = Attendance::factory()->create();
 
-        $response = $this->putJson('/api/attendances/' . $att->id, [
+        $response = $this->putJson('/api/v1/attendances/' . $att->id, [
             'status' => 'late',
         ]);
 
@@ -91,7 +91,7 @@ class AttendancesApiTest extends TestCase
 
         $att = Attendance::factory()->create();
 
-        $response = $this->deleteJson('/api/attendances/' . $att->id);
+        $response = $this->deleteJson('/api/v1/attendances/' . $att->id);
 
         $response->assertStatus(200);
     }

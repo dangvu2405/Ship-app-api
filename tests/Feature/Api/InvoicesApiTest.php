@@ -29,7 +29,7 @@ class InvoicesApiTest extends TestCase
 
         Invoice::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/invoices');
+        $response = $this->getJson('/api/v1/invoices');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -42,7 +42,7 @@ class InvoicesApiTest extends TestCase
 
         $customer = Customer::factory()->create();
 
-        $response = $this->postJson('/api/invoices', [
+        $response = $this->postJson('/api/v1/invoices', [
             'code' => 'INV-TEST-001',
             'customer_id' => $customer->id,
             'subtotal' => 5000000,
@@ -63,7 +63,7 @@ class InvoicesApiTest extends TestCase
 
         $invoice = Invoice::factory()->create();
 
-        $response = $this->getJson('/api/invoices/' . $invoice->id);
+        $response = $this->getJson('/api/v1/invoices/' . $invoice->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $invoice->id]);
@@ -76,7 +76,7 @@ class InvoicesApiTest extends TestCase
 
         $invoice = Invoice::factory()->create();
 
-        $response = $this->putJson('/api/invoices/' . $invoice->id, [
+        $response = $this->putJson('/api/v1/invoices/' . $invoice->id, [
             'status' => 'issued',
         ]);
 
@@ -91,7 +91,7 @@ class InvoicesApiTest extends TestCase
 
         $invoice = Invoice::factory()->create();
 
-        $response = $this->deleteJson('/api/invoices/' . $invoice->id);
+        $response = $this->deleteJson('/api/v1/invoices/' . $invoice->id);
 
         $response->assertStatus(200);
     }

@@ -13,14 +13,14 @@ class AuthApiTest extends TestCase
 
     public function test_login_requires_email_and_password(): void
     {
-        $response = $this->postJson('/api/auth/login', []);
+        $response = $this->postJson('/api/v1/auth/login', []);
 
         $response->assertStatus(422);
     }
 
     public function test_login_with_invalid_credentials_fails(): void
     {
-        $response = $this->postJson('/api/auth/login', [
+        $response = $this->postJson('/api/v1/auth/login', [
             'email' => 'wrong@example.com',
             'password' => 'wrongpassword',
         ]);
@@ -38,7 +38,7 @@ class AuthApiTest extends TestCase
             'password' => bcrypt('password'),
         ]);
 
-        $response = $this->postJson('/api/auth/login', [
+        $response = $this->postJson('/api/v1/auth/login', [
             'email' => 'test@example.com',
             'password' => 'password',
         ]);
@@ -60,7 +60,7 @@ class AuthApiTest extends TestCase
 
     public function test_user_endpoint_requires_auth(): void
     {
-        $response = $this->getJson('/api/user');
+        $response = $this->getJson('/api/v1/user');
 
         $response->assertStatus(401)
             ->assertJson([
@@ -75,12 +75,37 @@ class AuthApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')->getJson('/api/user');
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/user');
 
         $response->assertStatus(200)
             ->assertJsonFragment([
                 'email' => 'user@example.com',
             ]);
+    }
+
+    public function test_auth_me_requires_auth(): void
+    {
+        $response = $this->getJson('/api/v1/auth/me');
+
+        $response->assertStatus(401)
+            ->assertJson([
+                'success' => false,
+            ]);
+    }
+
+    public function test_auth_me_matches_user_payload(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'me@example.com',
+            'status' => 'active',
+        ]);
+
+        $me = $this->actingAs($user, 'sanctum')->getJson('/api/v1/auth/me');
+        $legacy = $this->actingAs($user, 'sanctum')->getJson('/api/v1/user');
+
+        $me->assertStatus(200);
+        $legacy->assertStatus(200);
+        $this->assertSame($me->json('data.email'), $legacy->json('data.email'));
     }
 
     public function test_logout_invalidates_token(): void
@@ -90,7 +115,7 @@ class AuthApiTest extends TestCase
 
         $response = $this->withHeaders([
             'Authorization' => "Bearer $token",
-        ])->postJson('/api/auth/logout');
+        ])->postJson('/api/v1/auth/logout');
 
         $response->assertStatus(200)
             ->assertJson([
@@ -108,7 +133,7 @@ class AuthApiTest extends TestCase
 
         $response = $this->withHeaders([
             'Authorization' => "Bearer $token",
-        ])->postJson('/api/auth/refresh');
+        ])->postJson('/api/v1/auth/refresh');
 
         $response->assertStatus(200)
             ->assertJson([
@@ -131,7 +156,7 @@ class AuthApiTest extends TestCase
         $admin = User::factory()->create(['status' => 'active']);
         $admin->roles()->attach($adminRole->id);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/auth/register', [
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/auth/register', [
             'username' => 'newadminuser',
             'email' => 'newadmin@example.com',
             'password' => 'password123',
@@ -154,7 +179,7 @@ class AuthApiTest extends TestCase
     {
         $user = User::factory()->create(['status' => 'active']);
 
-        $response = $this->actingAs($user, 'sanctum')->postJson('/api/auth/register', [
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/auth/register', [
             'username' => 'newadminuser2',
             'email' => 'newadmin2@example.com',
             'password' => 'password123',

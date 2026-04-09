@@ -1,5 +1,11 @@
 *.log
 .DS_Store
+
+# Docker / Buildx local state (never commit)
+.docker-tmp/
+
+# PHPUnit CLI dumps
+test_results.txt
 .env
 .env.backup
 .env.production

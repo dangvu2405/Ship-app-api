@@ -32,7 +32,7 @@ class EmployeesApiTest extends TestCase
 
         Employee::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/employees');
+        $response = $this->getJson('/api/v1/employees');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -54,7 +54,7 @@ class EmployeesApiTest extends TestCase
         $department = Department::factory()->create(['office_id' => $office->id]);
         $position = Position::factory()->create();
 
-        $response = $this->postJson('/api/employees', [
+        $response = $this->postJson('/api/v1/employees', [
             'office_id' => $office->id,
             'department_id' => $department->id,
             'position_id' => $position->id,
@@ -76,7 +76,7 @@ class EmployeesApiTest extends TestCase
 
         $employee = Employee::factory()->create();
 
-        $response = $this->getJson('/api/employees/' . $employee->id);
+        $response = $this->getJson('/api/v1/employees/' . $employee->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $employee->id]);
@@ -89,7 +89,7 @@ class EmployeesApiTest extends TestCase
 
         $employee = Employee::factory()->create(['name' => 'Old Name']);
 
-        $response = $this->putJson('/api/employees/' . $employee->id, [
+        $response = $this->putJson('/api/v1/employees/' . $employee->id, [
             'name' => 'New Empl Name',
         ]);
 
@@ -104,7 +104,7 @@ class EmployeesApiTest extends TestCase
 
         $employee = Employee::factory()->create();
 
-        $response = $this->deleteJson('/api/employees/' . $employee->id);
+        $response = $this->deleteJson('/api/v1/employees/' . $employee->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('employees', ['id' => $employee->id]);

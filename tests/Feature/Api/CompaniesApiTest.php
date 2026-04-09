@@ -15,7 +15,7 @@ class CompaniesApiTest extends TestCase
 
     public function test_companies_index_requires_auth(): void
     {
-        $response = $this->getJson('/api/companies');
+        $response = $this->getJson('/api/v1/companies');
 
         $response->assertStatus(401);
     }
@@ -27,7 +27,7 @@ class CompaniesApiTest extends TestCase
 
         Company::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/companies?per_page=10');
+        $response = $this->getJson('/api/v1/companies?per_page=10');
 
         $response->assertStatus(200)
             ->assertJson([
@@ -56,7 +56,7 @@ class CompaniesApiTest extends TestCase
 
         $company = Company::factory()->create(['code' => 'C001', 'name' => 'Test Company']);
 
-        $response = $this->getJson('/api/companies/'.$company->id);
+        $response = $this->getJson('/api/v1/companies/'.$company->id);
 
         $response->assertStatus(200)
             ->assertJson([
@@ -82,7 +82,7 @@ class CompaniesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/companies', [
+        $response = $this->postJson('/api/v1/companies', [
             'code' => 'COMP01',
             'name' => 'CyberLogistics',
             'address' => 'HCM',
@@ -102,7 +102,7 @@ class CompaniesApiTest extends TestCase
         
         $company = Company::factory()->create(['name' => 'Old Name']);
 
-        $response = $this->putJson('/api/companies/' . $company->id, [
+        $response = $this->putJson('/api/v1/companies/' . $company->id, [
             'name' => 'New Name',
         ]);
 
@@ -117,7 +117,7 @@ class CompaniesApiTest extends TestCase
 
         $company = Company::factory()->create();
 
-        $response = $this->deleteJson('/api/companies/' . $company->id);
+        $response = $this->deleteJson('/api/v1/companies/' . $company->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('companies', ['id' => $company->id]);

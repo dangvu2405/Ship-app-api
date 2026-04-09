@@ -278,6 +278,9 @@ class DatabaseSeeder extends Seeder
         // Seed the remaining business/system tables so every table has data.
         $this->call(AllTablesSeeder::class);
 
+        // MUST HAVE reference data (leave types, tax, insurance, COA, demo payroll/GL/status rows).
+        $this->call(SpecReferenceDataSeeder::class);
+
         // Uncomment the line below to seed 1000 records for all tables
         // $this->call(BulkDataSeeder::class);
     }

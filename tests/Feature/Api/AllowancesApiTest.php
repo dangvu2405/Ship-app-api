@@ -28,7 +28,7 @@ class AllowancesApiTest extends TestCase
 
         Allowance::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/allowances');
+        $response = $this->getJson('/api/v1/allowances');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -39,7 +39,7 @@ class AllowancesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/allowances', [
+        $response = $this->postJson('/api/v1/allowances', [
             'code' => 'ALL-MEAL',
             'name' => 'Meal Allowance',
             'default_amount' => 500000,
@@ -57,7 +57,7 @@ class AllowancesApiTest extends TestCase
 
         $allowance = Allowance::factory()->create();
 
-        $response = $this->getJson('/api/allowances/' . $allowance->id);
+        $response = $this->getJson('/api/v1/allowances/' . $allowance->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $allowance->id]);
@@ -70,7 +70,7 @@ class AllowancesApiTest extends TestCase
 
         $allowance = Allowance::factory()->create();
 
-        $response = $this->putJson('/api/allowances/' . $allowance->id, [
+        $response = $this->putJson('/api/v1/allowances/' . $allowance->id, [
             'name' => 'Updated Allowance',
         ]);
 
@@ -85,7 +85,7 @@ class AllowancesApiTest extends TestCase
 
         $allowance = Allowance::factory()->create();
 
-        $response = $this->deleteJson('/api/allowances/' . $allowance->id);
+        $response = $this->deleteJson('/api/v1/allowances/' . $allowance->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('allowances', ['id' => $allowance->id]);

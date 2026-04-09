@@ -16,7 +16,7 @@ class AuthorizationTest extends TestCase
         // Normal user without admin role
         $user = User::factory()->create(['status' => 'active']);
         
-        $response = $this->actingAs($user, 'sanctum')->getJson('/api/employees');
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/employees');
 
         $response->assertStatus(403)
             ->assertJson([
@@ -32,7 +32,7 @@ class AuthorizationTest extends TestCase
         $user = User::factory()->create(['status' => 'active']);
         $user->roles()->attach($adminRole->id);
 
-        $response = $this->actingAs($user, 'sanctum')->getJson('/api/employees');
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/employees');
 
         // Can be 200 or 404/empty depends on DB, but NOT 403 Forbidden
         $response->assertStatus(200);
@@ -45,7 +45,7 @@ class AuthorizationTest extends TestCase
 
         // Since my-salary and user endpoint is specifically designed for all users, 
         // 403 should not be returned. It may return 200 or something else.
-        $response = $this->actingAs($user, 'sanctum')->getJson('/api/payrolls/my-salary');
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/payrolls/my-salary');
 
         // We expect either 200 or maybe they don't have payrolls so empty, but definitely NOT 403
         $response->assertStatus(200);

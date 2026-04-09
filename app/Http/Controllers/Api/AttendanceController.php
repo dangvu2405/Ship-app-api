@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Attendance\NotifyLateAttendanceRequest;
 use App\Http\Requests\Attendance\StoreAttendanceRequest;
 use App\Http\Requests\Attendance\UpdateAttendanceRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Attendance;
+use App\Services\AttendanceLateNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,6 +21,8 @@ class AttendanceController extends BaseController
     use HasIndexQuery;
 
     protected array $allowedSortColumns = ['id', 'employee_id', 'date', 'status', 'created_at'];
+
+    public function __construct(private readonly AttendanceLateNotificationService $lateNotificationService) {}
 
     /**
      * @OA\Get(
@@ -68,6 +72,8 @@ class AttendanceController extends BaseController
     public function store(StoreAttendanceRequest $request): JsonResponse
     {
         $attendance = Attendance::create($request->validated());
+
+        $this->lateNotificationService->notifyForAttendance($attendance, $request->user());
 
         return $this->successResponse($attendance->load('employee'), 'Attendance created successfully', 201);
     }
@@ -122,8 +128,58 @@ class AttendanceController extends BaseController
             return $this->notFoundResponse('Attendance not found');
         }
         $model->update($request->validated());
+        $this->lateNotificationService->notifyForAttendance($model->fresh(), $request->user());
 
         return $this->successResponse($model->fresh('employee'), 'Attendance updated successfully');
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/attendances/late/list",
+     *     tags={"Attendances"},
+     *     summary="Danh sách chấm công đi muộn theo ngày",
+     *     @OA\Parameter(name="date", in="query", @OA\Schema(type="string", format="date")),
+     *     @OA\Response(response=200, description="Thành công")
+     * )
+     */
+    public function lateList(NotifyLateAttendanceRequest $request): JsonResponse
+    {
+        $date = (string) ($request->validated()['date'] ?? now()->toDateString());
+
+        $items = Attendance::query()
+            ->with('employee')
+            ->whereDate('date', $date)
+            ->get()
+            ->filter(fn (Attendance $attendance): bool => $this->lateNotificationService->isLate($attendance))
+            ->values();
+
+        return $this->successResponse([
+            'date' => $date,
+            'items' => $items,
+            'count' => $items->count(),
+        ], 'OK');
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/attendances/late/notify",
+     *     tags={"Attendances"},
+     *     summary="Gửi thông báo chấm công đi muộn theo ngày",
+     *     @OA\RequestBody(
+     *         required=false,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="date", type="string", format="date", example="2026-04-08")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Thành công")
+     * )
+     */
+    public function notifyLate(NotifyLateAttendanceRequest $request): JsonResponse
+    {
+        $date = (string) ($request->validated()['date'] ?? now()->toDateString());
+        $result = $this->lateNotificationService->notifyByDate($date, $request->user());
+
+        return $this->successResponse($result, 'Late attendance notifications sent');
     }
 
     /**

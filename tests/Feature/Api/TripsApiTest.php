@@ -33,7 +33,7 @@ class TripsApiTest extends TestCase
 
         Trip::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/trips');
+        $response = $this->getJson('/api/v1/trips');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -56,10 +56,10 @@ class TripsApiTest extends TestCase
         $driver = Driver::factory()->create();
         $customer = Customer::factory()->create();
 
-        $response = $this->postJson('/api/trips', [
+        $response = $this->postJson('/api/v1/trips', [
             'customer_id' => $customer->id,
             'vehicle_id' => $vehicle->id,
-            'driver_id' => $driver->id,
+            'driver_id' => $driver->employee_id,
             'code' => 'TRP-001',
             'start_point' => 'HN',
             'end_point' => 'HCM',
@@ -88,12 +88,12 @@ class TripsApiTest extends TestCase
 
         $trip = Trip::factory()->create([
             'vehicle_id' => $vehicle->id,
-            'driver_id' => $driver->id,
+            'driver_id' => $driver->employee_id,
             'customer_id' => $customer->id,
             'status' => 'pending'
         ]);
 
-        $response = $this->putJson('/api/trips/' . $trip->id, [
+        $response = $this->putJson('/api/v1/trips/' . $trip->id, [
             'status' => 'in_progress',
         ]);
 
@@ -114,12 +114,12 @@ class TripsApiTest extends TestCase
 
         $trip = Trip::factory()->create([
             'vehicle_id' => $vehicle->id,
-            'driver_id' => $driver->id,
+            'driver_id' => $driver->employee_id,
             'customer_id' => $customer->id,
             'status' => 'pending'
         ]);
 
-        $response = $this->deleteJson('/api/trips/' . $trip->id);
+        $response = $this->deleteJson('/api/v1/trips/' . $trip->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('trips', ['id' => $trip->id]);

@@ -20,6 +20,13 @@ class Employee extends Model
         'dob',
         'gender',
         'address',
+        'avatar_url',
+        'national_id_no',
+        'national_id_issue_date',
+        'national_id_issue_place',
+        'social_insurance_no',
+        'health_insurance_no',
+        'insurance_registered_at',
         'office_id',
         'department_id',
         'position_id',
@@ -27,10 +34,15 @@ class Employee extends Model
         'status',
         'join_date',
         'resign_date',
+        'bank_name',
+        'bank_account_no',
+        'bank_account_name',
     ];
 
     protected $casts = [
         'dob' => 'date',
+        'national_id_issue_date' => 'date',
+        'insurance_registered_at' => 'date',
         'join_date' => 'date',
         'resign_date' => 'date',
     ];

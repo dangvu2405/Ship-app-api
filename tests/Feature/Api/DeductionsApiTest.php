@@ -28,7 +28,7 @@ class DeductionsApiTest extends TestCase
 
         Deduction::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/deductions');
+        $response = $this->getJson('/api/v1/deductions');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -39,7 +39,7 @@ class DeductionsApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/deductions', [
+        $response = $this->postJson('/api/v1/deductions', [
             'code' => 'DED-BHXH',
             'name' => 'Social Insurance',
         ]);
@@ -55,7 +55,7 @@ class DeductionsApiTest extends TestCase
 
         $ded = Deduction::factory()->create();
 
-        $response = $this->getJson('/api/deductions/' . $ded->id);
+        $response = $this->getJson('/api/v1/deductions/' . $ded->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $ded->id]);
@@ -68,7 +68,7 @@ class DeductionsApiTest extends TestCase
 
         $ded = Deduction::factory()->create();
 
-        $response = $this->putJson('/api/deductions/' . $ded->id, [
+        $response = $this->putJson('/api/v1/deductions/' . $ded->id, [
             'name' => 'Updated Deduction',
         ]);
 
@@ -83,7 +83,7 @@ class DeductionsApiTest extends TestCase
 
         $ded = Deduction::factory()->create();
 
-        $response = $this->deleteJson('/api/deductions/' . $ded->id);
+        $response = $this->deleteJson('/api/v1/deductions/' . $ded->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('deductions', ['id' => $ded->id]);

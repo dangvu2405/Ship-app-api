@@ -28,7 +28,7 @@ class PositionsApiTest extends TestCase
 
         Position::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/positions');
+        $response = $this->getJson('/api/v1/positions');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -39,7 +39,7 @@ class PositionsApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/positions', [
+        $response = $this->postJson('/api/v1/positions', [
             'code' => 'POS-TEST',
             'name' => 'Senior Dev',
             'base_salary' => 20000000,
@@ -57,7 +57,7 @@ class PositionsApiTest extends TestCase
 
         $pos = Position::factory()->create();
 
-        $response = $this->getJson('/api/positions/' . $pos->id);
+        $response = $this->getJson('/api/v1/positions/' . $pos->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $pos->id]);
@@ -70,7 +70,7 @@ class PositionsApiTest extends TestCase
 
         $pos = Position::factory()->create();
 
-        $response = $this->putJson('/api/positions/' . $pos->id, [
+        $response = $this->putJson('/api/v1/positions/' . $pos->id, [
             'name' => 'Updated Position',
         ]);
 
@@ -85,7 +85,7 @@ class PositionsApiTest extends TestCase
 
         $pos = Position::factory()->create();
 
-        $response = $this->deleteJson('/api/positions/' . $pos->id);
+        $response = $this->deleteJson('/api/v1/positions/' . $pos->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('positions', ['id' => $pos->id]);

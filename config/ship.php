@@ -15,4 +15,19 @@ return [
 
     'api_base_path' => '/'.trim((string) env('API_URI_PREFIX', 'api'), '/'),
 
+    'attendance' => [
+        'late_after' => (string) env('ATTENDANCE_LATE_AFTER', '08:15'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | BulkDataSeeder — số bản ghi mỗi “nhóm” bảng (companies, trips, cache, …)
+    |--------------------------------------------------------------------------
+    |
+    | Chạy: php artisan db:seed --class=BulkDataSeeder
+    | Ví dụ 20 dòng: BULK_SEED_COUNT=20 php artisan db:seed --class=BulkDataSeeder
+    |
+    */
+    'bulk_seed_count' => max(1, min(5000, (int) env('BULK_SEED_COUNT', 100))),
+
 ];

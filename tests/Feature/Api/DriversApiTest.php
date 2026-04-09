@@ -29,7 +29,7 @@ class DriversApiTest extends TestCase
 
         Driver::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/drivers');
+        $response = $this->getJson('/api/v1/drivers');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -42,7 +42,7 @@ class DriversApiTest extends TestCase
 
         $employee = Employee::factory()->create(['type' => 'driver']);
 
-        $response = $this->postJson('/api/drivers', [
+        $response = $this->postJson('/api/v1/drivers', [
             'employee_id' => $employee->id,
             'license_no' => 'DL-TEST-001',
             'license_class' => 'C',
@@ -61,7 +61,7 @@ class DriversApiTest extends TestCase
 
         $driver = Driver::factory()->create();
 
-        $response = $this->getJson('/api/drivers/' . $driver->id);
+        $response = $this->getJson('/api/v1/drivers/' . $driver->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $driver->id]);
@@ -74,7 +74,7 @@ class DriversApiTest extends TestCase
 
         $driver = Driver::factory()->create();
 
-        $response = $this->putJson('/api/drivers/' . $driver->id, [
+        $response = $this->putJson('/api/v1/drivers/' . $driver->id, [
             'available_status' => 'busy',
         ]);
 
@@ -89,7 +89,7 @@ class DriversApiTest extends TestCase
 
         $driver = Driver::factory()->create();
 
-        $response = $this->deleteJson('/api/drivers/' . $driver->id);
+        $response = $this->deleteJson('/api/v1/drivers/' . $driver->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('drivers', ['id' => $driver->id]);

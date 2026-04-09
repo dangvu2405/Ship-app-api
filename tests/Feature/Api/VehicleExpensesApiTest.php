@@ -29,7 +29,7 @@ class VehicleExpensesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('/api/vehicle_expenses');
+        $response = $this->getJson('/api/v1/vehicle_expenses');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data']);
@@ -44,7 +44,7 @@ class VehicleExpensesApiTest extends TestCase
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
 
-        $response = $this->postJson('/api/vehicle_expenses', [
+        $response = $this->postJson('/api/v1/vehicle_expenses', [
             'vehicle_id' => $vehicle->id,
             'type' => 'fuel',
             'amount' => 1500000,
@@ -67,7 +67,7 @@ class VehicleExpensesApiTest extends TestCase
 
         $ve = VehicleExpense::factory()->create(['vehicle_id' => $vehicle->id]);
 
-        $response = $this->deleteJson('/api/vehicle_expenses/' . $ve->id);
+        $response = $this->deleteJson('/api/v1/vehicle_expenses/' . $ve->id);
 
         $response->assertStatus(200);
     }

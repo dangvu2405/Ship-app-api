@@ -28,7 +28,7 @@ class CustomersApiTest extends TestCase
 
         Customer::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/customers');
+        $response = $this->getJson('/api/v1/customers');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -39,7 +39,7 @@ class CustomersApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/customers', [
+        $response = $this->postJson('/api/v1/customers', [
             'type' => 'company',
             'name' => 'Acme Corp',
             'phone' => '0912345678',
@@ -58,7 +58,7 @@ class CustomersApiTest extends TestCase
 
         $customer = Customer::factory()->create();
 
-        $response = $this->getJson('/api/customers/' . $customer->id);
+        $response = $this->getJson('/api/v1/customers/' . $customer->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $customer->id]);
@@ -71,7 +71,7 @@ class CustomersApiTest extends TestCase
 
         $customer = Customer::factory()->create();
 
-        $response = $this->putJson('/api/customers/' . $customer->id, [
+        $response = $this->putJson('/api/v1/customers/' . $customer->id, [
             'name' => 'Updated Customer',
         ]);
 
@@ -86,7 +86,7 @@ class CustomersApiTest extends TestCase
 
         $customer = Customer::factory()->create();
 
-        $response = $this->deleteJson('/api/customers/' . $customer->id);
+        $response = $this->deleteJson('/api/v1/customers/' . $customer->id);
 
         $response->assertStatus(200);
     }

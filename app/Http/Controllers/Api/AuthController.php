@@ -23,7 +23,7 @@ class AuthController extends BaseController
      * Đăng nhập - lấy token
      *
      * @OA\Post(
-     *     path="/api/auth/login",
+     *     path="/api/v1/auth/login",
      *     tags={"Auth"},
      *     summary="Đăng nhập",
  *     security={},
@@ -59,7 +59,7 @@ class AuthController extends BaseController
      * Đăng xuất - thu hồi token hiện tại
      *
      * @OA\Post(
-     *     path="/api/auth/logout",
+     *     path="/api/v1/auth/logout",
      *     tags={"Auth"},
      *     summary="Đăng xuất",
      *     security={{"sanctum":{}}},
@@ -82,7 +82,7 @@ class AuthController extends BaseController
      * Đăng ký tài khoản mới
      *
      * @OA\Post(
-     *     path="/api/auth/register",
+     *     path="/api/v1/auth/register",
      *     tags={"Auth"},
  *     summary="Đăng ký tài khoản (chỉ admin)",
  *     security={{"sanctum":{}}},
@@ -118,7 +118,7 @@ class AuthController extends BaseController
      * Làm mới token
      *
      * @OA\Post(
-     *     path="/api/auth/refresh",
+     *     path="/api/v1/auth/refresh",
      *     tags={"Auth"},
      *     summary="Làm mới token",
      *     security={{"sanctum":{}}},

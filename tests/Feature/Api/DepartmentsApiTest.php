@@ -29,7 +29,7 @@ class DepartmentsApiTest extends TestCase
 
         Department::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/departments');
+        $response = $this->getJson('/api/v1/departments');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -42,7 +42,7 @@ class DepartmentsApiTest extends TestCase
 
         $office = Office::factory()->create();
 
-        $response = $this->postJson('/api/departments', [
+        $response = $this->postJson('/api/v1/departments', [
             'office_id' => $office->id,
             'code' => 'DEP-TEST',
             'name' => 'Test Department',
@@ -59,7 +59,7 @@ class DepartmentsApiTest extends TestCase
 
         $dept = Department::factory()->create();
 
-        $response = $this->getJson('/api/departments/' . $dept->id);
+        $response = $this->getJson('/api/v1/departments/' . $dept->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $dept->id]);
@@ -72,7 +72,7 @@ class DepartmentsApiTest extends TestCase
 
         $dept = Department::factory()->create();
 
-        $response = $this->putJson('/api/departments/' . $dept->id, [
+        $response = $this->putJson('/api/v1/departments/' . $dept->id, [
             'name' => 'Updated Dept',
         ]);
 
@@ -87,7 +87,7 @@ class DepartmentsApiTest extends TestCase
 
         $dept = Department::factory()->create();
 
-        $response = $this->deleteJson('/api/departments/' . $dept->id);
+        $response = $this->deleteJson('/api/v1/departments/' . $dept->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('departments', ['id' => $dept->id]);

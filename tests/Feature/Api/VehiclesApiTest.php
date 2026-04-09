@@ -30,7 +30,7 @@ class VehiclesApiTest extends TestCase
 
         Vehicle::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/vehicles');
+        $response = $this->getJson('/api/v1/vehicles');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -50,7 +50,7 @@ class VehiclesApiTest extends TestCase
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
 
-        $response = $this->postJson('/api/vehicles', [
+        $response = $this->postJson('/api/v1/vehicles', [
             'office_id' => $office->id,
             'code' => 'V-001',
             'plate_number' => '51C-12345',
@@ -74,7 +74,7 @@ class VehiclesApiTest extends TestCase
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id, 'status' => 'active']);
 
-        $response = $this->putJson('/api/vehicles/' . $vehicle->id, [
+        $response = $this->putJson('/api/v1/vehicles/' . $vehicle->id, [
             'status' => 'maintenance',
         ]);
 
@@ -91,7 +91,7 @@ class VehiclesApiTest extends TestCase
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
 
-        $response = $this->deleteJson('/api/vehicles/' . $vehicle->id);
+        $response = $this->deleteJson('/api/v1/vehicles/' . $vehicle->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('vehicles', ['id' => $vehicle->id]);

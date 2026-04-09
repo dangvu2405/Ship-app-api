@@ -48,7 +48,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/approve");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/approve");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -76,7 +76,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/lock");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/lock");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -105,7 +105,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/approve");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/approve");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -127,7 +127,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/lock");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/lock");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -150,7 +150,7 @@ class PayrollApiTest extends TestCase
             'locked_at' => now(),
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->putJson("/api/payrolls/{$payroll->id}", [
+        $response = $this->actingAs($admin, 'sanctum')->putJson("/api/v1/payrolls/{$payroll->id}", [
             'status' => 'approved',
         ]);
 
@@ -175,7 +175,7 @@ class PayrollApiTest extends TestCase
             'locked_at' => now(),
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/payrolls/{$payroll->id}");
+        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/v1/payrolls/{$payroll->id}");
 
         // In a real strict implementation, you return 400 Bad Request or 403 Forbidden
         // Here we test if the validation constraint kicks in protecting the record.
@@ -202,7 +202,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/payrolls/{$payroll->id}");
+        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/v1/payrolls/{$payroll->id}");
 
         $response->assertStatus(200);
 
@@ -225,7 +225,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->getJson("/api/payrolls/{$payroll->id}/export");
+        $response = $this->actingAs($admin, 'sanctum')->getJson("/api/v1/payrolls/{$payroll->id}/export");
 
         $response->assertStatus(200);
     }
@@ -234,7 +234,7 @@ class PayrollApiTest extends TestCase
     {
         $user = User::factory()->create(['status' => 'active']);
         
-        $response = $this->actingAs($user, 'sanctum')->getJson("/api/payrolls/my-salary");
+        $response = $this->actingAs($user, 'sanctum')->getJson("/api/v1/payrolls/my-salary");
 
         $response->assertStatus(200)
             ->assertJson([

@@ -24,10 +24,14 @@ class User extends Authenticatable
     protected $fillable = [
         'username',
         'email',
+        'avatar_url',
         'password',
         'employee_id',
         'status',
         'last_login_at',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'residential_address',
     ];
 
     /**
@@ -83,6 +87,11 @@ class User extends Authenticatable
     public function refreshTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(RefreshToken::class);
+    }
+
+    public function chatMessages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ChatMessage::class);
     }
 
     // Helper methods

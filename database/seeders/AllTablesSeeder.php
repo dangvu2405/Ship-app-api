@@ -44,6 +44,93 @@ class AllTablesSeeder extends Seeder
         $allowance = Allowance::query()->first() ?? Allowance::factory()->create();
         $deduction = Deduction::query()->first() ?? Deduction::factory()->create();
 
+        // Ensure auth pivots have at least 1 record
+        $roleId = DB::table('roles')->value('id');
+        $permissionId = DB::table('permissions')->value('id');
+
+        if ($roleId && $permissionId) {
+            DB::table('role_permissions')->updateOrInsert(
+                ['role_id' => $roleId, 'permission_id' => $permissionId],
+                ['created_at' => $now, 'updated_at' => $now]
+            );
+        }
+
+        if ($roleId) {
+            DB::table('user_roles')->updateOrInsert(
+                ['user_id' => $user->id, 'role_id' => $roleId],
+                ['created_at' => $now, 'updated_at' => $now]
+            );
+        }
+
+        // Payroll period + attendance summary + salary config tables
+        DB::table('payroll_periods')->updateOrInsert(
+            [
+                'company_id' => $company->id,
+                'code' => sprintf('P%04d%02d', (int) $now->format('Y'), (int) $now->format('m')),
+            ],
+            [
+                'period_type' => 'monthly',
+                'start_date' => $now->copy()->startOfMonth()->toDateString(),
+                'end_date' => $now->copy()->endOfMonth()->toDateString(),
+                'cutoff_date' => $now->copy()->endOfMonth()->toDateString(),
+                'pay_date' => $now->copy()->endOfMonth()->addDays(5)->toDateString(),
+                'status' => 'approved',
+                'timezone' => config('app.timezone', 'UTC'),
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+
+        $payrollPeriodId = DB::table('payroll_periods')
+            ->where('company_id', $company->id)
+            ->where('code', sprintf('P%04d%02d', (int) $now->format('Y'), (int) $now->format('m')))
+            ->value('id');
+
+        DB::table('employee_salary_configs')->updateOrInsert(
+            [
+                'employee_id' => $employee->id,
+                'effective_from' => $now->copy()->startOfMonth()->toDateString(),
+            ],
+            [
+                'effective_to' => null,
+                'base_salary' => 8000000,
+                'currency' => 'VND',
+                'pay_frequency' => 'monthly',
+                'notes' => 'Seeded salary config',
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+
+        if ($payrollPeriodId) {
+            DB::table('attendance_summaries')->updateOrInsert(
+                [
+                    'payroll_period_id' => $payrollPeriodId,
+                    'employee_id' => $employee->id,
+                ],
+                [
+                    'working_days' => 22,
+                    'actual_days' => 21,
+                    'leave_paid_days' => 1,
+                    'leave_unpaid_days' => 0,
+                    'overtime_hours' => 4,
+                    'status' => 'approved',
+                    'approved_at' => $now,
+                    'approved_by' => $user->id,
+                    'source' => 'computed',
+                    'meta_json' => json_encode(['seeded' => true]),
+                    'created_by' => $user->id,
+                    'updated_by' => $user->id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]
+            );
+        }
+
         // Pivot-like and payroll-related business tables
         DB::table('employee_allowances')->updateOrInsert(
             ['employee_id' => $employee->id, 'allowance_id' => $allowance->id],
@@ -121,7 +208,21 @@ class AllTablesSeeder extends Seeder
 
         DB::table('payrolls')->updateOrInsert(
             ['company_id' => $company->id, 'month' => (int) $now->format('m'), 'year' => (int) $now->format('Y')],
-            ['status' => 'draft', 'locked_at' => null, 'created_at' => $now, 'updated_at' => $now]
+            [
+                'payroll_period_id' => $payrollPeriodId,
+                'status' => 'draft',
+                'locked_at' => null,
+                'calculated_at' => $now,
+                'calculated_by' => $user->id,
+                'approved_at' => null,
+                'approved_by' => null,
+                'paid_at' => null,
+                'notes' => 'Seeded payroll',
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
         );
 
         $payrollId = DB::table('payrolls')
@@ -144,6 +245,8 @@ class AllTablesSeeder extends Seeder
                     'tax' => 200000,
                     'net_salary' => 8500000,
                     'meta_json' => json_encode(['seeded' => true]),
+                    'created_by' => $user->id,
+                    'updated_by' => $user->id,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ]

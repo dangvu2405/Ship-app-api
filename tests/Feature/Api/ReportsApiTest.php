@@ -28,7 +28,7 @@ class ReportsApiTest extends TestCase
 
         Company::factory()->count(3)->create();
 
-        $response = $this->getJson('/api/reports/dashboard?month=3&year=2026');
+        $response = $this->getJson('/api/v1/reports/dashboard?month=3&year=2026');
 
         $response->assertStatus(200)
             ->assertJson(['success' => true])
@@ -53,7 +53,7 @@ class ReportsApiTest extends TestCase
 
         $company = Company::factory()->create();
 
-        $response = $this->getJson('/api/reports/payroll-summary?company_id=' . $company->id . '&month=3&year=2026');
+        $response = $this->getJson('/api/v1/reports/payroll-summary?company_id=' . $company->id . '&month=3&year=2026');
 
         $response->assertStatus(200)
             ->assertJson(['success' => true]);
@@ -64,7 +64,7 @@ class ReportsApiTest extends TestCase
         $user = User::factory()->create(['status' => 'active']);
         Sanctum::actingAs($user);
 
-        $response = $this->getJson('/api/reports/dashboard');
+        $response = $this->getJson('/api/v1/reports/dashboard');
 
         $response->assertStatus(403);
     }
@@ -74,7 +74,7 @@ class ReportsApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('/api/reports/dashboard?month=13&year=1800');
+        $response = $this->getJson('/api/v1/reports/dashboard?month=13&year=1800');
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['month', 'year']);
@@ -85,7 +85,7 @@ class ReportsApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('/api/reports/payroll-summary?month=3&year=2026');
+        $response = $this->getJson('/api/v1/reports/payroll-summary?month=3&year=2026');
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors('company_id');

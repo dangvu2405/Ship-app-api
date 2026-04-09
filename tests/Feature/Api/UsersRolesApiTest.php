@@ -28,7 +28,7 @@ class UsersRolesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('/api/users');
+        $response = $this->getJson('/api/v1/users');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data']);
@@ -39,7 +39,7 @@ class UsersRolesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/users', [
+        $response = $this->postJson('/api/v1/users', [
             'username' => 'newuser',
             'email' => 'newuser@example.com',
             'password' => 'password123',
@@ -57,7 +57,7 @@ class UsersRolesApiTest extends TestCase
 
         $user = User::factory()->create();
 
-        $response = $this->getJson('/api/users/' . $user->id);
+        $response = $this->getJson('/api/v1/users/' . $user->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $user->id]);
@@ -70,7 +70,7 @@ class UsersRolesApiTest extends TestCase
 
         $user = User::factory()->create();
 
-        $response = $this->deleteJson('/api/users/' . $user->id);
+        $response = $this->deleteJson('/api/v1/users/' . $user->id);
 
         $response->assertStatus(200);
     }
@@ -82,7 +82,7 @@ class UsersRolesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('/api/roles');
+        $response = $this->getJson('/api/v1/roles');
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data']);
@@ -93,7 +93,7 @@ class UsersRolesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/roles', [
+        $response = $this->postJson('/api/v1/roles', [
             'name' => 'manager',
         ]);
 
@@ -112,7 +112,7 @@ class UsersRolesApiTest extends TestCase
         $perm1 = Permission::firstOrCreate(['code' => 'payroll.approve', 'name' => 'Approve Payroll']);
         $perm2 = Permission::firstOrCreate(['code' => 'payroll.lock', 'name' => 'Lock Payroll']);
 
-        $response = $this->postJson('/api/roles/' . $role->id . '/permissions', [
+        $response = $this->postJson('/api/v1/roles/' . $role->id . '/permissions', [
             'permission_ids' => [$perm1->id, $perm2->id],
         ]);
 
