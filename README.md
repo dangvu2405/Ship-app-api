@@ -84,6 +84,13 @@ sudo ./nginx/setup.sh
 
 Xem chi tiết tại: [nginx/README.md](nginx/README.md)
 
+## 📖 Tài liệu dự án
+
+- [Tổng quan chi tiết dự án](docs/PROJECT_OVERVIEW.md) — kiến trúc, chức năng, API, database, rules & conventions
+- [Database Report](docs/BACKEND_DATABASE_REPORT.md) — báo cáo nội bộ database
+- [Frontend API Endpoints](docs/FRONTEND_API_ENDPOINTS.md) — handoff cho frontend
+- [Architecture Guardrails](docs/ARCHITECTURE_GUARDRAILS.md) — quy tắc kiến trúc
+
 ## 🧹 Tối ưu dung lượng dự án
 
 - Audit dung lượng: [docs/PROJECT_SIZE_AUDIT.md](docs/PROJECT_SIZE_AUDIT.md)
