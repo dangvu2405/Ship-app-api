@@ -43,7 +43,7 @@ Mở rộng payroll (phase 1): `payroll_periods`, `employee_salary_configs`, `at
 Chi tiết cột/FK: [MUST_HAVE_MIGRATION_SPEC.md](./MUST_HAVE_MIGRATION_SPEC.md).
 
 ### 2.6 Ứng dụng & tích hợp
-`notifications`, `chat_messages`, `lark_event_logs` (Lark), `login_logs`, `audit_logs`, `export_logs`, `report_caches`, `cache` / `jobs` (Laravel).
+`notifications`, `chat_messages`, `login_logs`, `audit_logs`, `export_logs`, `report_caches`, `cache` / `jobs` (Laravel).
 
 ---
 
@@ -104,7 +104,7 @@ php artisan test
 
 Các bảng sau giữ mô tả đầy đủ tại [DATABASE_DATA_DICTIONARY.md](./DATABASE_DATA_DICTIONARY.md): `employees`, `companies`, `offices`, `departments`, `positions`, `vehicles`, `vehicle_assignments`, `trips`, `invoices` (một số cột — đối chiếu thêm **§7.4** nếu lệch migration), `payrolls` / `payroll_details` (bổ sung cột phase 1 — **§7.5**), `payroll_periods`, `employee_salary_configs`, `attendance_summaries`, và phần tóm tắt `attendances` / pivot lương.
 
-### 7.2 `users` (gộp `0001_…_users`, `lark_user_id`, profile)
+### 7.2 `users` (gộp `0001_…_users`, profile)
 
 | Column | Type | Nullable | Mô tả |
 |--------|------|----------|--------|
@@ -112,7 +112,6 @@ Các bảng sau giữ mô tả đầy đủ tại [DATABASE_DATA_DICTIONARY.md](
 | `username` | string | no | Đăng nhập, unique |
 | `email` | string | no | Email, unique |
 | `email_verified_at` | timestamp | yes | Xác minh email |
-| `lark_user_id` | string | yes | User id Lark/Feishu, unique |
 | `password` | string | no | Hash mật khẩu |
 | `employee_id` | bigint FK → `employees` | yes | Liên kết hồ sơ NV |
 | `status` | enum(`active`,`inactive`) | no | Trạng thái tài khoản |
@@ -244,8 +243,6 @@ Unique(`employee_id`,`date`).
 **`notifications` (Laravel):** `id` UUID PK, `type` string, `notifiable_type` / `notifiable_id` (morph), `data` text (JSON), `read_at`, timestamps.
 
 **`chat_messages`:** `id`, `user_id` FK cascade, `session_id` (64, index), `message` text, `response` longText yes, `context` json yes, `model` string(100) yes, `status` enum(`success`,`error`), `error_message` text yes, timestamps; index(`user_id`,`session_id`,`created_at`).
-
-**`lark_event_logs`:** `id`, `event_id`, `request_id`, `event_type` (nullable, indexed), `signature_valid` bool, `replay_blocked` bool, `status` string default `received` (index), `headers` json yes, `payload` json yes, `error_message` text yes, `processed_at` timestamp yes (index), timestamps.
 
 ### 7.12 MUST HAVE — nghỉ phép
 

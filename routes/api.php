@@ -111,9 +111,6 @@ Route::prefix('auth')->group(function (): void {
     }
 });
 
-// Lark webhook/event entrypoint
-Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
-
 // Protected routes: authenticated users (legacy)
 Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
 
@@ -123,9 +120,6 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
 // Versioned API routes
 Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes): void {
     Route::get('/health', $healthResponse);
-
-    // Versioned alias for Lark webhook/event entrypoint.
-    Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
 
     Route::prefix('auth')->group(function (): void {
         Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);

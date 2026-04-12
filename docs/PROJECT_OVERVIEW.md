@@ -23,7 +23,7 @@
 | Reverse proxy | Nginx (Docker hoac PHP-FPM production) |
 | Container | Docker Compose (3 services: `app`, `db`, `nginx`) |
 | AI | Google Gemini (`gemini-2.0-flash`) |
-| Tich hop | Lark/Feishu (webhook, Base sync, chat notification) |
+| Tich hop | Google Gemini (AI); co the mo rong kenh thong bao khac neu can |
 | Test | Pest / PHPUnit, architecture tests |
 | Code style | Laravel Pint |
 
@@ -62,7 +62,7 @@ flowchart LR
     Controller --> Service
     Service --> Model["Eloquent Model"]
     Model --> MySQL
-    Service --> ExternalAPI["Lark / Gemini"]
+    Service --> ExternalAPI["Gemini API"]
 ```
 
 ### 1.4 Directory layout
@@ -70,20 +70,17 @@ flowchart LR
 ```
 ship-app-api/
 |-- app/
-|   |-- Console/Commands/        # Artisan commands (Lark reconcile, sync)
-|   |-- Events/Lark/             # Domain events (TripCreated, PayrollApproved, DriverAssigned)
+|   |-- Console/Commands/        # Artisan commands
 |   |-- Exceptions/              # ApiException, Handler
 |   |-- Http/
-|   |   |-- Controllers/Api/     # 27 API controllers (all extend BaseController)
+|   |   |-- Controllers/Api/     # API controllers (all extend BaseController)
 |   |   |-- Middleware/           # HandleApiErrors, RoleMiddleware, PermissionMiddleware
 |   |   |-- Requests/            # 52 FormRequests (by module subfolder)
 |   |   |-- Traits/              # HasIndexQuery (list/filter/sort/search)
-|   |-- Jobs/Lark/               # SendLarkMessageJob, SyncLarkBaseRecordJob
-|   |-- Listeners/Lark/          # Event -> Lark notification listeners
-|   |-- Models/                  # 34 Eloquent models
+|   |-- Models/                  # Eloquent models
 |   |-- Notifications/           # LateAttendanceNotification
 |   |-- Providers/               # AppServiceProvider (events, v2 route registration)
-|   |-- Services/                # 15 service classes (Auth, Payroll, Chat, Gemini, Lark/*)
+|   |-- Services/                # Auth, Payroll*, Chat, Gemini, Report, ...
 |   |-- Traits/                  # HasAuditLogs
 |-- src/                         # Clean Architecture (v2 Employee module)
 |   |-- Application/Employee/    # Use cases + DTOs
@@ -91,9 +88,9 @@ ship-app-api/
 |   |-- Domain/Shared/           # AbstractId, Email, Phone, Money, DomainException
 |   |-- Infrastructure/          # Eloquent repositories, mappers, TransactionManager
 |   |-- Interface/Http/          # v2 Controllers, Requests, Resources
-|-- config/                      # 16 config files (app, auth, lark, ship, ...)
+|-- config/                      # app, auth, ship, ...
 |-- database/
-|   |-- migrations/              # 67 migration files
+|   |-- migrations/              # migration files (schema + remove legacy)
 |   |-- factories/               # 28 factory files
 |   |-- seeders/                 # 5 seeders (Database, Roles, AllTables, SpecReference, Bulk)
 |-- routes/
@@ -242,10 +239,6 @@ Moi API deu tra JSON theo chuan:
 |-----------|---------------------|-------|
 | Chat AI | `ChatController`, `ChatService`, `GeminiService` | Chat/stream voi Gemini; luu `chat_messages` |
 | AI tu van kinh doanh | `AiAdvisorController`, `BusinessAiAdvisorService` | Phan tich du lieu + goi y |
-| Lark webhook | `LarkWebhookController`, `LarkSignatureService` | Nhan event tu Lark, xac thuc signature, log |
-| Lark Base sync | `LarkBaseSyncService`, `SyncLarkBaseRecordJob` | Dong bo NV/chuyen xe len Lark Base |
-| Lark notification | `LarkNotificationService`, listeners | Gui thong bao khi tao trip, duyet luong, phan tai xe |
-| Lark command router | `LarkCommandRouterService` | Xu ly lenh chat tu Lark |
 
 ---
 
@@ -258,7 +251,6 @@ Moi API deu tra JSON theo chuan:
 | GET | `/api/health` | Health check |
 | POST | `/api/auth/login` | Dang nhap, tra token |
 | GET | `/api/auth/test-accounts` | Danh sach tai khoan demo (chi local/testing) |
-| POST | `/api/lark/webhook` | Lark event webhook |
 
 ### 3.2 Authenticated (`auth:sanctum`)
 
@@ -404,7 +396,6 @@ flowchart TD
     subgraph app_logs [Ung dung & Logs]
         notifications
         chat_messages
-        lark_event_logs
         login_logs
         audit_logs
         export_logs
@@ -428,7 +419,7 @@ flowchart TD
 `leave_types`, `leave_requests`, `leave_balances`, `tax_brackets`, `insurance_rates`, `payroll_earnings`, `payroll_deductions`, `payslips`, `chart_of_accounts`, `journal_entries`, `journal_entry_lines`, `payroll_status_histories`, `trip_status_histories`, `invoice_status_histories`
 
 #### Nhom 6: Ung dung, logs, infra (10+ bang)
-`notifications`, `chat_messages`, `lark_event_logs`, `login_logs`, `audit_logs`, `export_logs`, `report_caches`, `cache`, `jobs`, `sessions`, `password_reset_tokens`
+`notifications`, `chat_messages`, `login_logs`, `audit_logs`, `export_logs`, `report_caches`, `cache`, `jobs`, `sessions`, `password_reset_tokens`
 
 ### 4.3 Quy tac schema
 
@@ -513,25 +504,14 @@ flowchart TD
 | Migration `down()` | Drop FK/index truoc khi drop column/table |
 | Code style | `./vendor/bin/pint` (Laravel Pint) |
 
-### 5.5 Config keys (ship.php + lark.php)
+### 5.5 Config keys (`config/ship.php`)
 
-#### `config/ship.php`
 | Key | Muc dich | Default |
 |-----|----------|---------|
 | `api_uri_prefix` | API prefix | `api` |
 | `attendance.late_after` | Giờ tính đi muộn | `08:15` |
 | `expose_test_accounts` | Bat test-accounts route | `false` |
 | `bulk_seed_count` | So dong BulkDataSeeder | `100` |
-
-#### `config/lark.php`
-| Key | Muc dich |
-|-----|----------|
-| `app_id` / `app_secret` | Lark app credentials |
-| `verification_token` / `encrypt_key` / `signing_secret` | Webhook security |
-| `base.app_token` / `base.*_table_id` | Lark Base (spreadsheet) sync |
-| `base.enable_reverse_sync` | Dong bo nguoc tu Lark Base |
-| `chat_ids.ops` / `hr` / `fleet` / `payroll` | Group chat IDs de gui thong bao |
-| `security.max_request_age_seconds` | Max age webhook request (300s) |
 
 ---
 

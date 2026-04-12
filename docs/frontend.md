@@ -46,7 +46,7 @@ MỌI request đều sẽ trả về cấu trúc Envelope. Đừng truy cập da
 
 ## 3. Xác thực (Authentication) & Headers
 
-1. **Đăng nhập:** `POST /api/v1/auth/login` với JSON `{ "email", "password" }`; response `data.user` và `data.token` (Bearer Sanctum). Chi tiết: [FRONTEND_LARK_CONFIG.md](./FRONTEND_LARK_CONFIG.md) §4.0.
+1. **Đăng nhập:** `POST /api/v1/auth/login` với JSON `{ "email", "password" }`; response `data.user` và `data.token` (Bearer Sanctum). Chi tiết: [FRONTEND_API_ENDPOINTS.md](./FRONTEND_API_ENDPOINTS.md).
 2. **Lưu trữ:** Lưu `token` vào `localStorage` (hoặc HttpOnly Cookie tuỳ bảo mật của bạn).
 3. **Mọi Request sau đó:** Phải Attach config cho Axios:
    ```js
