@@ -3,7 +3,8 @@
 **Purpose:** từ điển dữ liệu để BA/QA/Frontend map field nhất quán với backend.  
 **Scope:** bảng nghiệp vụ chính + bảng mở rộng payroll/profile.
 
-> Ghi chú: chi tiết ERD đầy đủ vẫn ở `database_design.md`. File này ưu tiên field thực tiễn hay dùng ở API/report.
+> Ghi chú: chi tiết ERD đầy đủ vẫn ở `database_design.md`. File này ưu tiên field thực tiễn hay dùng ở API/report.  
+> **Bổ sung từng trường (migration canonical + MUST HAVE):** [BACKEND_DATABASE_REPORT.md](./BACKEND_DATABASE_REPORT.md) **§7**.
 
 ---
 
@@ -165,12 +166,15 @@
 | Column | Type | Nullable | Description |
 |---|---|---:|---|
 | `id` | bigint | no | PK |
-| `code` | string unique | no | Mã khách hàng |
+| `type` | enum(individual,company) | no | Loại khách hàng |
 | `name` | string | no | Tên khách hàng |
-| `contact_name` | string | yes | Người liên hệ |
-| `phone`/`email` | string | yes | Liên hệ |
+| `tax_code` | string(50) | yes | MST |
+| `phone` | string(20) | yes | SĐT |
+| `email` | string | yes | Email |
 | `address` | text | yes | Địa chỉ |
-| `status` | enum(active,inactive) | no | Trạng thái |
+| `created_at` / `updated_at` / `deleted_at` | timestamp | yes | Audit + soft delete |
+
+> **Lưu ý:** migration hiện **không** có cột `code` / `status` / `contact_name` — nếu nghiệp vụ cần, thêm migration; xem thêm [BACKEND_DATABASE_REPORT.md](./BACKEND_DATABASE_REPORT.md) §7.4.
 
 ## 6.2 `trips`
 | Column | Type | Nullable | Description |

@@ -2,14 +2,14 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Trip;
 use App\Models\Company;
+use App\Models\Customer;
+use App\Models\Driver;
+use App\Models\Office;
 use App\Models\Role;
+use App\Models\Trip;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Models\Office;
-use App\Models\Driver;
-use App\Models\Customer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -23,6 +23,7 @@ class TripsApiTest extends TestCase
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $user = User::factory()->create(['status' => 'active']);
         $user->roles()->attach($adminRole->id);
+
         return $user;
     }
 
@@ -40,7 +41,7 @@ class TripsApiTest extends TestCase
                 'success',
                 'data' => [
                     'data',
-                    'meta'
+                    'meta',
                 ],
             ]);
     }
@@ -79,7 +80,7 @@ class TripsApiTest extends TestCase
     {
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
-        
+
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
@@ -90,10 +91,10 @@ class TripsApiTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->employee_id,
             'customer_id' => $customer->id,
-            'status' => 'pending'
+            'status' => 'pending',
         ]);
 
-        $response = $this->putJson('/api/v1/trips/' . $trip->id, [
+        $response = $this->putJson('/api/v1/trips/'.$trip->id, [
             'status' => 'in_progress',
         ]);
 
@@ -116,12 +117,52 @@ class TripsApiTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->employee_id,
             'customer_id' => $customer->id,
-            'status' => 'pending'
+            'status' => 'pending',
         ]);
 
-        $response = $this->deleteJson('/api/v1/trips/' . $trip->id);
+        $response = $this->deleteJson('/api/v1/trips/'.$trip->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('trips', ['id' => $trip->id]);
+    }
+
+    public function test_trips_index_filters_by_company_id_and_office_id(): void
+    {
+        $admin = $this->getAdminUser();
+        Sanctum::actingAs($admin);
+
+        $companyA = Company::factory()->create();
+        $officeA = Office::factory()->create(['company_id' => $companyA->id]);
+        $vehicleA = Vehicle::factory()->create(['office_id' => $officeA->id]);
+
+        $companyB = Company::factory()->create();
+        $officeB = Office::factory()->create(['company_id' => $companyB->id]);
+        $vehicleB = Vehicle::factory()->create(['office_id' => $officeB->id]);
+
+        $driver = Driver::factory()->create();
+        $customer = Customer::factory()->create();
+
+        $tripA = Trip::factory()->create([
+            'vehicle_id' => $vehicleA->id,
+            'driver_id' => $driver->employee_id,
+            'customer_id' => $customer->id,
+        ]);
+        $tripB = Trip::factory()->create([
+            'vehicle_id' => $vehicleB->id,
+            'driver_id' => $driver->employee_id,
+            'customer_id' => $customer->id,
+        ]);
+
+        $byCompany = $this->getJson('/api/v1/trips?company_id='.$companyA->id.'&per_page=100');
+        $byCompany->assertStatus(200);
+        $ids = collect($byCompany->json('data.data'))->pluck('id')->all();
+        $this->assertContains($tripA->id, $ids);
+        $this->assertNotContains($tripB->id, $ids);
+
+        $byOffice = $this->getJson('/api/v1/trips?office_id='.$officeA->id.'&per_page=100');
+        $byOffice->assertStatus(200);
+        $idsOffice = collect($byOffice->json('data.data'))->pluck('id')->all();
+        $this->assertContains($tripA->id, $idsOffice);
+        $this->assertNotContains($tripB->id, $idsOffice);
     }
 }

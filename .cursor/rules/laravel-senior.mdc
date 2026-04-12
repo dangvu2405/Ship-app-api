@@ -1,66 +1,53 @@
 ---
-description: Enforce senior Laravel architecture and quality standards for API, domain services, migrations, and tests for Company Ship ERP.
+description: Enforce senior Laravel architecture and quality standards for API, domain services, migrations, and tests.
 globs:
   - app/**/*.php
+  - src/**/*.php
   - database/migrations/**/*.php
   - routes/**/*.php
   - tests/**/*.php
 alwaysApply: true
 ---
 
-# Laravel Senior Rule (Company Ship ERP Standard)
+# Laravel Senior Rule
 
-## 1) Architecture Guardrails (BẮT BUỘC)
-- **Thin Controller:** Controller CHỈ làm nhiệm vụ nhận request, gọi validate (FormRequest), gọi Service, và format Response. Tuyệt đối KHÔNG code business logic hay gọi DB (Model::where...) trực tiếp trong Controller.
-- **FormRequest Only:** Mọi thao tác cần validate dữ liệu phải tạo FormRequest riêng. KHÔNG dùng `$request->validate()` hay `Validator::make` inline trong Controller.
-- **Service Layer:** Mọi business logic đặt ở thư mục `app/Services/`. Khuyến khích chia nhỏ Service thành các Domain (ví dụ: `PayrollService`, `PayrollWorkflowService`, `AuthService`).
+## 1) Reconnaissance First
+- Before code changes: inspect existing models, requests, controllers, services, routes, and tests in the target module.
+- Never assume schema, relation, or route names.
 
-## 2) Naming & Coding Conventions
-- **Class, Interface, Trait:** `PascalCase`.
-- **Method, Variable, Property:** `camelCase`.
-- **Database Table, DB Column:** `snake_case` số nhiều. Tránh đặt tên dư thừa. 
-- **Type Safety:** File PHP mới BẮT BUỘC phải có `declare(strict_types=1);` ở dòng đầu. Định nghĩa tham số và kiểu trả về (type hinting) một cách rõ ràng.
+## 2) Layering
+- Keep controllers thin: only validate, authorize, delegate, and shape responses.
+- Put business logic in services/actions. Avoid query and domain orchestration in controllers.
+- Reuse existing response envelope for API: `success`, `message`, `data`/`errors`.
 
-## 3) Database & Migrations
-- **Primary keys:** Sử dụng `bigint` (id).
-- **SoftDeletes:** Mọi bảng chứa dữ liệu nghiệp vụ (trừ bảng logs/tokens) đều phải có `$table->softDeletes()`. 
-- **Audit Columns:** Cần log user tác động: `$table->foreignId('created_by')->nullable()..`, tương tự với `updated_by`, `deleted_by`.
-- **Data Types:** Các trường tiền tệ (lương, giá, phụ cấp) nên cấu hình kiểu `decimal(15, 2)`.
-- **Transactions:** Mọi luồng write nhiều bước (ví dụ tạo và tính Payroll) phải dùng `DB::transaction`.
-- N+1 Query: Sử dụng Eager Loading `with()` khi query các relationship.
+## 3) Input/Output Contract
+- Use Form Requests for validation/authorization.
+- Use `validated()` data only; avoid `request()->all()` and unbounded mass assignment.
+- For complex payloads, introduce typed DTO/value objects in service boundaries.
 
-## 4) Authentication & Authorization (RBAC)
-- **Middleware ưu tiên:**
-  - Public routes: không gán middleware.
-  - Authenticated routes: `auth:sanctum`.
-  - Admin/Role routes: `auth:sanctum` kết hợp với `role:{RoleName}`.
-- **Roles chuẩn trong hệ thống:** `admin`, `hr`, `accountant`, `coordinator`, `driver`, `staff`.
-- **Permissions:** Cấp quyền rất nhỏ gọn (ví dụ: `employees.create`, `trips.view`).
+## 4) Type Safety
+- Require `declare(strict_types=1);` in all new/updated PHP files.
+- Add parameter and return types on methods when editing files.
 
-## 5) API Formatting (Envelope Specification)
-Response MUST ALWAYS be JSON conforming to this structure:
-```json
-// Success Response
-{
-    "success": true,
-    "message": "Meaningful success message",
-    "data": { ... } // or array
-}
+## 5) Security
+- Enforce middleware by route group intent:
+  - Public: health/login
+  - Authenticated: `auth:sanctum`
+  - Admin-only: `auth:sanctum` + role/permission middleware
+- Do not expose sensitive fields in responses.
 
-// Error Response
-{
-    "success": false,
-    "message": "Error description",
-    "errors": { ... } // Validation or detail errors
-}
-```
+## 6) Database & Performance
+- Prevent N+1 by using eager loading where relation data is returned.
+- Add indexes for filter/join-heavy columns in migrations.
+- Wrap multi-step write workflows in transactions.
 
-## 6) Payroll Module Domain Rules (Cấp bách)
-System contains a crucial payroll pipeline. Apply these strict rules:
-- **State Machine Flow BẮT BUỘC:** `draft` -> `approved` -> `locked`. 
-- Không bao giờ được phép `approve` một payroll đã khóa. 
-- Không được phép sửa xóa/update (DML) các bản ghi payroll detail khi record Payroll Cha đã ở trạng thái `locked`. (Hãy ném `Exception` trong Service).
+## 7) Payroll-Specific Guardrails
+- Respect payroll state flow (`draft` -> `approved` -> `locked`).
+- Reject mutation actions when payroll is locked.
+- Keep calculation deterministic; log key decisions for auditability.
 
-## 7) Testing Assurance
-- **Feature Tests:** Tạo test `tests/Feature/Api/XxxTest.php` cho tất cả endpoint để kiểm tra 200 (Happy path), 401/403 (Quyền), và 422 (Validation).
-- **Arch Tests:** Chạy `php artisan test --testsuite=Arch` thường xuyên để đảm bảo bạn không phá vỡ guardrails (vd: viết code business quá nhiều vào Controller).
+## 8) Testing & Verification
+- Add/adjust Feature tests for endpoint behavior and authorization.
+- Add/adjust Unit tests for service/business rules.
+- Keep architecture checks passing (controllers extend `BaseController`, strict types, etc.).
+- Run relevant tests after edits before finalizing.

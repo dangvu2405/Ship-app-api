@@ -7,6 +7,8 @@
 
 ## 1) Tài liệu DB hiện có (nên đọc theo thứ tự)
 
+0. **`docs/BACKEND_DATABASE_REPORT.md`** — báo cáo tổng hợp **nội bộ backend** (nhóm bảng, lệnh vận hành, checklist, link chi tiết).
+
 1. **`database_design.md`**  
    - ERD đầy đủ (rất chi tiết) của toàn bộ bảng/quan hệ.
 2. **`docs/PROJECT_SPEC_CHI_TIET.md`**  

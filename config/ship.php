@@ -21,6 +21,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | GET /auth/test-accounts (chỉ bật khi cần — xem FRONTEND_PAYLOAD_BY_SCREEN)
+    |--------------------------------------------------------------------------
+    |
+    | Mặc định chỉ đăng ký route khi APP_ENV là local hoặc testing.
+    | Bật thêm (vd. staging demo): SHOW_TEST_ACCOUNTS=true
+    |
+    */
+    'expose_test_accounts' => (bool) env('SHOW_TEST_ACCOUNTS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | BulkDataSeeder — số bản ghi mỗi “nhóm” bảng (companies, trips, cache, …)
     |--------------------------------------------------------------------------
     |

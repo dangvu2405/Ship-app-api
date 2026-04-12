@@ -8,6 +8,7 @@ use App\Http\Requests\Driver\StoreDriverRequest;
 use App\Http\Requests\Driver\UpdateDriverRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Driver;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,11 +26,13 @@ class DriverController extends BaseController
      *     path="/api/drivers",
      *     tags={"Drivers"},
      *     summary="Danh sách tài xế",
+     *
      *     @OA\Parameter(name="search", in="query", description="Tìm theo license_no", @OA\Schema(type="string")),
      *     @OA\Parameter(name="employee_id", in="query", description="Lọc theo nhân viên", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="available_status", in="query", description="Lọc theo trạng thái", @OA\Schema(type="string")),
      *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
      *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -39,7 +42,16 @@ class DriverController extends BaseController
         $result = $this->indexQuery($request, $query, ['license_no'], [
             'employee_id' => 'employee_id',
             'available_status' => 'available_status',
-        ]);
+        ], static function (Builder $query, string $keyword): void {
+            $like = '%'.$keyword.'%';
+            $query->where(function (Builder $q) use ($like): void {
+                $q->where('license_no', 'like', $like)
+                    ->orWhereHas('employee', static function (Builder $eq) use ($like): void {
+                        $eq->where('name', 'like', $like)
+                            ->orWhere('code', 'like', $like);
+                    });
+            });
+        });
 
         return $this->successResponse($result, 'OK');
     }
@@ -49,10 +61,13 @@ class DriverController extends BaseController
      *     path="/api/drivers",
      *     tags={"Drivers"},
      *     summary="Tạo tài xế mới",
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"employee_id","license_no","license_class"},
+     *
      *             @OA\Property(property="employee_id", type="integer", example=1),
      *             @OA\Property(property="license_no", type="string", example="B123456"),
      *             @OA\Property(property="license_class", type="string", example="B2"),
@@ -60,6 +75,7 @@ class DriverController extends BaseController
      *             @OA\Property(property="available_status", type="string", enum={"available","on_trip","off"})
      *         )
      *     ),
+     *
      *     @OA\Response(response=201, description="Tạo thành công"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
@@ -76,7 +92,9 @@ class DriverController extends BaseController
      *     path="/api/drivers/{id}",
      *     tags={"Drivers"},
      *     summary="Chi tiết tài xế",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )
@@ -96,10 +114,14 @@ class DriverController extends BaseController
      *     path="/api/drivers/{id}",
      *     tags={"Drivers"},
      *     summary="Cập nhật tài xế",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
+     *
      *             @OA\Property(property="employee_id", type="integer"),
      *             @OA\Property(property="license_no", type="string"),
      *             @OA\Property(property="license_class", type="string"),
@@ -107,6 +129,7 @@ class DriverController extends BaseController
      *             @OA\Property(property="available_status", type="string")
      *         )
      *     ),
+     *
      *     @OA\Response(response=200, description="Cập nhật thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Validation lỗi")
@@ -128,7 +151,9 @@ class DriverController extends BaseController
      *     path="/api/drivers/{id}",
      *     tags={"Drivers"},
      *     summary="Xóa tài xế",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Xóa thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )

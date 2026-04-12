@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -14,11 +15,19 @@ class AttendancesApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Notification::fake();
+    }
+
     protected function getAdminUser()
     {
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $user = User::factory()->create(['status' => 'active']);
         $user->roles()->attach($adminRole->id);
+
         return $user;
     }
 
@@ -63,7 +72,7 @@ class AttendancesApiTest extends TestCase
 
         $att = Attendance::factory()->create();
 
-        $response = $this->getJson('/api/v1/attendances/' . $att->id);
+        $response = $this->getJson('/api/v1/attendances/'.$att->id);
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $att->id]);
@@ -76,7 +85,7 @@ class AttendancesApiTest extends TestCase
 
         $att = Attendance::factory()->create();
 
-        $response = $this->putJson('/api/v1/attendances/' . $att->id, [
+        $response = $this->putJson('/api/v1/attendances/'.$att->id, [
             'status' => 'late',
         ]);
 
@@ -91,7 +100,7 @@ class AttendancesApiTest extends TestCase
 
         $att = Attendance::factory()->create();
 
-        $response = $this->deleteJson('/api/v1/attendances/' . $att->id);
+        $response = $this->deleteJson('/api/v1/attendances/'.$att->id);
 
         $response->assertStatus(200);
     }

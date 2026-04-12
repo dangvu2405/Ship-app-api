@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Api\BaseController;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
@@ -23,18 +23,22 @@ class AuthController extends BaseController
      * Đăng nhập - lấy token
      *
      * @OA\Post(
-     *     path="/api/v1/auth/login",
+     *     path="/api/auth/login",
      *     tags={"Auth"},
      *     summary="Đăng nhập",
- *     security={},
+     *     security={},
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"email","password"},
+     *
      *             @OA\Property(property="email", type="string", format="email", example="admin@example.com"),
      *             @OA\Property(property="password", type="string", format="password", example="password")
      *         )
      *     ),
+     *
      *     @OA\Response(response=200, description="Thành công - trả về user và token"),
      *     @OA\Response(response=401, description="Sai email hoặc mật khẩu"),
      *     @OA\Response(response=422, description="Validation lỗi")
@@ -59,10 +63,11 @@ class AuthController extends BaseController
      * Đăng xuất - thu hồi token hiện tại
      *
      * @OA\Post(
-     *     path="/api/v1/auth/logout",
+     *     path="/api/auth/logout",
      *     tags={"Auth"},
      *     summary="Đăng xuất",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Response(response=200, description="Đăng xuất thành công"),
      *     @OA\Response(response=401, description="Chưa đăng nhập")
      * )
@@ -82,22 +87,26 @@ class AuthController extends BaseController
      * Đăng ký tài khoản mới
      *
      * @OA\Post(
-     *     path="/api/v1/auth/register",
+     *     path="/api/auth/register",
      *     tags={"Auth"},
- *     summary="Đăng ký tài khoản (chỉ admin)",
- *     security={{"sanctum":{}}},
+     *     summary="Đăng ký tài khoản (chỉ admin)",
+     *     security={{"sanctum":{}}},
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"username","email","password","password_confirmation"},
+     *
      *             @OA\Property(property="username", type="string", example="newuser"),
      *             @OA\Property(property="email", type="string", format="email", example="newuser@example.com"),
      *             @OA\Property(property="password", type="string", format="password", example="password123"),
      *             @OA\Property(property="password_confirmation", type="string", format="password", example="password123")
      *         )
      *     ),
- *     @OA\Response(response=201, description="Đăng ký thành công"),
- *     @OA\Response(response=403, description="Chỉ admin được phép"),
+     *
+     *     @OA\Response(response=201, description="Đăng ký thành công"),
+     *     @OA\Response(response=403, description="Chỉ admin được phép"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
      */
@@ -118,10 +127,11 @@ class AuthController extends BaseController
      * Làm mới token
      *
      * @OA\Post(
-     *     path="/api/v1/auth/refresh",
+     *     path="/api/auth/refresh",
      *     tags={"Auth"},
      *     summary="Làm mới token",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Response(response=200, description="Token mới"),
      *     @OA\Response(response=401, description="Chưa đăng nhập")
      * )
@@ -137,5 +147,37 @@ class AuthController extends BaseController
         } catch (\Exception $e) {
             return $this->handleException($e, 'Token refresh failed');
         }
+    }
+
+    /**
+     * Danh sách tài khoản dùng cho màn dev (không trả mật khẩu).
+     * Bật khi APP_ENV là local/testing hoặc SHOW_TEST_ACCOUNTS=true (config ship.expose_test_accounts).
+     */
+    public function testAccounts(): JsonResponse
+    {
+        if (! app()->environment('local', 'testing') && ! (bool) config('ship.expose_test_accounts', false)) {
+            return $this->notFoundResponse('Test accounts are not available in this environment');
+        }
+
+        $rows = User::query()
+            ->with(['roles:id,name'])
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->limit(20)
+            ->get(['id', 'username', 'email', 'status']);
+
+        $accounts = $rows->map(static function (User $user): array {
+            return [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'roles' => $user->roles->pluck('name')->values()->all(),
+            ];
+        });
+
+        return $this->successResponse([
+            'accounts' => $accounts,
+            'hint' => 'Passwords are not returned; use your seeder / README credentials for local login.',
+        ], 'OK');
     }
 }

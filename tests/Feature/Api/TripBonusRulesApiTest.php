@@ -29,7 +29,7 @@ class TripBonusRulesApiTest extends TestCase
 
         TripBonusRule::factory()->count(2)->create();
 
-        $response = $this->getJson('/api/v1/trip_bonus_rules');
+        $response = $this->getJson('/api/trip_bonus_rules');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -46,7 +46,7 @@ class TripBonusRulesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/v1/trip_bonus_rules', [
+        $response = $this->postJson('/api/trip_bonus_rules', [
             'min_km' => 0,
             'max_km' => 100,
             'bonus_per_km' => 1200,
@@ -73,7 +73,7 @@ class TripBonusRulesApiTest extends TestCase
             'bonus_per_km' => 900,
         ]);
 
-        $response = $this->putJson('/api/v1/trip_bonus_rules/' . $rule->id, [
+        $response = $this->putJson('/api/trip_bonus_rules/'.$rule->id, [
             'min_km' => 101,
             'max_km' => 300,
             'bonus_per_km' => 1500,
@@ -95,7 +95,7 @@ class TripBonusRulesApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/v1/trip_bonus_rules', [
+        $response = $this->postJson('/api/trip_bonus_rules', [
             'min_km' => 200,
             'max_km' => 100,
             'bonus_per_km' => 1000,
@@ -112,7 +112,7 @@ class TripBonusRulesApiTest extends TestCase
 
         $rule = TripBonusRule::factory()->create();
 
-        $response = $this->deleteJson('/api/v1/trip_bonus_rules/' . $rule->id);
+        $response = $this->deleteJson('/api/trip_bonus_rules/'.$rule->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('trip_bonus_rules', ['id' => $rule->id]);

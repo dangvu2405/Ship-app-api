@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -10,12 +8,22 @@ use Illuminate\Support\Facades\Route;
 | API Routes
 |--------------------------------------------------------------------------
 |
-| Versioned surface: /api/v1/...
-| Unversioned health (ops / load balancers): GET /api/health
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "api" middleware group. Make something great!
 |
 */
 
-$currentUserResponse = static function (Request $request): \Illuminate\Http\JsonResponse {
+// Shared response handlers
+$healthResponse = static function () {
+    return response()->json([
+        'success' => true,
+        'message' => 'API is running',
+        'timestamp' => now()->toDateTimeString(),
+    ]);
+};
+
+$currentUserResponse = static function (Request $request) {
     $user = $request->user();
     $user->load(['employee', 'roles.permissions']);
 
@@ -26,84 +34,106 @@ $currentUserResponse = static function (Request $request): \Illuminate\Http\Json
     ]);
 };
 
-$healthResponse = static fn (): \Illuminate\Http\JsonResponse => response()->json([
-    'success' => true,
-    'message' => 'API is running',
-    'timestamp' => now()->toDateTimeString(),
-]);
+$registerAuthenticatedRoutes = static function () use ($currentUserResponse): void {
+    Route::prefix('auth')->group(function () use ($currentUserResponse): void {
+        Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
+        Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']);
+        Route::get('/me', $currentUserResponse);
+    });
 
-Route::get('/health', $healthResponse);
+    Route::get('/user', $currentUserResponse);
+    Route::get('payrolls/my-salary', [\App\Http\Controllers\Api\PayrollController::class, 'mySalary']);
 
-Route::prefix('v1')->group(function () use ($currentUserResponse, $healthResponse): void {
-    Route::get('/', static fn (): \Illuminate\Http\JsonResponse => response()->json([
+    Route::prefix('chat')->group(function (): void {
+        Route::get('/sessions', [\App\Http\Controllers\Api\ChatController::class, 'sessions']);
+        Route::delete('/sessions/{sessionId}', [\App\Http\Controllers\Api\ChatController::class, 'destroySession']);
+        Route::get('/messages', [\App\Http\Controllers\Api\ChatController::class, 'index']);
+        Route::post('/messages', [\App\Http\Controllers\Api\ChatController::class, 'store']);
+        Route::post('/messages/stream', [\App\Http\Controllers\Api\ChatController::class, 'stream']);
+    });
+};
+
+$registerAdminRoutes = static function (): void {
+    Route::prefix('auth')->group(function (): void {
+        Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
+    });
+
+    Route::apiResource('companies', \App\Http\Controllers\Api\CompanyController::class);
+    Route::apiResource('offices', \App\Http\Controllers\Api\OfficeController::class);
+    Route::apiResource('departments', \App\Http\Controllers\Api\DepartmentController::class);
+    Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
+    Route::apiResource('employees', \App\Http\Controllers\Api\EmployeeController::class);
+    Route::apiResource('drivers', \App\Http\Controllers\Api\DriverController::class);
+    Route::apiResource('vehicles', \App\Http\Controllers\Api\VehicleController::class);
+    Route::apiResource('vehicle_assignments', \App\Http\Controllers\Api\VehicleAssignmentController::class);
+    Route::apiResource('vehicle_expenses', \App\Http\Controllers\Api\VehicleExpenseController::class);
+    Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
+    Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
+    Route::apiResource('trip_bonus_rules', \App\Http\Controllers\Api\TripBonusRuleController::class);
+    Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
+    Route::apiResource('allowances', \App\Http\Controllers\Api\AllowanceController::class);
+    Route::apiResource('deductions', \App\Http\Controllers\Api\DeductionController::class);
+    Route::get('attendances/late/list', [\App\Http\Controllers\Api\AttendanceController::class, 'lateList']);
+    Route::post('attendances/late/notify', [\App\Http\Controllers\Api\AttendanceController::class, 'notifyLate']);
+    Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
+
+    Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
+    Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
+    Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
+    Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);
+
+    Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
+    Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])->name('roles.permissions');
+    Route::apiResource('roles', \App\Http\Controllers\Api\RoleController::class);
+    Route::get('permissions', [\App\Http\Controllers\Api\PermissionController::class, 'index']);
+    Route::get('permissions/{permission}', [\App\Http\Controllers\Api\PermissionController::class, 'show']);
+
+    Route::get('reports/dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
+    Route::get('reports/payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
+    Route::post('ai/business-assist', [\App\Http\Controllers\Api\AiAdvisorController::class, 'businessAssist']);
+};
+
+// Public routes
+Route::get('/', function () {
+    return response()->json([
         'success' => true,
         'message' => 'Company Ship API',
         'version' => 'v1',
-    ]));
+    ]);
+});
+Route::get('/health', $healthResponse);
 
+// Authentication routes (legacy public)
+Route::prefix('auth')->group(function (): void {
+    Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+    if (app()->environment('local', 'testing') || (bool) config('ship.expose_test_accounts', false)) {
+        Route::get('/test-accounts', [\App\Http\Controllers\Api\AuthController::class, 'testAccounts']);
+    }
+});
+
+// Lark webhook/event entrypoint
+Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
+
+// Protected routes: authenticated users (legacy)
+Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
+
+// Protected routes: admin only (legacy)
+Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
+
+// Versioned API routes
+Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes): void {
     Route::get('/health', $healthResponse);
+
+    // Versioned alias for Lark webhook/event entrypoint.
+    Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
 
     Route::prefix('auth')->group(function (): void {
         Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+        if (app()->environment('local', 'testing') || (bool) config('ship.expose_test_accounts', false)) {
+            Route::get('/test-accounts', [\App\Http\Controllers\Api\AuthController::class, 'testAccounts']);
+        }
     });
 
-    Route::middleware(['auth:sanctum'])->group(function () use ($currentUserResponse): void {
-        Route::prefix('auth')->group(function () use ($currentUserResponse): void {
-            Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
-            Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']);
-            Route::get('/me', $currentUserResponse);
-        });
-
-        Route::get('/user', $currentUserResponse);
-
-        Route::get('payrolls/my-salary', [\App\Http\Controllers\Api\PayrollController::class, 'mySalary']);
-
-        Route::prefix('chat')->group(function (): void {
-            Route::get('/sessions', [\App\Http\Controllers\Api\ChatController::class, 'sessions']);
-            Route::delete('/sessions/{sessionId}', [\App\Http\Controllers\Api\ChatController::class, 'destroySession']);
-            Route::get('/messages', [\App\Http\Controllers\Api\ChatController::class, 'index']);
-            Route::post('/messages', [\App\Http\Controllers\Api\ChatController::class, 'store']);
-            Route::post('/messages/stream', [\App\Http\Controllers\Api\ChatController::class, 'stream']);
-        });
-    });
-
-    Route::middleware(['auth:sanctum', 'role:admin'])->group(function (): void {
-        Route::prefix('auth')->group(function (): void {
-            Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
-        });
-
-        Route::apiResource('companies', \App\Http\Controllers\Api\CompanyController::class);
-        Route::apiResource('offices', \App\Http\Controllers\Api\OfficeController::class);
-        Route::apiResource('departments', \App\Http\Controllers\Api\DepartmentController::class);
-        Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
-        Route::apiResource('employees', \App\Http\Controllers\Api\EmployeeController::class);
-        Route::apiResource('drivers', \App\Http\Controllers\Api\DriverController::class);
-        Route::apiResource('vehicles', \App\Http\Controllers\Api\VehicleController::class);
-        Route::apiResource('vehicle_assignments', \App\Http\Controllers\Api\VehicleAssignmentController::class);
-        Route::apiResource('vehicle_expenses', \App\Http\Controllers\Api\VehicleExpenseController::class);
-        Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
-        Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
-        Route::apiResource('trip_bonus_rules', \App\Http\Controllers\Api\TripBonusRuleController::class);
-        Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
-        Route::apiResource('allowances', \App\Http\Controllers\Api\AllowanceController::class);
-        Route::apiResource('deductions', \App\Http\Controllers\Api\DeductionController::class);
-        Route::get('attendances/late/list', [\App\Http\Controllers\Api\AttendanceController::class, 'lateList']);
-        Route::post('attendances/late/notify', [\App\Http\Controllers\Api\AttendanceController::class, 'notifyLate']);
-        Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
-
-        Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
-        Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
-        Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
-        Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);
-
-        Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
-        Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])->name('roles.permissions');
-        Route::apiResource('roles', \App\Http\Controllers\Api\RoleController::class);
-        Route::get('permissions', [\App\Http\Controllers\Api\PermissionController::class, 'index']);
-        Route::get('permissions/{permission}', [\App\Http\Controllers\Api\PermissionController::class, 'show']);
-
-        Route::get('reports/dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
-        Route::get('reports/payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
-        Route::post('ai/business-assist', [\App\Http\Controllers\Api\AiAdvisorController::class, 'businessAssist']);
-    });
+    Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
+    Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
 });

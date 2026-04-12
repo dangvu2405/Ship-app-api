@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Payroll;
-use App\Models\User;
-use App\Models\Role;
 use App\Models\Company;
+use App\Models\Payroll;
 use App\Models\PayrollPeriod;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,6 +19,7 @@ class PayrollApiTest extends TestCase
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $user = User::factory()->create(['status' => 'active']);
         $user->roles()->attach($adminRole->id);
+
         return $user;
     }
 
@@ -26,11 +27,11 @@ class PayrollApiTest extends TestCase
     {
         return PayrollPeriod::create([
             'company_id' => $company->id,
-            'code' => 'P' . uniqid(),
+            'code' => 'P'.uniqid(),
             'period_type' => 'monthly',
             'start_date' => '2026-05-01',
             'end_date' => '2026-05-31',
-            'status' => 'open'
+            'status' => 'open',
         ]);
     }
 
@@ -39,7 +40,7 @@ class PayrollApiTest extends TestCase
         $admin = $this->getAdminUser();
         $company = Company::factory()->create();
         $period = $this->createPeriod($company);
-        
+
         $payroll = Payroll::factory()->create([
             'company_id' => $company->id,
             'payroll_period_id' => $period->id,
@@ -48,7 +49,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/approve");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/approve");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -67,7 +68,7 @@ class PayrollApiTest extends TestCase
         $admin = $this->getAdminUser();
         $company = Company::factory()->create();
         $period = $this->createPeriod($company);
-        
+
         $payroll = Payroll::factory()->create([
             'company_id' => $company->id,
             'payroll_period_id' => $period->id,
@@ -76,7 +77,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/lock");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/lock");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -105,7 +106,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/approve");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/approve");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -127,7 +128,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/v1/payrolls/{$payroll->id}/lock");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/payrolls/{$payroll->id}/lock");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -150,7 +151,7 @@ class PayrollApiTest extends TestCase
             'locked_at' => now(),
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->putJson("/api/v1/payrolls/{$payroll->id}", [
+        $response = $this->actingAs($admin, 'sanctum')->putJson("/api/payrolls/{$payroll->id}", [
             'status' => 'approved',
         ]);
 
@@ -165,7 +166,7 @@ class PayrollApiTest extends TestCase
         $admin = $this->getAdminUser();
         $company = Company::factory()->create();
         $period = $this->createPeriod($company);
-        
+
         $payroll = Payroll::factory()->create([
             'company_id' => $company->id,
             'payroll_period_id' => $period->id,
@@ -175,7 +176,7 @@ class PayrollApiTest extends TestCase
             'locked_at' => now(),
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/v1/payrolls/{$payroll->id}");
+        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/payrolls/{$payroll->id}");
 
         // In a real strict implementation, you return 400 Bad Request or 403 Forbidden
         // Here we test if the validation constraint kicks in protecting the record.
@@ -184,7 +185,7 @@ class PayrollApiTest extends TestCase
         // Record should remain
         $this->assertDatabaseHas('payrolls', [
             'id' => $payroll->id,
-            'status' => 'locked'
+            'status' => 'locked',
         ]);
     }
 
@@ -193,7 +194,7 @@ class PayrollApiTest extends TestCase
         $admin = $this->getAdminUser();
         $company = Company::factory()->create();
         $period = $this->createPeriod($company);
-        
+
         $payroll = Payroll::factory()->create([
             'company_id' => $company->id,
             'payroll_period_id' => $period->id,
@@ -202,7 +203,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/v1/payrolls/{$payroll->id}");
+        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/payrolls/{$payroll->id}");
 
         $response->assertStatus(200);
 
@@ -216,7 +217,7 @@ class PayrollApiTest extends TestCase
         $admin = $this->getAdminUser();
         $company = Company::factory()->create();
         $period = $this->createPeriod($company);
-        
+
         $payroll = Payroll::factory()->create([
             'company_id' => $company->id,
             'payroll_period_id' => $period->id,
@@ -225,7 +226,7 @@ class PayrollApiTest extends TestCase
             'year' => 2026,
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->getJson("/api/v1/payrolls/{$payroll->id}/export");
+        $response = $this->actingAs($admin, 'sanctum')->getJson("/api/payrolls/{$payroll->id}/export");
 
         $response->assertStatus(200);
     }
@@ -233,8 +234,8 @@ class PayrollApiTest extends TestCase
     public function test_user_can_view_my_salary(): void
     {
         $user = User::factory()->create(['status' => 'active']);
-        
-        $response = $this->actingAs($user, 'sanctum')->getJson("/api/v1/payrolls/my-salary");
+
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/payrolls/my-salary');
 
         $response->assertStatus(200)
             ->assertJson([

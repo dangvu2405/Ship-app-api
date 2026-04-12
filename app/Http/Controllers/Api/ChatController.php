@@ -9,7 +9,6 @@ use App\Http\Requests\Chat\GetChatSessionsRequest;
 use App\Http\Requests\Chat\StoreChatMessageRequest;
 use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -26,6 +25,7 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Gửi tin nhắn chat và nhận phản hồi AI",
      *     security={{"bearerAuth":{}}},
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -46,6 +46,7 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Lịch sử chat theo session",
      *     security={{"bearerAuth":{}}},
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -68,6 +69,7 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Danh sách session chat",
      *     security={{"bearerAuth":{}}},
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -86,7 +88,9 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Xóa toàn bộ tin nhắn trong một session chat",
      *     security={{"bearerAuth":{}}},
+     *
      *     @OA\Parameter(name="sessionId", in="path", required=true, @OA\Schema(type="string")),
+     *
      *     @OA\Response(response=200, description="Thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy session")
      * )
@@ -108,6 +112,7 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Stream phản hồi chat theo SSE",
      *     security={{"bearerAuth":{}}},
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -135,7 +140,7 @@ class ChatController extends BaseController
                         flush();
                     }
                 } catch (Throwable $e) {
-                    echo 'event: error' . "\n";
+                    echo 'event: error'."\n";
                     echo 'data: '.json_encode([
                         'success' => false,
                         'message' => $e->getMessage(),

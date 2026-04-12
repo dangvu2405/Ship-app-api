@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -11,36 +11,17 @@ class AuthApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_requires_email_and_password(): void
-    {
-        $response = $this->postJson('/api/v1/auth/login', []);
-
-        $response->assertStatus(422);
-    }
-
-    public function test_login_with_invalid_credentials_fails(): void
-    {
-        $response = $this->postJson('/api/v1/auth/login', [
-            'email' => 'wrong@example.com',
-            'password' => 'wrongpassword',
-        ]);
-
-        $response->assertStatus(401)
-            ->assertJson([
-                'success' => false,
-            ]);
-    }
-
-    public function test_login_with_valid_credentials_returns_token(): void
+    public function test_v1_login_returns_token_and_user(): void
     {
         $user = User::factory()->create([
-            'email' => 'test@example.com',
-            'password' => bcrypt('password'),
+            'email' => 'login@example.com',
+            'password' => bcrypt('secret123'),
+            'status' => 'active',
         ]);
 
         $response = $this->postJson('/api/v1/auth/login', [
-            'email' => 'test@example.com',
-            'password' => 'password',
+            'email' => 'login@example.com',
+            'password' => 'secret123',
         ]);
 
         $response->assertStatus(200)
@@ -49,12 +30,43 @@ class AuthApiTest extends TestCase
                 'message' => 'Login successful',
             ])
             ->assertJsonStructure([
-                'success',
-                'message',
                 'data' => [
-                    'user',
+                    'user' => ['id', 'email'],
                     'token',
                 ],
+            ])
+            ->assertJsonPath('data.user.id', $user->id);
+    }
+
+    public function test_v1_login_returns_401_for_invalid_credentials(): void
+    {
+        User::factory()->create([
+            'email' => 'exists@example.com',
+            'password' => bcrypt('right'),
+            'status' => 'active',
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'exists@example.com',
+            'password' => 'wrong-password',
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJson([
+                'success' => false,
+            ]);
+    }
+
+    public function test_v1_login_returns_422_when_validation_fails(): void
+    {
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'not-an-email',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Validation failed',
             ]);
     }
 
@@ -187,5 +199,25 @@ class AuthApiTest extends TestCase
         ]);
 
         $response->assertStatus(403);
+    }
+
+    public function test_v1_auth_test_accounts_returns_list_in_testing_env(): void
+    {
+        User::factory()->create([
+            'email' => 'seeded@example.com',
+            'username' => 'seeded',
+            'status' => 'active',
+        ]);
+
+        $response = $this->getJson('/api/v1/auth/test-accounts');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'data' => [
+                    'accounts',
+                    'hint',
+                ],
+            ]);
     }
 }
