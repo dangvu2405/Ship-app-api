@@ -54,13 +54,13 @@ class TripsApiTest extends TestCase
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
-        $driver = Driver::factory()->create();
+        $driver = Driver::factory()->create(['office_id' => $office->id]);
         $customer = Customer::factory()->create();
 
         $response = $this->postJson('/api/v1/trips', [
             'customer_id' => $customer->id,
             'vehicle_id' => $vehicle->id,
-            'driver_id' => $driver->employee_id,
+            'driver_id' => $driver->id,
             'code' => 'TRP-001',
             'start_point' => 'HN',
             'end_point' => 'HCM',
@@ -84,12 +84,12 @@ class TripsApiTest extends TestCase
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
-        $driver = Driver::factory()->create();
+        $driver = Driver::factory()->create(['office_id' => $office->id]);
         $customer = Customer::factory()->create();
 
         $trip = Trip::factory()->create([
             'vehicle_id' => $vehicle->id,
-            'driver_id' => $driver->employee_id,
+            'driver_id' => $driver->id,
             'customer_id' => $customer->id,
             'status' => 'pending',
         ]);
@@ -110,12 +110,12 @@ class TripsApiTest extends TestCase
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
-        $driver = Driver::factory()->create();
+        $driver = Driver::factory()->create(['office_id' => $office->id]);
         $customer = Customer::factory()->create();
 
         $trip = Trip::factory()->create([
             'vehicle_id' => $vehicle->id,
-            'driver_id' => $driver->employee_id,
+            'driver_id' => $driver->id,
             'customer_id' => $customer->id,
             'status' => 'pending',
         ]);
@@ -139,17 +139,18 @@ class TripsApiTest extends TestCase
         $officeB = Office::factory()->create(['company_id' => $companyB->id]);
         $vehicleB = Vehicle::factory()->create(['office_id' => $officeB->id]);
 
-        $driver = Driver::factory()->create();
+        $driverA = Driver::factory()->create(['office_id' => $officeA->id]);
+        $driverB = Driver::factory()->create(['office_id' => $officeB->id]);
         $customer = Customer::factory()->create();
 
         $tripA = Trip::factory()->create([
             'vehicle_id' => $vehicleA->id,
-            'driver_id' => $driver->employee_id,
+            'driver_id' => $driverA->id,
             'customer_id' => $customer->id,
         ]);
         $tripB = Trip::factory()->create([
             'vehicle_id' => $vehicleB->id,
-            'driver_id' => $driver->employee_id,
+            'driver_id' => $driverB->id,
             'customer_id' => $customer->id,
         ]);
 

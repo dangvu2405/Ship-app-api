@@ -20,7 +20,7 @@ class StoreOfficeRequest extends FormRequest
             'code' => 'required|string|max:50',
             'name' => 'required|string|max:255',
             'address' => 'nullable|string',
-            'manager_id' => 'nullable|exists:employees,id',
+            'manager_id' => 'nullable|exists:drivers,id',
         ];
     }
 }

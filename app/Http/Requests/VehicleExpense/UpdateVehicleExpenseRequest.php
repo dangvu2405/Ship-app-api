@@ -17,7 +17,7 @@ class UpdateVehicleExpenseRequest extends FormRequest
     {
         return [
             'vehicle_id' => 'sometimes|exists:vehicles,id',
-            'driver_id' => 'nullable|exists:employees,id',
+            'driver_id' => 'nullable|exists:drivers,id',
             'type' => 'sometimes|in:fuel,maintenance,repair,toll,parking,other',
             'amount' => 'sometimes|numeric|min:0',
             'note' => 'nullable|string',

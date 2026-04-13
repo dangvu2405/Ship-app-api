@@ -16,7 +16,7 @@ trait HasIndexQuery
      *
      * @param  array  $searchable  Column names for keyword/q/search search (e.g. ['code', 'name'])
      * @param  array  $filterable  Request param => column name (e.g. ['office_id' => 'office_id'])
-     * @param  Closure(Builder, string): void|null  $keywordFilter  Optional; when set, replaces default LIKE on $searchable (e.g. driver + employee name).
+     * @param  Closure(Builder, string): void|null  $keywordFilter  Optional; when set, replaces default LIKE on $searchable (e.g. driver name).
      * @return array{data: \Illuminate\Support\Collection, meta: array}
      */
     protected function indexQuery(Request $request, Builder $query, array $searchable = [], array $filterable = [], ?Closure $keywordFilter = null): array
@@ -51,9 +51,16 @@ trait HasIndexQuery
         // Sort (whitelist allowed columns to avoid SQL injection)
         $allowedSortColumns = $this->allowedSortColumns ?? ['id'];
         if (in_array($sortBy, $allowedSortColumns, true)) {
-            $query->orderBy($sortBy, $sortOrder);
+            // Qualify with base table (e.g. `payrolls`.`year`) so MySQL reserved words / joins stay safe.
+            $sortColumn = method_exists($query, 'qualifyColumn')
+                ? $query->qualifyColumn($sortBy)
+                : $sortBy;
+            $query->orderBy($sortColumn, $sortOrder);
         } else {
-            $query->orderBy('id', $sortOrder);
+            $fallback = method_exists($query, 'qualifyColumn')
+                ? $query->qualifyColumn('id')
+                : 'id';
+            $query->orderBy($fallback, $sortOrder);
         }
 
         $paginator = $query->paginate($perPage);

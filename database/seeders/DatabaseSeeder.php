@@ -3,29 +3,22 @@
 namespace Database\Seeders;
 
 use App\Models\Company;
-use App\Models\Office;
 use App\Models\Department;
-use App\Models\Position;
-use App\Models\Employee;
 use App\Models\Driver;
-use App\Models\User;
+use App\Models\Office;
+use App\Models\Position;
 use App\Models\Role;
-use App\Models\Permission;
-use App\Models\Allowance;
-use App\Models\Deduction;
-use App\Models\Vehicle;
 use App\Models\TripBonusRule;
+use App\Models\User;
+use App\Models\Vehicle;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // Create Company
         $company = Company::create([
             'code' => 'COMP001',
             'name' => 'ABC Transport Company',
@@ -36,7 +29,6 @@ class DatabaseSeeder extends Seeder
             'status' => 'active',
         ]);
 
-        // Create Office
         $office = Office::create([
             'company_id' => $company->id,
             'code' => 'OFF001',
@@ -44,7 +36,6 @@ class DatabaseSeeder extends Seeder
             'address' => '123 Main Street, City',
         ]);
 
-        // Create Departments
         $hrDept = Department::create([
             'office_id' => $office->id,
             'code' => 'HR',
@@ -57,7 +48,6 @@ class DatabaseSeeder extends Seeder
             'name' => 'Fleet Management',
         ]);
 
-        // Create Positions
         $managerPosition = Position::create([
             'code' => 'MGR',
             'name' => 'Manager',
@@ -72,16 +62,9 @@ class DatabaseSeeder extends Seeder
             'level' => 2,
         ]);
 
-        $staffPosition = Position::create([
-            'code' => 'STF',
-            'name' => 'Staff',
-            'base_salary' => 6000000,
-            'level' => 1,
-        ]);
-
-        // Create Employees
-        $manager = Employee::create([
-            'code' => 'EMP001',
+        // Create Drivers
+        $managerDriver = Driver::create([
+            'code' => 'DRV001',
             'name' => 'John Manager',
             'email' => 'john.manager@abctransport.com',
             'phone' => '0912345678',
@@ -91,13 +74,16 @@ class DatabaseSeeder extends Seeder
             'office_id' => $office->id,
             'department_id' => $hrDept->id,
             'position_id' => $managerPosition->id,
-            'type' => 'office',
             'status' => 'active',
             'join_date' => '2020-01-01',
+            'license_no' => 'DL000001',
+            'license_class' => 'B2',
+            'expired_date' => '2027-12-31',
+            'available_status' => 'available',
         ]);
 
-        $driver1 = Employee::create([
-            'code' => 'EMP002',
+        $driver1 = Driver::create([
+            'code' => 'DRV002',
             'name' => 'Mike Driver',
             'email' => 'mike.driver@abctransport.com',
             'phone' => '0912345679',
@@ -107,61 +93,66 @@ class DatabaseSeeder extends Seeder
             'office_id' => $office->id,
             'department_id' => $fleetDept->id,
             'position_id' => $driverPosition->id,
-            'type' => 'driver',
             'status' => 'active',
             'join_date' => '2021-03-01',
-        ]);
-
-        $staff1 = Employee::create([
-            'code' => 'EMP003',
-            'name' => 'Jane Staff',
-            'email' => 'jane.staff@abctransport.com',
-            'phone' => '0912345680',
-            'dob' => '1990-08-10',
-            'gender' => 'female',
-            'address' => '321 Staff Street',
-            'office_id' => $office->id,
-            'department_id' => $hrDept->id,
-            'position_id' => $staffPosition->id,
-            'type' => 'office',
-            'status' => 'active',
-            'join_date' => '2022-06-01',
-        ]);
-
-        $hr1 = Employee::create([
-            'code' => 'EMP004',
-            'name' => 'Helen HR',
-            'email' => 'helen.hr@abctransport.com',
-            'phone' => '0912345681',
-            'dob' => '1988-10-10',
-            'gender' => 'female',
-            'address' => '444 HR Street',
-            'office_id' => $office->id,
-            'department_id' => $hrDept->id,
-            'position_id' => $staffPosition->id,
-            'type' => 'office',
-            'status' => 'active',
-            'join_date' => '2022-01-01',
-        ]);
-
-        // Create Driver
-        Driver::create([
-            'employee_id' => $driver1->id,
             'license_no' => 'DL123456',
             'license_class' => 'B2',
             'expired_date' => '2025-12-31',
             'available_status' => 'available',
         ]);
 
-        // Update Office Manager
-        $office->update(['manager_id' => $manager->id]);
+        $office->update(['manager_id' => $managerDriver->id]);
+
+        // Công ty thứ 2 + tài xế (để filter company_id=2 trên UI / API demo)
+        $company2 = Company::create([
+            'code' => 'COMP002',
+            'name' => 'XYZ Logistics Demo',
+            'tax_code' => '9876543210',
+            'address' => '456 Industrial Zone',
+            'phone' => '0283999888',
+            'email' => 'contact@xyzlogistics.demo',
+            'status' => 'active',
+        ]);
+        $office2 = Office::create([
+            'company_id' => $company2->id,
+            'code' => 'OFF002',
+            'name' => 'Chi nhánh Nam',
+            'address' => '456 Industrial Zone',
+        ]);
+        $fleetDept2 = Department::create([
+            'office_id' => $office2->id,
+            'code' => 'FLEET-S',
+            'name' => 'Fleet Miền Nam',
+        ]);
+        $phones = ['0912000201', '0912000202', '0912000203'];
+        $i = 0;
+        foreach (['DRV201' => 'An Driver', 'DRV202' => 'Binh Driver', 'DRV203' => 'Cuong Driver'] as $code => $name) {
+            Driver::create([
+                'code' => $code,
+                'name' => $name,
+                'email' => strtolower($code).'@xyzlogistics.demo',
+                'phone' => $phones[$i++],
+                'dob' => '1990-06-01',
+                'gender' => 'male',
+                'address' => 'TP.HCM',
+                'office_id' => $office2->id,
+                'department_id' => $fleetDept2->id,
+                'position_id' => $driverPosition->id,
+                'status' => 'active',
+                'join_date' => '2022-01-10',
+                'license_no' => 'DL-'.$code,
+                'license_class' => 'C',
+                'expired_date' => '2028-12-31',
+                'available_status' => 'available',
+            ]);
+        }
 
         // Create Users
         $adminUser = User::create([
             'username' => 'admin',
             'email' => 'admin@abctransport.com',
             'password' => Hash::make('password'),
-            'employee_id' => $manager->id,
+            'driver_id' => $managerDriver->id,
             'status' => 'active',
         ]);
 
@@ -169,39 +160,20 @@ class DatabaseSeeder extends Seeder
             'username' => 'driver1',
             'email' => 'driver1@abctransport.com',
             'password' => Hash::make('password'),
-            'employee_id' => $driver1->id,
+            'driver_id' => $driver1->id,
             'status' => 'active',
         ]);
 
-        $hrUser = User::create([
-            'username' => 'hr_admin',
-            'email' => 'hr@abctransport.com',
-            'password' => Hash::make('password'),
-            'employee_id' => $hr1->id,
-            'status' => 'active',
-        ]);
-
-        $staffUser = User::create([
-            'username' => 'staff1',
-            'email' => 'staff1@abctransport.com',
-            'password' => Hash::make('password'),
-            'employee_id' => $staff1->id,
-            'status' => 'active',
-        ]);
-
-        // Roles and permissions (full spec: run RolesAndPermissionsSeeder)
+        // Roles and permissions
         $this->call(RolesAndPermissionsSeeder::class);
 
         $adminRole = Role::where('name', 'admin')->first();
         $managerRole = Role::where('name', 'manager')->first();
-        $hrRole = Role::where('name', 'hr')->first();
-        $staffRole = Role::where('name', 'staff')->first();
         $driverRole = Role::firstOrCreate(
             ['name' => 'driver'],
             ['description' => 'Driver']
         );
 
-        // Assign Roles to seeded users
         if ($adminRole && ! $adminUser->roles()->where('name', 'admin')->exists()) {
             $adminUser->roles()->attach($adminRole->id);
         }
@@ -211,40 +183,8 @@ class DatabaseSeeder extends Seeder
         if ($driverRole && ! $driverUser->roles()->where('name', 'driver')->exists()) {
             $driverUser->roles()->attach($driverRole->id);
         }
-        if ($hrRole && ! $hrUser->roles()->where('name', 'hr')->exists()) {
-            $hrUser->roles()->attach($hrRole->id);
-        }
-        if ($staffRole && ! $staffUser->roles()->where('name', 'staff')->exists()) {
-            $staffUser->roles()->attach($staffRole->id);
-        }
 
-        // Create Allowances
-        Allowance::create([
-            'code' => 'ALL001',
-            'name' => 'Transport Allowance',
-            'default_amount' => 500000,
-            'taxable' => false,
-        ]);
-
-        Allowance::create([
-            'code' => 'ALL002',
-            'name' => 'Meal Allowance',
-            'default_amount' => 300000,
-            'taxable' => false,
-        ]);
-
-        // Create Deductions
-        Deduction::create([
-            'code' => 'DED001',
-            'name' => 'Social Insurance',
-        ]);
-
-        Deduction::create([
-            'code' => 'DED002',
-            'name' => 'Health Insurance',
-        ]);
-
-        // Create Vehicles
+        // Create Vehicle
         Vehicle::create([
             'office_id' => $office->id,
             'plate_number' => '29A-12345',
@@ -257,31 +197,15 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Create Trip Bonus Rules
-        TripBonusRule::create([
-            'min_km' => 0,
-            'max_km' => 1000,
-            'bonus_per_km' => 1000,
-        ]);
+        TripBonusRule::create(['min_km' => 0, 'max_km' => 1000, 'bonus_per_km' => 1000]);
+        TripBonusRule::create(['min_km' => 1001, 'max_km' => 2000, 'bonus_per_km' => 1500]);
+        TripBonusRule::create(['min_km' => 2001, 'max_km' => null, 'bonus_per_km' => 2000]);
 
-        TripBonusRule::create([
-            'min_km' => 1001,
-            'max_km' => 2000,
-            'bonus_per_km' => 1500,
-        ]);
-
-        TripBonusRule::create([
-            'min_km' => 2001,
-            'max_km' => null,
-            'bonus_per_km' => 2000,
-        ]);
-
-        // Seed the remaining business/system tables so every table has data.
         $this->call(AllTablesSeeder::class);
-
-        // MUST HAVE reference data (leave types, tax, insurance, COA, demo payroll/GL/status rows).
         $this->call(SpecReferenceDataSeeder::class);
 
-        // Uncomment the line below to seed 1000 records for all tables
-        // $this->call(BulkDataSeeder::class);
+        if (Schema::hasTable('payrolls')) {
+            $this->call(DriverPayrollBulkSeeder::class);
+        }
     }
 }

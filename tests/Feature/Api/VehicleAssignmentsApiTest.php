@@ -3,13 +3,12 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Company;
+use App\Models\Driver;
 use App\Models\Office;
-use App\Models\Vehicle;
-use App\Models\Employee;
-use App\Models\VehicleAssignment;
-use App\Models\VehicleExpense;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Models\VehicleAssignment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -45,7 +44,7 @@ class VehicleAssignmentsApiTest extends TestCase
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
-        $driver = Employee::factory()->create(['type' => 'driver']);
+        $driver = Driver::factory()->create(['office_id' => $office->id]);
 
         $response = $this->postJson('/api/v1/vehicle_assignments', [
             'vehicle_id' => $vehicle->id,
@@ -65,7 +64,7 @@ class VehicleAssignmentsApiTest extends TestCase
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
-        $driver = Employee::factory()->create(['type' => 'driver']);
+        $driver = Driver::factory()->create(['office_id' => $office->id]);
 
         $va = VehicleAssignment::factory()->create([
             'vehicle_id' => $vehicle->id,

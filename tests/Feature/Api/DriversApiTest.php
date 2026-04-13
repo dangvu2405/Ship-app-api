@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Driver;
-use App\Models\Employee;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -40,10 +39,15 @@ class DriversApiTest extends TestCase
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $employee = Employee::factory()->create(['type' => 'driver']);
+        $driver = Driver::factory()->make();
 
         $response = $this->postJson('/api/v1/drivers', [
-            'employee_id' => $employee->id,
+            'code' => 'DRV-TEST-001',
+            'name' => 'Test Driver',
+            'office_id' => $driver->office_id,
+            'position_id' => $driver->position_id,
+            'status' => 'active',
+            'join_date' => '2024-01-01',
             'license_no' => 'DL-TEST-001',
             'license_class' => 'C',
             'expired_date' => '2028-12-31',

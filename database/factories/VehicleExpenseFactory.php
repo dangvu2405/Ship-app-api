@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\Vehicle;
-use App\Models\Employee;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -19,7 +18,7 @@ class VehicleExpenseFactory extends Factory
             'type' => fake()->randomElement(['fuel', 'maintenance', 'repair', 'toll', 'parking', 'other']),
             'amount' => fake()->randomFloat(2, 50000, 10000000),
             'note' => fake()->optional(0.6)->sentence(),
-            'expense_date' => fake()->date('Y-m-d', '-1 year', 'now'),
+            'expense_date' => fake()->date('Y-m-d', '-1 year'),
         ];
     }
 }

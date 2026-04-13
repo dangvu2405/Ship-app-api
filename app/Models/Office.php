@@ -28,7 +28,7 @@ class Office extends Model
 
     public function manager(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'manager_id');
+        return $this->belongsTo(Driver::class, 'manager_id');
     }
 
     public function departments(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -36,9 +36,9 @@ class Office extends Model
         return $this->hasMany(Department::class);
     }
 
-    public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function drivers(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Employee::class);
+        return $this->hasMany(Driver::class);
     }
 
     public function vehicles(): \Illuminate\Database\Eloquent\Relations\HasMany

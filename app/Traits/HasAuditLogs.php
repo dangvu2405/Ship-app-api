@@ -36,14 +36,23 @@ trait HasAuditLogs
         // Don't log if running from console/seeder sometimes
         $userId = auth()->id() ?? null;
 
+        $companyId = null;
+        if ($model->offsetExists('company_id')) {
+            $raw = $model->getAttribute('company_id');
+            $companyId = $raw !== null ? (int) $raw : null;
+        }
+
         AuditLog::create([
             'user_id' => $userId,
+            'company_id' => $companyId,
             'action' => $action,
             'table_name' => $model->getTable(),
             'record_id' => $model->getKey(),
             'old_data' => empty($oldValues) ? null : $oldValues,
             'new_data' => empty($newValues) ? null : $newValues,
             'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent() !== null ? substr((string) request()->userAgent(), 0, 512) : null,
+            'request_id' => request()->header('X-Request-Id'),
         ]);
     }
 }

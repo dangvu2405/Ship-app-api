@@ -26,7 +26,7 @@ class User extends Authenticatable
         'email',
         'avatar_url',
         'password',
-        'employee_id',
+        'driver_id',
         'status',
         'last_login_at',
         'emergency_contact_name',
@@ -59,9 +59,9 @@ class User extends Authenticatable
     }
 
     // Relationships
-    public function employee(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function driver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(Employee::class);
+        return $this->belongsTo(Driver::class);
     }
 
     public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany

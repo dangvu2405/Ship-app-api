@@ -27,11 +27,6 @@ class BusinessAiAdvisorService
         $companyId = isset($input['company_id']) ? (int) $input['company_id'] : null;
 
         $dashboardData = $this->reportService->getDashboardData($month, $year);
-        $payrollSummary = null;
-
-        if ($companyId !== null) {
-            $payrollSummary = $this->reportService->getPayrollSummaryData($companyId, $month, $year);
-        }
 
         $prompt = $this->buildPrompt(
             task: $task,
@@ -40,7 +35,6 @@ class BusinessAiAdvisorService
             month: $month,
             year: $year,
             dashboardData: $dashboardData,
-            payrollSummary: $payrollSummary,
             question: isset($input['question']) ? (string) $input['question'] : null,
             context: isset($input['context']) && is_array($input['context']) ? $input['context'] : []
         );
@@ -72,14 +66,12 @@ class BusinessAiAdvisorService
             ],
             'source_metrics' => [
                 'dashboard' => $dashboardData,
-                'payroll_summary' => $payrollSummary,
             ],
         ];
     }
 
     /**
      * @param array<string, mixed> $dashboardData
-     * @param array<string, mixed>|null $payrollSummary
      * @param array<string, mixed> $context
      */
     private function buildPrompt(
@@ -89,7 +81,6 @@ class BusinessAiAdvisorService
         int $month,
         int $year,
         array $dashboardData,
-        ?array $payrollSummary,
         ?string $question,
         array $context
     ): string {
@@ -113,13 +104,12 @@ class BusinessAiAdvisorService
             'tone' => $tone,
             'period' => ['month' => $month, 'year' => $year],
             'dashboard_data' => $dashboardData,
-            'payroll_summary' => $payrollSummary,
             'extra_context' => $context,
             'user_question' => $question,
         ];
 
         return implode("\n\n", [
-            'Bạn là Business AI Advisor cho hệ thống vận hành logistics + payroll.',
+            'Bạn là Business AI Advisor cho hệ thống quản lý vận tải và tài xế.',
             'Mục tiêu: đưa ra insight có thể hành động ngay, ưu tiên hiệu quả vận hành, kiểm soát chi phí, và chất lượng dịch vụ.',
             'Yêu cầu bắt buộc: chỉ trả về JSON hợp lệ, không markdown, không giải thích ngoài JSON.',
             'Schema JSON phải theo đúng cấu trúc sau: ' . json_encode($jsonSchema, JSON_UNESCAPED_UNICODE),

@@ -25,8 +25,8 @@ class Position extends Model
     ];
 
     // Relationships
-    public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function drivers(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Employee::class);
+        return $this->hasMany(Driver::class);
     }
 }

@@ -73,7 +73,7 @@ class TripBonusRulesApiTest extends TestCase
             'bonus_per_km' => 900,
         ]);
 
-        $response = $this->putJson('/api/trip_bonus_rules/'.$rule->id, [
+        $response = $this->putJson('/api/trip_bonus_rules/' . $rule->id, [
             'min_km' => 101,
             'max_km' => 300,
             'bonus_per_km' => 1500,
@@ -112,7 +112,7 @@ class TripBonusRulesApiTest extends TestCase
 
         $rule = TripBonusRule::factory()->create();
 
-        $response = $this->deleteJson('/api/trip_bonus_rules/'.$rule->id);
+        $response = $this->deleteJson('/api/trip_bonus_rules/' . $rule->id);
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('trip_bonus_rules', ['id' => $rule->id]);

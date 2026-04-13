@@ -26,7 +26,7 @@ class AuthService
 
         $token = $user->createToken('auth-token')->plainTextToken;
         $user->update(['last_login_at' => now()]);
-        $user->load(['employee', 'roles.permissions']);
+        $user->load(['driver', 'roles.permissions']);
 
         return [
             'user' => $user,
@@ -45,7 +45,7 @@ class AuthService
 
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $user->roles()->syncWithoutDetaching([$adminRole->id]);
-        $user->load(['employee', 'roles.permissions']);
+        $user->load(['driver', 'roles.permissions']);
 
         return $user;
     }

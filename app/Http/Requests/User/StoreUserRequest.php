@@ -21,7 +21,7 @@ class StoreUserRequest extends FormRequest
             'email' => 'required|email|unique:users,email',
             'avatar_url' => 'nullable|url|max:255',
             'password' => ['required', 'string', Password::min(6)],
-            'employee_id' => 'nullable|exists:employees,id',
+            'driver_id' => 'nullable|exists:drivers,id',
             'status' => 'required|in:active,inactive',
             'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_phone' => 'nullable|string|max:20|regex:/^0[0-9]{9,10}$/',

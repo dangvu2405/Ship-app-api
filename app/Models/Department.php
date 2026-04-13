@@ -35,8 +35,8 @@ class Department extends Model
         return $this->hasMany(Department::class, 'parent_id');
     }
 
-    public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function drivers(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Employee::class);
+        return $this->hasMany(Driver::class);
     }
 }

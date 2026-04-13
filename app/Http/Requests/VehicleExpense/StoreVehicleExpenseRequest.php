@@ -17,7 +17,7 @@ class StoreVehicleExpenseRequest extends FormRequest
     {
         return [
             'vehicle_id' => 'required|exists:vehicles,id',
-            'driver_id' => 'nullable|exists:employees,id',
+            'driver_id' => 'nullable|exists:drivers,id',
             'type' => 'required|in:fuel,maintenance,repair,toll,parking,other',
             'amount' => 'required|numeric|min:0',
             'note' => 'nullable|string',

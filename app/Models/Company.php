@@ -36,9 +36,5 @@ class Company extends Model
     {
         return $this->hasMany(Payroll::class);
     }
-
-    public function payrollPeriods(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(PayrollPeriod::class);
-    }
 }
+

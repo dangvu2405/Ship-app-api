@@ -18,7 +18,6 @@ class ReportsApiTest extends TestCase
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $user = User::factory()->create(['status' => 'active']);
         $user->roles()->attach($adminRole->id);
-
         return $user;
     }
 
@@ -54,7 +53,7 @@ class ReportsApiTest extends TestCase
 
         $company = Company::factory()->create();
 
-        $response = $this->getJson('/api/reports/payroll-summary?company_id='.$company->id.'&month=3&year=2026');
+        $response = $this->getJson('/api/reports/payroll-summary?company_id=' . $company->id . '&month=3&year=2026');
 
         $response->assertStatus(200)
             ->assertJson(['success' => true]);

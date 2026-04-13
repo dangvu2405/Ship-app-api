@@ -16,7 +16,7 @@ class StorePayrollRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'company_id' => 'required|exists:companies,id',
+            'company_id' => 'required|integer|exists:companies,id',
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:2000|max:2100',
         ];

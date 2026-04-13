@@ -9,8 +9,7 @@ use Illuminate\Database\Seeder;
 class RolesAndPermissionsSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
-     * Spec: admin=all, hr=payrolls+employees+attendances, manager=trips+vehicles+drivers, staff=view own.
+     * Spec: admin=all, manager=trips+vehicles+drivers, staff=view own.
      */
     public function run(): void
     {
@@ -20,7 +19,6 @@ class RolesAndPermissionsSeeder extends Seeder
             'offices' => 'Offices',
             'departments' => 'Departments',
             'positions' => 'Positions',
-            'employees' => 'Employees',
             'drivers' => 'Drivers',
             'vehicles' => 'Vehicles',
             'vehicle_assignments' => 'Vehicle assignments',
@@ -28,14 +26,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'trips' => 'Trips',
             'customers' => 'Customers',
             'invoices' => 'Invoices',
-            'payrolls' => 'Payrolls',
-            'allowances' => 'Allowances',
-            'deductions' => 'Deductions',
-            'attendances' => 'Attendances',
             'users' => 'Users',
             'roles' => 'Roles',
             'permissions' => 'Permissions',
             'reports' => 'Reports',
+            'payrolls' => 'Payrolls (driver MVP)',
         ];
 
         $permissions = [];
@@ -50,10 +45,6 @@ class RolesAndPermissionsSeeder extends Seeder
             ['name' => 'admin'],
             ['description' => 'Administrator - full access']
         );
-        $hrRole = Role::firstOrCreate(
-            ['name' => 'hr'],
-            ['description' => 'HR - payroll, employee, attendance']
-        );
         $managerRole = Role::firstOrCreate(
             ['name' => 'manager'],
             ['description' => 'Manager - trip, vehicle, driver (own office)']
@@ -64,14 +55,6 @@ class RolesAndPermissionsSeeder extends Seeder
         );
 
         $adminRole->permissions()->sync(Permission::pluck('id'));
-
-        $hrRole->permissions()->sync([
-            $permissions['payrolls']->id,
-            $permissions['employees']->id,
-            $permissions['attendances']->id,
-            $permissions['allowances']->id,
-            $permissions['deductions']->id,
-        ]);
 
         $managerRole->permissions()->sync([
             $permissions['trips']->id,

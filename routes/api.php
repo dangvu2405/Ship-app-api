@@ -104,12 +104,12 @@ Route::get('/', function () {
 Route::get('/health', $healthResponse);
 
 // Authentication routes (legacy public)
-Route::prefix('auth')->group(function (): void {
+Route::prefix('auth')->group(function () {
     Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
-    if (app()->environment('local', 'testing') || (bool) config('ship.expose_test_accounts', false)) {
-        Route::get('/test-accounts', [\App\Http\Controllers\Api\AuthController::class, 'testAccounts']);
-    }
 });
+
+// Lark webhook/event entrypoint
+Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
 
 // Protected routes: authenticated users (legacy)
 Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
@@ -121,13 +121,18 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
 Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes): void {
     Route::get('/health', $healthResponse);
 
-    Route::prefix('auth')->group(function (): void {
-        Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
-        if (app()->environment('local', 'testing') || (bool) config('ship.expose_test_accounts', false)) {
-            Route::get('/test-accounts', [\App\Http\Controllers\Api\AuthController::class, 'testAccounts']);
-        }
+    // Versioned alias for Lark webhook/event entrypoint.
+    Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
+
+    // Lark OAuth login flow (API-first)
+    Route::prefix('lark/oauth')->group(function (): void {
+        Route::get('/redirect', [\App\Http\Controllers\Api\LarkAuthController::class, 'redirect']);
+        Route::match(['get', 'post'], '/callback', [\App\Http\Controllers\Api\LarkAuthController::class, 'callback']);
     });
 
     Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
     Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
 });
+
+// Backward-compatible OAuth callback alias
+Route::match(['get', 'post'], '/callback/lark', [\App\Http\Controllers\Api\LarkAuthController::class, 'callback']);

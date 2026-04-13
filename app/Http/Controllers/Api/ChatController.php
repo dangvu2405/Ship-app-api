@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\Chat\GetChatMessagesRequest;
-use App\Http\Requests\Chat\GetChatSessionsRequest;
 use App\Http\Requests\Chat\StoreChatMessageRequest;
 use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -25,7 +24,6 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Gửi tin nhắn chat và nhận phản hồi AI",
      *     security={{"bearerAuth":{}}},
-     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -46,13 +44,15 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Lịch sử chat theo session",
      *     security={{"bearerAuth":{}}},
-     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function index(GetChatMessagesRequest $request): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'session_id' => ['required', 'string', 'max:64'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
 
         $result = $this->chatService->listMessages(
             $request->user(),
@@ -69,13 +69,14 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Danh sách session chat",
      *     security={{"bearerAuth":{}}},
-     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function sessions(GetChatSessionsRequest $request): JsonResponse
+    public function sessions(Request $request): JsonResponse
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
 
         $sessions = $this->chatService->listSessions($request->user(), (int) ($validated['limit'] ?? 20));
 
@@ -88,9 +89,7 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Xóa toàn bộ tin nhắn trong một session chat",
      *     security={{"bearerAuth":{}}},
-     *
      *     @OA\Parameter(name="sessionId", in="path", required=true, @OA\Schema(type="string")),
-     *
      *     @OA\Response(response=200, description="Thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy session")
      * )
@@ -112,7 +111,6 @@ class ChatController extends BaseController
      *     tags={"Chat"},
      *     summary="Stream phản hồi chat theo SSE",
      *     security={{"bearerAuth":{}}},
-     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -140,7 +138,7 @@ class ChatController extends BaseController
                         flush();
                     }
                 } catch (Throwable $e) {
-                    echo 'event: error'."\n";
+                    echo 'event: error' . "\n";
                     echo 'data: '.json_encode([
                         'success' => false,
                         'message' => $e->getMessage(),

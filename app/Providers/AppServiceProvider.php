@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\Route;
+use App\Models\Payroll;
+use App\Models\PayrollLine;
+use App\Models\Trip;
+use App\Observers\PayrollLineObserver;
+use App\Observers\PayrollObserver;
+use App\Observers\TripObserver;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -14,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(TenantContext::class, static fn (): TenantContext => new TenantContext);
     }
 
     /**
@@ -22,14 +28,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Trip::observe(TripObserver::class);
+        Payroll::observe(PayrollObserver::class);
+        PayrollLine::observe(PayrollLineObserver::class);
+
         // Ghi lại Log Login
         \Illuminate\Support\Facades\Event::listen(
             \Illuminate\Auth\Events\Login::class,
             \App\Listeners\LogSuccessfulLogin::class
         );
-        // Register Clean Architecture API routes (v2)
-        Route::prefix('api')
-            ->middleware('api')
-            ->group(base_path('routes/api_v2.php'));
     }
 }

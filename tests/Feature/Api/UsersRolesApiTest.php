@@ -2,9 +2,9 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
-use App\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -20,8 +20,6 @@ class UsersRolesApiTest extends TestCase
         $user->roles()->attach($adminRole->id);
         return $user;
     }
-
-    // ========== Users CRUD ==========
 
     public function test_users_index_returns_paginated_list(): void
     {
@@ -75,8 +73,6 @@ class UsersRolesApiTest extends TestCase
         $response->assertStatus(200);
     }
 
-    // ========== Roles CRUD ==========
-
     public function test_roles_index_returns_list(): void
     {
         $admin = $this->getAdminUser();
@@ -101,16 +97,14 @@ class UsersRolesApiTest extends TestCase
         $this->assertDatabaseHas('roles', ['name' => 'manager']);
     }
 
-    // ========== Sync Permissions ==========
-
     public function test_admin_can_sync_permissions(): void
     {
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
         $role = Role::create(['name' => 'test_role']);
-        $perm1 = Permission::firstOrCreate(['code' => 'payroll.approve', 'name' => 'Approve Payroll']);
-        $perm2 = Permission::firstOrCreate(['code' => 'payroll.lock', 'name' => 'Lock Payroll']);
+        $perm1 = Permission::firstOrCreate(['code' => 'drivers.manage', 'name' => 'Manage Drivers']);
+        $perm2 = Permission::firstOrCreate(['code' => 'trips.manage', 'name' => 'Manage Trips']);
 
         $response = $this->postJson('/api/v1/roles/' . $role->id . '/permissions', [
             'permission_ids' => [$perm1->id, $perm2->id],

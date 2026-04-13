@@ -50,7 +50,7 @@ class BulkDataSeeder extends Seeder
         // 1. Companies (100)
         $this->command->info('Seeding Companies...');
         $companies = Company::factory()->count($count)->create();
-        $this->command->info('✓ Companies seeded: '.$companies->count());
+        $this->command->info('✓ Companies seeded: ' . $companies->count());
 
         // 2. Offices (100)
         $this->command->info('Seeding Offices...');
@@ -61,7 +61,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $offices->push($office);
         }
-        $this->command->info('✓ Offices seeded: '.$offices->count());
+        $this->command->info('✓ Offices seeded: ' . $offices->count());
 
         // 3. Departments (100)
         $this->command->info('Seeding Departments...');
@@ -72,12 +72,12 @@ class BulkDataSeeder extends Seeder
             ]);
             $departments->push($dept);
         }
-        $this->command->info('✓ Departments seeded: '.$departments->count());
+        $this->command->info('✓ Departments seeded: ' . $departments->count());
 
         // 4. Positions (100)
         $this->command->info('Seeding Positions...');
         $positions = Position::factory()->count($count)->create();
-        $this->command->info('✓ Positions seeded: '.$positions->count());
+        $this->command->info('✓ Positions seeded: ' . $positions->count());
 
         // 5. Employees (100)
         $this->command->info('Seeding Employees...');
@@ -90,7 +90,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $employees->push($employee);
         }
-        $this->command->info('✓ Employees seeded: '.$employees->count());
+        $this->command->info('✓ Employees seeded: ' . $employees->count());
 
         // 6. Drivers (100)
         $this->command->info('Seeding Drivers...');
@@ -112,7 +112,7 @@ class BulkDataSeeder extends Seeder
             $driver = Driver::factory()->create(['employee_id' => $employee->id]);
             $drivers->push($driver);
         }
-        $this->command->info('✓ Drivers seeded: '.$drivers->count());
+        $this->command->info('✓ Drivers seeded: ' . $drivers->count());
 
         // 7. Users (100)
         $this->command->info('Seeding Users...');
@@ -121,31 +121,31 @@ class BulkDataSeeder extends Seeder
             $user = User::factory()->create(['employee_id' => $employee->id]);
             $users->push($user);
         }
-        $this->command->info('✓ Users seeded: '.$users->count());
+        $this->command->info('✓ Users seeded: ' . $users->count());
 
         // 8. Roles (100)
         $this->command->info('Seeding Roles...');
         $existingRoles = Role::query()->count();
         for ($i = $existingRoles + 1; $i <= $count; $i++) {
             Role::query()->firstOrCreate(
-                ['name' => 'role_'.$i],
-                ['description' => 'Auto seeded role '.$i]
+                ['name' => 'role_' . $i],
+                ['description' => 'Auto seeded role ' . $i]
             );
         }
         $roles = Role::query()->get();
-        $this->command->info('✓ Roles seeded: '.$roles->count());
+        $this->command->info('✓ Roles seeded: ' . $roles->count());
 
         // 9. Permissions (100)
         $this->command->info('Seeding Permissions...');
         $existingPermissions = Permission::query()->count();
         for ($i = $existingPermissions + 1; $i <= $count; $i++) {
             Permission::query()->firstOrCreate(
-                ['code' => 'resource_'.$i.'.manage'],
-                ['name' => 'Permission '.$i, 'description' => 'Auto seeded permission '.$i]
+                ['code' => 'resource_' . $i . '.manage'],
+                ['name' => 'Permission ' . $i, 'description' => 'Auto seeded permission ' . $i]
             );
         }
         $permissions = Permission::query()->get();
-        $this->command->info('✓ Permissions seeded: '.$permissions->count());
+        $this->command->info('✓ Permissions seeded: ' . $permissions->count());
 
         // 10. Role-Permission pivot (100)
         $this->command->info('Seeding Role-Permissions...');
@@ -168,12 +168,12 @@ class BulkDataSeeder extends Seeder
         // 12. Allowances (100)
         $this->command->info('Seeding Allowances...');
         $allowances = Allowance::factory()->count($count)->create();
-        $this->command->info('✓ Allowances seeded: '.$allowances->count());
+        $this->command->info('✓ Allowances seeded: ' . $allowances->count());
 
         // 13. Deductions (100)
         $this->command->info('Seeding Deductions...');
         $deductions = Deduction::factory()->count($count)->create();
-        $this->command->info('✓ Deductions seeded: '.$deductions->count());
+        $this->command->info('✓ Deductions seeded: ' . $deductions->count());
 
         // 14. Employee Allowances (100)
         $this->command->info('Seeding Employee Allowances...');
@@ -189,7 +189,7 @@ class BulkDataSeeder extends Seeder
                 $employeeAllowances->push($empAllowance);
             }
         }
-        $this->command->info('✓ Employee Allowances seeded: '.$employeeAllowances->count());
+        $this->command->info('✓ Employee Allowances seeded: ' . $employeeAllowances->count());
 
         // 15. Employee Deductions (100)
         $this->command->info('Seeding Employee Deductions...');
@@ -205,7 +205,7 @@ class BulkDataSeeder extends Seeder
                 $employeeDeductions->push($empDeduction);
             }
         }
-        $this->command->info('✓ Employee Deductions seeded: '.$employeeDeductions->count());
+        $this->command->info('✓ Employee Deductions seeded: ' . $employeeDeductions->count());
 
         // 16. Vehicles (100)
         $this->command->info('Seeding Vehicles...');
@@ -216,7 +216,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $vehicles->push($vehicle);
         }
-        $this->command->info('✓ Vehicles seeded: '.$vehicles->count());
+        $this->command->info('✓ Vehicles seeded: ' . $vehicles->count());
 
         // 17. Vehicle Assignments (100)
         $this->command->info('Seeding Vehicle Assignments...');
@@ -228,7 +228,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $vehicleAssignments->push($vehicleAssignment);
         }
-        $this->command->info('✓ Vehicle Assignments seeded: '.$vehicleAssignments->count());
+        $this->command->info('✓ Vehicle Assignments seeded: ' . $vehicleAssignments->count());
 
         // 18. Vehicle Expenses (100)
         $this->command->info('Seeding Vehicle Expenses...');
@@ -240,12 +240,12 @@ class BulkDataSeeder extends Seeder
             ]);
             $vehicleExpenses->push($vehicleExpense);
         }
-        $this->command->info('✓ Vehicle Expenses seeded: '.$vehicleExpenses->count());
+        $this->command->info('✓ Vehicle Expenses seeded: ' . $vehicleExpenses->count());
 
         // 19. Customers (100)
         $this->command->info('Seeding Customers...');
         $customers = Customer::factory()->count($count)->create();
-        $this->command->info('✓ Customers seeded: '.$customers->count());
+        $this->command->info('✓ Customers seeded: ' . $customers->count());
 
         // 20. Trips (100)
         $this->command->info('Seeding Trips...');
@@ -258,7 +258,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $trips->push($trip);
         }
-        $this->command->info('✓ Trips seeded: '.$trips->count());
+        $this->command->info('✓ Trips seeded: ' . $trips->count());
 
         // 21. Invoices (100)
         $this->command->info('Seeding Invoices...');
@@ -270,12 +270,12 @@ class BulkDataSeeder extends Seeder
             ]);
             $invoices->push($invoice);
         }
-        $this->command->info('✓ Invoices seeded: '.$invoices->count());
+        $this->command->info('✓ Invoices seeded: ' . $invoices->count());
 
         // 22. Trip Bonus Rules (100)
         $this->command->info('Seeding Trip Bonus Rules...');
         $tripBonusRules = TripBonusRule::factory()->count($count)->create();
-        $this->command->info('✓ Trip Bonus Rules seeded: '.$tripBonusRules->count());
+        $this->command->info('✓ Trip Bonus Rules seeded: ' . $tripBonusRules->count());
 
         // 23. Payroll periods (100)
         $this->command->info('Seeding Payroll Periods...');
@@ -300,7 +300,7 @@ class BulkDataSeeder extends Seeder
 
             $payrollPeriods->push($period);
         }
-        $this->command->info('✓ Payroll Periods seeded: '.$payrollPeriods->count());
+        $this->command->info('✓ Payroll Periods seeded: ' . $payrollPeriods->count());
 
         // 24. Payrolls (100)
         $this->command->info('Seeding Payrolls...');
@@ -327,7 +327,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $payrolls->push($payroll);
         }
-        $this->command->info('✓ Payrolls seeded: '.$payrolls->count());
+        $this->command->info('✓ Payrolls seeded: ' . $payrolls->count());
 
         // 25. Payroll Details (100)
         $this->command->info('Seeding Payroll Details...');
@@ -352,7 +352,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $payrollDetails->push($payrollDetail);
         }
-        $this->command->info('✓ Payroll Details seeded: '.$payrollDetails->count());
+        $this->command->info('✓ Payroll Details seeded: ' . $payrollDetails->count());
 
         // 26. Payroll Adjustments (100)
         $this->command->info('Seeding Payroll Adjustments...');
@@ -363,7 +363,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $payrollAdjustments->push($payrollAdjustment);
         }
-        $this->command->info('✓ Payroll Adjustments seeded: '.$payrollAdjustments->count());
+        $this->command->info('✓ Payroll Adjustments seeded: ' . $payrollAdjustments->count());
 
         // 27. Attendances (100)
         $this->command->info('Seeding Attendances...');
@@ -382,7 +382,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $attendances->push($attendance);
         }
-        $this->command->info('✓ Attendances seeded: '.$attendances->count());
+        $this->command->info('✓ Attendances seeded: ' . $attendances->count());
 
         // 28. Attendance summaries (100)
         $this->command->info('Seeding Attendance Summaries...');
@@ -407,7 +407,7 @@ class BulkDataSeeder extends Seeder
 
             $attendanceSummaries->push($attendanceSummary);
         }
-        $this->command->info('✓ Attendance Summaries seeded: '.$attendanceSummaries->count());
+        $this->command->info('✓ Attendance Summaries seeded: ' . $attendanceSummaries->count());
 
         // 29. Employee salary configs (100)
         $this->command->info('Seeding Employee Salary Configs...');
@@ -426,7 +426,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $employeeSalaryConfigs->push($salaryConfig);
         }
-        $this->command->info('✓ Employee Salary Configs seeded: '.$employeeSalaryConfigs->count());
+        $this->command->info('✓ Employee Salary Configs seeded: ' . $employeeSalaryConfigs->count());
 
         // 30. Login Logs (100)
         $this->command->info('Seeding Login Logs...');
@@ -437,7 +437,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $loginLogs->push($loginLog);
         }
-        $this->command->info('✓ Login Logs seeded: '.$loginLogs->count());
+        $this->command->info('✓ Login Logs seeded: ' . $loginLogs->count());
 
         // 31. Audit Logs (100)
         $this->command->info('Seeding Audit Logs...');
@@ -448,7 +448,7 @@ class BulkDataSeeder extends Seeder
             ]);
             $auditLogs->push($auditLog);
         }
-        $this->command->info('✓ Audit Logs seeded: '.$auditLogs->count());
+        $this->command->info('✓ Audit Logs seeded: ' . $auditLogs->count());
 
         // 32. Export Logs (100)
         $this->command->info('Seeding Export Logs...');
@@ -459,12 +459,12 @@ class BulkDataSeeder extends Seeder
             ]);
             $exportLogs->push($exportLog);
         }
-        $this->command->info('✓ Export Logs seeded: '.$exportLogs->count());
+        $this->command->info('✓ Export Logs seeded: ' . $exportLogs->count());
 
         // 33. Report Caches (100)
         $this->command->info('Seeding Report Caches...');
         $reportCaches = ReportCache::factory()->count($count)->create();
-        $this->command->info('✓ Report Caches seeded: '.$reportCaches->count());
+        $this->command->info('✓ Report Caches seeded: ' . $reportCaches->count());
 
         // 34. personal_access_tokens (100)
         $this->command->info('Seeding Personal Access Tokens...');
@@ -472,7 +472,7 @@ class BulkDataSeeder extends Seeder
             collect(range(1, $count))->map(fn (int $i): array => [
                 'tokenable_type' => User::class,
                 'tokenable_id' => $users->get(($i - 1) % $users->count())->id,
-                'name' => 'bulk-token-'.$i,
+                'name' => 'bulk-token-' . $i,
                 'token' => hash('sha256', (string) Str::uuid()),
                 'abilities' => json_encode(['*']),
                 'last_used_at' => null,
@@ -489,7 +489,7 @@ class BulkDataSeeder extends Seeder
         DB::table('refresh_tokens')->insert(
             collect(range(1, $count))->map(fn (int $i): array => [
                 'user_id' => $users->get(($i - 1) % $users->count())->id,
-                'token' => hash('sha256', 'refresh-'.Str::uuid()),
+                'token' => hash('sha256', 'refresh-' . Str::uuid()),
                 'access_token_id' => $personalAccessTokenIds->get(($i - 1) % $personalAccessTokenIds->count()),
                 'expires_at' => now()->addDays(60),
                 'is_revoked' => false,
@@ -505,7 +505,7 @@ class BulkDataSeeder extends Seeder
         DB::table('password_reset_tokens')->insert(
             $users->take($count)->map(fn (User $user): array => [
                 'email' => $user->email,
-                'token' => hash('sha256', 'pwd-reset-'.Str::uuid()),
+                'token' => hash('sha256', 'pwd-reset-' . Str::uuid()),
                 'created_at' => now(),
             ])->all()
         );
@@ -527,7 +527,7 @@ class BulkDataSeeder extends Seeder
         $this->command->info('Seeding Cache...');
         DB::table('cache')->insert(
             collect(range(1, $count))->map(fn (int $i): array => [
-                'key' => 'bulk:cache:'.$i,
+                'key' => 'bulk:cache:' . $i,
                 'value' => serialize(['i' => $i, 'ok' => true]),
                 'expiration' => time() + 3600,
             ])->all()
@@ -537,7 +537,7 @@ class BulkDataSeeder extends Seeder
         $this->command->info('Seeding Cache Locks...');
         DB::table('cache_locks')->insert(
             collect(range(1, $count))->map(fn (int $i): array => [
-                'key' => 'bulk:lock:'.$i,
+                'key' => 'bulk:lock:' . $i,
                 'owner' => (string) Str::uuid(),
                 'expiration' => time() + 600,
             ])->all()
@@ -548,7 +548,7 @@ class BulkDataSeeder extends Seeder
         DB::table('jobs')->insert(
             collect(range(1, $count))->map(fn (int $i): array => [
                 'queue' => 'default',
-                'payload' => json_encode(['displayName' => 'BulkJob'.$i]),
+                'payload' => json_encode(['displayName' => 'BulkJob' . $i]),
                 'attempts' => 0,
                 'reserved_at' => null,
                 'available_at' => time(),
@@ -561,7 +561,7 @@ class BulkDataSeeder extends Seeder
         DB::table('job_batches')->insert(
             collect(range(1, $count))->map(fn (int $i): array => [
                 'id' => (string) Str::uuid(),
-                'name' => 'bulk-batch-'.$i,
+                'name' => 'bulk-batch-' . $i,
                 'total_jobs' => 1,
                 'pending_jobs' => 0,
                 'failed_jobs' => 0,
@@ -580,8 +580,8 @@ class BulkDataSeeder extends Seeder
                 'uuid' => (string) Str::uuid(),
                 'connection' => 'database',
                 'queue' => 'default',
-                'payload' => json_encode(['displayName' => 'BulkFailedJob'.$i]),
-                'exception' => 'Bulk seeded exception #'.$i,
+                'payload' => json_encode(['displayName' => 'BulkFailedJob' . $i]),
+                'exception' => 'Bulk seeded exception #' . $i,
                 'failed_at' => now(),
             ])->all()
         );

@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trip extends Model
 {
+    use BelongsToTenant;
     use HasFactory, SoftDeletes, \App\Traits\HasAuditLogs;
 
     protected $fillable = [
+        'company_id',
         'code',
         'customer_id',
         'driver_id',
@@ -27,23 +31,50 @@ class Trip extends Model
     ];
 
     protected $casts = [
+        'company_id' => 'integer',
         'distance_km' => 'decimal:2',
         'price' => 'decimal:2',
         'start_time' => 'datetime',
         'end_time' => 'datetime',
     ];
 
-    public function customer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    protected static function booted(): void
+    {
+        static::saving(function (Trip $trip): void {
+            if ($trip->driver_id !== null) {
+                $companyId = Driver::query()->whereKey($trip->driver_id)->value('company_id');
+                if ($companyId !== null) {
+                    $trip->company_id = (int) $companyId;
+
+                    return;
+                }
+            }
+
+            if ($trip->vehicle_id !== null) {
+                $companyId = Vehicle::query()->whereKey($trip->vehicle_id)->value('company_id');
+                if ($companyId !== null) {
+                    $trip->company_id = (int) $companyId;
+                }
+            }
+        });
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    public function driver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function driver(): BelongsTo
     {
-        return $this->belongsTo(Employee::class, 'driver_id');
+        return $this->belongsTo(Driver::class, 'driver_id');
     }
 
-    public function vehicle(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
     }

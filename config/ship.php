@@ -41,4 +41,28 @@ return [
     */
     'bulk_seed_count' => max(1, min(5000, (int) env('BULK_SEED_COUNT', 100))),
 
+    /*
+    |--------------------------------------------------------------------------
+    | SOC2 — audit READ (GET) on sensitive API prefixes
+    |--------------------------------------------------------------------------
+    |
+    | Patterns are passed to preg_match() against the request path (no leading slash).
+    |
+    */
+    'audit_read_path_patterns' => [
+        '#^api/(v1/)?drivers(\b|/)#',
+        '#^api/(v1/)?payrolls(\b|/)#',
+        '#^api/(v1/)?positions(\b|/)#',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | SOC2 — optional application-layer encryption for PII / salary fields
+    |--------------------------------------------------------------------------
+    |
+    | See docs/SOC2_ENCRYPTION_AND_KMS.md. Keep false until a KMS-backed rollout.
+    |
+    */
+    'encrypt_pii_fields' => (bool) env('SHIP_ENCRYPT_PII', false),
+
 ];
