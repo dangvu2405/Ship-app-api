@@ -4,29 +4,28 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Api\BaseController;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\SocialLoginRequest;
 use App\Services\AuthService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
 /**
- * @OA\Tag(name="Auth", description="Đăng nhập, đăng xuất, token")
+ * @OA\Tag(name="Auth", description="Authentication endpoints")
  */
 class AuthController extends BaseController
 {
     public function __construct(private readonly AuthService $authService) {}
 
     /**
-     * Đăng nhập - lấy token
-     *
      * @OA\Post(
      *     path="/api/auth/login",
      *     tags={"Auth"},
      *     summary="Đăng nhập",
- *     security={},
+     *     security={},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -50,14 +49,34 @@ class AuthController extends BaseController
             return $this->successResponse($result, 'Login successful');
         } catch (AuthenticationException $e) {
             return $this->errorResponse($e->getMessage(), 401);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return $this->handleException($e, 'Login failed');
         }
     }
 
     /**
-     * Đăng xuất - thu hồi token hiện tại
-     *
+     * Đăng nhập bằng social provider (Google/Facebook/Apple)
+     */
+    public function socialLogin(SocialLoginRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        try {
+            $result = $this->authService->socialLogin(
+                $validated['provider'],
+                $validated['access_token'] ?? null,
+                $validated['id_token'] ?? null,
+            );
+
+            return $this->successResponse($result, 'Social login successful');
+        } catch (AuthenticationException $e) {
+            return $this->errorResponse($e->getMessage(), 401);
+        } catch (Throwable $e) {
+            return $this->handleException($e, 'Social login failed');
+        }
+    }
+
+    /**
      * @OA\Post(
      *     path="/api/auth/logout",
      *     tags={"Auth"},
@@ -73,19 +92,17 @@ class AuthController extends BaseController
             $this->authService->logout($request->user());
 
             return $this->successResponse(null, 'Logout successful');
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return $this->handleException($e, 'Logout failed');
         }
     }
 
     /**
-     * Đăng ký tài khoản mới
-     *
      * @OA\Post(
      *     path="/api/auth/register",
      *     tags={"Auth"},
- *     summary="Đăng ký tài khoản (chỉ admin)",
- *     security={{"sanctum":{}}},
+     *     summary="Đăng ký tài khoản (chỉ admin)",
+     *     security={{"sanctum":{}}},
      *     @OA\RequestBody(
      *         required=true,
      *         @OA\JsonContent(
@@ -96,8 +113,8 @@ class AuthController extends BaseController
      *             @OA\Property(property="password_confirmation", type="string", format="password", example="password123")
      *         )
      *     ),
- *     @OA\Response(response=201, description="Đăng ký thành công"),
- *     @OA\Response(response=403, description="Chỉ admin được phép"),
+     *     @OA\Response(response=201, description="Đăng ký thành công"),
+     *     @OA\Response(response=403, description="Chỉ admin được phép"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
      */
@@ -109,14 +126,12 @@ class AuthController extends BaseController
             $user = $this->authService->register($validated);
 
             return $this->successResponse($user, 'Registration successful', 201);
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return $this->handleException($e, 'Registration failed');
         }
     }
 
     /**
-     * Làm mới token
-     *
      * @OA\Post(
      *     path="/api/auth/refresh",
      *     tags={"Auth"},
@@ -134,7 +149,7 @@ class AuthController extends BaseController
             return $this->successResponse([
                 'token' => $token,
             ], 'Token refreshed successfully');
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             return $this->handleException($e, 'Token refresh failed');
         }
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -25,7 +26,7 @@ $healthResponse = static function () {
 
 $currentUserResponse = static function (Request $request) {
     $user = $request->user();
-    $user->load(['employee', 'roles.permissions']);
+    $user->load(['driver', 'roles.permissions']);
 
     return response()->json([
         'success' => true,
@@ -36,8 +37,8 @@ $currentUserResponse = static function (Request $request) {
 
 $registerAuthenticatedRoutes = static function () use ($currentUserResponse): void {
     Route::prefix('auth')->group(function () use ($currentUserResponse): void {
-        Route::post('/logout', [\App\Http\Controllers\Api\AuthController::class, 'logout']);
-        Route::post('/refresh', [\App\Http\Controllers\Api\AuthController::class, 'refresh']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/refresh', [AuthController::class, 'refresh']);
         Route::get('/me', $currentUserResponse);
     });
 
@@ -55,14 +56,13 @@ $registerAuthenticatedRoutes = static function () use ($currentUserResponse): vo
 
 $registerAdminRoutes = static function (): void {
     Route::prefix('auth')->group(function (): void {
-        Route::post('/register', [\App\Http\Controllers\Api\AuthController::class, 'register']);
+        Route::post('/register', [AuthController::class, 'register']);
     });
 
     Route::apiResource('companies', \App\Http\Controllers\Api\CompanyController::class);
     Route::apiResource('offices', \App\Http\Controllers\Api\OfficeController::class);
     Route::apiResource('departments', \App\Http\Controllers\Api\DepartmentController::class);
     Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
-    Route::apiResource('employees', \App\Http\Controllers\Api\EmployeeController::class);
     Route::apiResource('drivers', \App\Http\Controllers\Api\DriverController::class);
     Route::apiResource('vehicles', \App\Http\Controllers\Api\VehicleController::class);
     Route::apiResource('vehicle_assignments', \App\Http\Controllers\Api\VehicleAssignmentController::class);
@@ -71,11 +71,7 @@ $registerAdminRoutes = static function (): void {
     Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
     Route::apiResource('trip_bonus_rules', \App\Http\Controllers\Api\TripBonusRuleController::class);
     Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
-    Route::apiResource('allowances', \App\Http\Controllers\Api\AllowanceController::class);
-    Route::apiResource('deductions', \App\Http\Controllers\Api\DeductionController::class);
-    Route::get('attendances/late/list', [\App\Http\Controllers\Api\AttendanceController::class, 'lateList']);
-    Route::post('attendances/late/notify', [\App\Http\Controllers\Api\AttendanceController::class, 'notifyLate']);
-    Route::apiResource('attendances', \App\Http\Controllers\Api\AttendanceController::class);
+
 
     Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
     Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
@@ -105,11 +101,17 @@ Route::get('/health', $healthResponse);
 
 // Authentication routes (legacy public)
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [\App\Http\Controllers\Api\AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/social/login', [AuthController::class, 'socialLogin']);
 });
 
-// Lark webhook/event entrypoint
-Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
+$larkWebhookController = 'App\\Http\\Controllers\\Api\\LarkWebhookController';
+$larkAuthController = 'App\\Http\\Controllers\\Api\\LarkAuthController';
+
+if (class_exists($larkWebhookController)) {
+    // Lark webhook/event entrypoint
+    Route::post('/lark/webhook', [$larkWebhookController, 'handle']);
+}
 
 // Protected routes: authenticated users (legacy)
 Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
@@ -118,21 +120,31 @@ Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
 Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
 
 // Versioned API routes
-Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes): void {
+Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes, $larkWebhookController, $larkAuthController): void {
     Route::get('/health', $healthResponse);
 
-    // Versioned alias for Lark webhook/event entrypoint.
-    Route::post('/lark/webhook', [\App\Http\Controllers\Api\LarkWebhookController::class, 'handle']);
+    if (class_exists($larkWebhookController)) {
+        // Versioned alias for Lark webhook/event entrypoint.
+        Route::post('/lark/webhook', [$larkWebhookController, 'handle']);
+    }
 
-    // Lark OAuth login flow (API-first)
-    Route::prefix('lark/oauth')->group(function (): void {
-        Route::get('/redirect', [\App\Http\Controllers\Api\LarkAuthController::class, 'redirect']);
-        Route::match(['get', 'post'], '/callback', [\App\Http\Controllers\Api\LarkAuthController::class, 'callback']);
+    if (class_exists($larkAuthController)) {
+        // Lark OAuth login flow (API-first)
+        Route::prefix('lark/oauth')->group(function () use ($larkAuthController): void {
+            Route::get('/redirect', [$larkAuthController, 'redirect']);
+            Route::match(['get', 'post'], '/callback', [$larkAuthController, 'callback']);
+        });
+    }
+
+    Route::prefix('auth')->group(function (): void {
+        Route::post('/social/login', [AuthController::class, 'socialLogin']);
     });
 
     Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
     Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
 });
 
-// Backward-compatible OAuth callback alias
-Route::match(['get', 'post'], '/callback/lark', [\App\Http\Controllers\Api\LarkAuthController::class, 'callback']);
+if (class_exists($larkAuthController)) {
+    // Backward-compatible OAuth callback alias
+    Route::match(['get', 'post'], '/callback/lark', [$larkAuthController, 'callback']);
+}

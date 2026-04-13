@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature\Api;
 
 use App\Models\User;
@@ -12,6 +14,91 @@ use Tests\TestCase;
 class AuthApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    private const SOCIAL_LOGIN_ENDPOINT = '/api/v1/auth/social/login';
+    private const LARK_AUTH_CONTROLLER = 'App\\Http\\Controllers\\Api\\LarkAuthController';
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        if (str_starts_with($this->name(), 'test_lark_') && ! class_exists(self::LARK_AUTH_CONTROLLER)) {
+            $this->markTestSkipped('Lark auth controller is not available in this build.');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function postSocialLogin(array $payload): \Illuminate\Testing\TestResponse
+    {
+        return $this->postJson(self::SOCIAL_LOGIN_ENDPOINT, $payload);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{token: string, x5c: string, kid: string}
+     */
+    private function createAppleSignedIdToken(array $payload): array
+    {
+        $privateKey = openssl_pkey_new([
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+            'private_key_bits' => 2048,
+        ]);
+
+        if ($privateKey === false) {
+            self::fail('Failed to create private key for Apple token test.');
+        }
+
+        $csr = openssl_csr_new(['commonName' => 'appleid.apple.com'], $privateKey, ['digest_alg' => 'sha256']);
+        if ($csr === false) {
+            self::fail('Failed to create CSR for Apple token test.');
+        }
+
+        $x509 = openssl_csr_sign($csr, null, $privateKey, 1, ['digest_alg' => 'sha256']);
+        if ($x509 === false) {
+            self::fail('Failed to sign certificate for Apple token test.');
+        }
+
+        $header = [
+            'alg' => 'RS256',
+            'typ' => 'JWT',
+            'kid' => 'test-kid-apple',
+        ];
+
+        $encodedHeader = rtrim(strtr(base64_encode((string) json_encode($header)), '+/', '-_'), '=');
+        $encodedPayload = rtrim(strtr(base64_encode((string) json_encode($payload)), '+/', '-_'), '=');
+        $signingInput = $encodedHeader.'.'.$encodedPayload;
+
+        $signature = '';
+        $isSigned = openssl_sign($signingInput, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+        if (! $isSigned) {
+            self::fail('Failed to sign Apple token test payload.');
+        }
+
+        $encodedSignature = rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
+        $token = $signingInput.'.'.$encodedSignature;
+
+        $certPem = '';
+        $isExported = openssl_x509_export($x509, $certPem);
+        if (! $isExported) {
+            self::fail('Failed to export cert for Apple token test.');
+        }
+
+        openssl_pkey_free($privateKey);
+
+        $x5c = str_replace(
+            ["-----BEGIN CERTIFICATE-----\n", "-----END CERTIFICATE-----\n", "\n", "\r"],
+            '',
+            $certPem
+        );
+
+        return [
+            'token' => $token,
+            'x5c' => $x5c,
+            'kid' => 'test-kid-apple',
+        ];
+    }
 
     public function test_email_password_login_route_is_removed(): void
     {
@@ -31,6 +118,230 @@ class AuthApiTest extends TestCase
             ->assertJson([
                 'success' => false,
             ]);
+    }
+
+    public function test_social_login_with_google_id_token_logs_in_or_creates_user(): void
+    {
+        config()->set('services.google.client_id', 'google-client-id-123');
+
+        Http::fake([
+            'https://oauth2.googleapis.com/tokeninfo*' => Http::response([
+                'sub' => 'google_user_1',
+                'email' => 'google.user@example.com',
+                'name' => 'Google User',
+                'picture' => 'https://example.com/google.png',
+                'iss' => 'https://accounts.google.com',
+                'aud' => 'google-client-id-123',
+                'email_verified' => true,
+            ], 200),
+        ]);
+
+        $response = $this->postSocialLogin([
+            'provider' => 'google',
+            'id_token' => 'google-id-token',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.user.email', 'google.user@example.com')
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'data' => ['user', 'token'],
+            ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'google.user@example.com',
+            'social_provider' => 'google',
+            'social_provider_id' => 'google_user_1',
+        ]);
+    }
+
+    public function test_social_login_with_facebook_access_token_logs_in_or_creates_user(): void
+    {
+        Http::fake([
+            'https://graph.facebook.com/me*' => Http::response([
+                'id' => 'fb_user_1',
+                'email' => 'facebook.user@example.com',
+                'name' => 'Facebook User',
+                'verified' => true,
+                'picture' => [
+                    'data' => ['url' => 'https://example.com/facebook.png'],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->postSocialLogin([
+            'provider' => 'facebook',
+            'access_token' => 'facebook-access-token',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.user.email', 'facebook.user@example.com')
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'data' => ['user', 'token'],
+            ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'facebook.user@example.com',
+            'social_provider' => 'facebook',
+            'social_provider_id' => 'fb_user_1',
+        ]);
+    }
+
+    public function test_social_login_with_apple_id_token_logs_in_or_creates_user(): void
+    {
+        config()->set('services.apple.client_id', 'com.ship.app');
+
+        $appleToken = $this->createAppleSignedIdToken([
+            'iss' => 'https://appleid.apple.com',
+            'sub' => 'apple_user_1',
+            'email' => 'apple.user@example.com',
+            'email_verified' => true,
+            'aud' => 'com.ship.app',
+            'exp' => now()->addMinutes(10)->timestamp,
+        ]);
+
+        Http::fake([
+            'https://appleid.apple.com/auth/keys' => Http::response([
+                'keys' => [[
+                    'kid' => $appleToken['kid'],
+                    'x5c' => [$appleToken['x5c']],
+                ]],
+            ], 200),
+        ]);
+
+        $response = $this->postSocialLogin([
+            'provider' => 'apple',
+            'id_token' => $appleToken['token'],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.user.email', 'apple.user@example.com')
+            ->assertJsonStructure([
+                'success',
+                'message',
+                'data' => ['user', 'token'],
+            ]);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'apple.user@example.com',
+            'social_provider' => 'apple',
+            'social_provider_id' => 'apple_user_1',
+        ]);
+    }
+
+    public function test_social_login_rejects_google_token_with_wrong_audience(): void
+    {
+        config()->set('services.google.client_id', 'google-client-id-123');
+
+        Http::fake([
+            'https://oauth2.googleapis.com/tokeninfo*' => Http::response([
+                'sub' => 'google_user_1',
+                'email' => 'google.user@example.com',
+                'iss' => 'https://accounts.google.com',
+                'aud' => 'another-client-id',
+                'email_verified' => true,
+            ], 200),
+        ]);
+
+        $response = $this->postSocialLogin([
+            'provider' => 'google',
+            'id_token' => 'google-id-token',
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJsonPath('message', 'Google token audience mismatch');
+    }
+
+    public function test_social_login_rejects_apple_token_with_invalid_signature(): void
+    {
+        config()->set('services.apple.client_id', 'com.ship.app');
+
+        $appleToken = $this->createAppleSignedIdToken([
+            'iss' => 'https://appleid.apple.com',
+            'sub' => 'apple_user_invalid_sig',
+            'email' => 'apple.invalid@example.com',
+            'email_verified' => true,
+            'aud' => 'com.ship.app',
+            'exp' => now()->addMinutes(10)->timestamp,
+        ]);
+
+        Http::fake([
+            'https://appleid.apple.com/auth/keys' => Http::response([
+                'keys' => [[
+                    'kid' => 'another-kid',
+                    'x5c' => [$appleToken['x5c']],
+                ]],
+            ], 200),
+        ]);
+
+        $response = $this->postSocialLogin([
+            'provider' => 'apple',
+            'id_token' => $appleToken['token'],
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJsonPath('message', 'Invalid Apple token signature');
+    }
+
+    public function test_social_login_rejects_inactive_user(): void
+    {
+        User::factory()->create([
+            'email' => 'inactive.google@example.com',
+            'status' => 'inactive',
+        ]);
+
+        config()->set('services.google.client_id', 'google-client-id-123');
+
+        Http::fake([
+            'https://oauth2.googleapis.com/tokeninfo*' => Http::response([
+                'sub' => 'google_user_inactive',
+                'email' => 'inactive.google@example.com',
+                'name' => 'Inactive Google User',
+                'iss' => 'https://accounts.google.com',
+                'aud' => 'google-client-id-123',
+                'email_verified' => true,
+            ], 200),
+        ]);
+
+        $response = $this->postSocialLogin([
+            'provider' => 'google',
+            'id_token' => 'google-id-token-inactive',
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJsonPath('message', 'Your account is inactive');
+    }
+
+    public function test_social_login_rejects_unverified_provider_email_for_existing_account(): void
+    {
+        User::factory()->create([
+            'email' => 'existing.user@example.com',
+            'status' => 'active',
+        ]);
+
+        config()->set('services.google.client_id', 'google-client-id-123');
+
+        Http::fake([
+            'https://oauth2.googleapis.com/tokeninfo*' => Http::response([
+                'sub' => 'google_user_unverified',
+                'email' => 'existing.user@example.com',
+                'name' => 'Existing User',
+                'iss' => 'https://accounts.google.com',
+                'aud' => 'google-client-id-123',
+                'email_verified' => false,
+            ], 200),
+        ]);
+
+        $response = $this->postSocialLogin([
+            'provider' => 'google',
+            'id_token' => 'google-id-token-unverified',
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJsonPath('message', 'Provider email is not verified');
     }
 
     public function test_user_endpoint_returns_user_info_for_authenticated_user(): void
