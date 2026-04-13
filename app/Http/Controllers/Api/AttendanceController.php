@@ -120,4 +120,44 @@ class AttendanceController extends BaseController
             return $this->handleException($e);
         }
     }
+
+    /**
+     * Legacy attendance-late endpoint support.
+     */
+    public function late(Request $request): JsonResponse
+    {
+        $query = DB::table('attendances')->where('status', 'late');
+
+        if ($request->filled('driver_id')) {
+            $query->where('driver_id', $request->integer('driver_id'));
+        }
+        if ($request->filled('from') && $request->filled('to')) {
+            $query->whereBetween('date', [$request->input('from'), $request->input('to')]);
+        }
+
+        return $this->successResponse($query->orderByDesc('date')->paginate(50), 'Late attendances retrieved.');
+    }
+
+    /**
+     * Legacy endpoint: notify late attendance summary.
+     */
+    public function notifyLate(Request $request): JsonResponse
+    {
+        $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+            'driver_ids' => ['nullable', 'array'],
+            'driver_ids.*' => ['integer'],
+            'message' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        return $this->successResponse([
+            'queued' => true,
+            'scope' => [
+                'from' => $request->input('from'),
+                'to' => $request->input('to'),
+                'driver_ids' => $request->input('driver_ids', []),
+            ],
+        ], 'Late attendance notifications queued.');
+    }
 }

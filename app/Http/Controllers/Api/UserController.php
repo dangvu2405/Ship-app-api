@@ -35,7 +35,7 @@ class UserController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $query = User::query()->with(['employee', 'roles']);
+        $query = User::query()->with(['driver', 'roles']);
         $result = $this->indexQuery($request, $query, ['username', 'email'], ['status' => 'status']);
 
         return $this->successResponse($result, 'OK');
@@ -68,7 +68,7 @@ class UserController extends BaseController
         $user = User::create($data);
         $user->makeHidden(['password']);
 
-        return $this->successResponse($user->load(['employee', 'roles']), 'User created successfully', 201);
+        return $this->successResponse($user->load(['driver', 'roles']), 'User created successfully', 201);
     }
 
     /**
@@ -83,7 +83,7 @@ class UserController extends BaseController
      */
     public function show(string $user): JsonResponse
     {
-        $model = User::with(['employee', 'roles.permissions'])->find($user);
+        $model = User::with(['driver', 'roles.permissions'])->find($user);
         if (! $model) {
             return $this->notFoundResponse('User not found');
         }
@@ -128,7 +128,7 @@ class UserController extends BaseController
         $model->update($data);
         $model->makeHidden(['password']);
 
-        return $this->successResponse($model->fresh(['employee', 'roles']), 'User updated successfully');
+        return $this->successResponse($model->fresh(['driver', 'roles']), 'User updated successfully');
     }
 
     /**

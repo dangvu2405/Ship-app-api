@@ -158,6 +158,91 @@ class DriverScheduleController extends BaseController
         }
     }
 
+    /**
+     * Lock a single schedule row.
+     */
+    public function lock(Request $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
+    {
+        if (! in_array($driverWorkSchedule->status, ['approved', 'submitted'], true)) {
+            return $this->errorResponse('Only submitted/approved schedules can be locked.', 422);
+        }
+
+        $driverWorkSchedule->update([
+            'status' => 'locked',
+            'locked_by' => $request->user()->id,
+            'locked_at' => now(),
+        ]);
+
+        return $this->successResponse($driverWorkSchedule->fresh(), 'Schedule locked.');
+    }
+
+    /**
+     * Manager override for locked/approved schedules.
+     */
+    public function override(UpdateScheduleRequest $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
+    {
+        $request->validate([
+            'override_reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        try {
+            $payload = $request->validated();
+            $overrideReason = $payload['override_reason'] ?? '';
+            unset($payload['override_reason']);
+
+            $payload['notes'] = trim(($driverWorkSchedule->notes ?? '').' | OVERRIDE: '.$overrideReason);
+
+            // Allow editing even when locked through explicit override endpoint.
+            $driverWorkSchedule->fill($payload);
+            $driverWorkSchedule->status = 'approved';
+            $driverWorkSchedule->locked_by = null;
+            $driverWorkSchedule->locked_at = null;
+            $driverWorkSchedule->save();
+
+            return $this->successResponse(
+                $driverWorkSchedule->fresh(['driver', 'vehicle', 'office']),
+                'Schedule overridden successfully.',
+            );
+        } catch (Throwable $e) {
+            return $this->handleException($e);
+        }
+    }
+
+    /**
+     * Hours-of-service pre-check for a schedule row.
+     */
+    public function hosCheck(DriverWorkSchedule $driverWorkSchedule): JsonResponse
+    {
+        $driverId = (int) $driverWorkSchedule->driver_id;
+        $date = $driverWorkSchedule->work_date->toDateString();
+
+        $hours = DriverWorkSchedule::query()
+            ->where('driver_id', $driverId)
+            ->where('work_date', $date)
+            ->whereNotIn('status', ['draft'])
+            ->get()
+            ->sum(static function (DriverWorkSchedule $row): float {
+                $start = strtotime($row->start_time);
+                $end = strtotime($row->end_time);
+                if ($end < $start) {
+                    $end += 86400;
+                }
+
+                return ($end - $start) / 3600;
+            });
+
+        $limitHours = 12.0;
+        $ok = $hours <= $limitHours;
+
+        return $this->successResponse([
+            'driver_id' => $driverId,
+            'work_date' => $date,
+            'total_hours' => round($hours, 2),
+            'limit_hours' => $limitHours,
+            'is_ok' => $ok,
+        ], $ok ? 'HOS check passed.' : 'HOS check failed.');
+    }
+
     public function destroy(DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
         if ($driverWorkSchedule->isLocked()) {

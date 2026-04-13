@@ -84,6 +84,10 @@ $registerAdminRoutes = static function (): void {
     Route::post('driver-schedules/{driverWorkSchedule}/submit', [\App\Http\Controllers\Api\DriverScheduleController::class, 'submit'])->name('driver-schedules.submit');
     Route::post('driver-schedules/{driverWorkSchedule}/approve', [\App\Http\Controllers\Api\DriverScheduleController::class, 'approve'])->name('driver-schedules.approve');
     Route::post('driver-schedules/{driverWorkSchedule}/reject', [\App\Http\Controllers\Api\DriverScheduleController::class, 'reject'])->name('driver-schedules.reject');
+    Route::post('driver-schedules/{driverWorkSchedule}/lock', [\App\Http\Controllers\Api\DriverScheduleController::class, 'lock'])->name('driver-schedules.lock');
+    Route::post('driver-schedules/{driverWorkSchedule}/override', [\App\Http\Controllers\Api\DriverScheduleController::class, 'override'])->name('driver-schedules.override');
+    Route::get('driver-schedules/{driverWorkSchedule}/hos-check', [\App\Http\Controllers\Api\DriverScheduleController::class, 'hosCheck'])->name('driver-schedules.hos-check');
+    Route::post('driver-schedules/{driverWorkSchedule}/hos-check', [\App\Http\Controllers\Api\DriverScheduleController::class, 'hosCheck'])->name('driver-schedules.hos-check.post');
     Route::apiResource('driver-schedules', \App\Http\Controllers\Api\DriverScheduleController::class);
 
     // Attendance
@@ -91,6 +95,14 @@ $registerAdminRoutes = static function (): void {
     Route::post('attendance/check-out', [\App\Http\Controllers\Api\AttendanceController::class, 'checkOut'])->name('attendance.check-out');
     Route::patch('attendance/{id}/adjust', [\App\Http\Controllers\Api\AttendanceController::class, 'adjust'])->name('attendance.adjust');
     Route::get('attendance', [\App\Http\Controllers\Api\AttendanceController::class, 'index'])->name('attendance.index');
+    // Legacy aliases for FE compatibility
+    Route::get('attendances', [\App\Http\Controllers\Api\AttendanceController::class, 'index'])->name('attendances.index');
+    Route::post('attendances/check-in', [\App\Http\Controllers\Api\AttendanceController::class, 'checkIn'])->name('attendances.check-in');
+    Route::post('attendances/check-out', [\App\Http\Controllers\Api\AttendanceController::class, 'checkOut'])->name('attendances.check-out');
+    Route::patch('attendances/{id}/adjust', [\App\Http\Controllers\Api\AttendanceController::class, 'adjust'])->name('attendances.adjust');
+    Route::get('attendances/late', [\App\Http\Controllers\Api\AttendanceController::class, 'late'])->name('attendances.late');
+    Route::get('attendances/late/list', [\App\Http\Controllers\Api\AttendanceController::class, 'late'])->name('attendances.late.list');
+    Route::post('attendances/late/notify', [\App\Http\Controllers\Api\AttendanceController::class, 'notifyLate'])->name('attendances.late.notify');
 
     // Leave
     Route::get('leave/types', [\App\Http\Controllers\Api\LeaveController::class, 'types'])->name('leave.types');
@@ -120,6 +132,44 @@ $registerAdminRoutes = static function (): void {
     Route::get('reports/dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
     Route::get('reports/payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
     Route::post('ai/business-assist', [\App\Http\Controllers\Api\AiAdvisorController::class, 'businessAssist']);
+
+    // Legacy compatibility routes
+    Route::get('documentation', static function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'API documentation endpoint',
+            'data' => [
+                'swagger_ui' => url('/api/documentation'),
+                'openapi_json' => url('/docs?format=openapi'),
+            ],
+        ]);
+    });
+
+    Route::get('employees', static function () {
+        $drivers = \App\Models\Driver::query()->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Legacy alias: employees mapped to drivers',
+            'data' => $drivers,
+        ]);
+    });
+
+    Route::get('allowances', static function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Legacy endpoint retained for compatibility',
+            'data' => [],
+        ]);
+    });
+
+    Route::get('deductions', static function () {
+        return response()->json([
+            'success' => true,
+            'message' => 'Legacy endpoint retained for compatibility',
+            'data' => [],
+        ]);
+    });
 };
 
 // Public routes

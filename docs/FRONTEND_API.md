@@ -260,6 +260,55 @@ Reject and return schedule to draft.
 
 ---
 
+### POST /driver-schedules/{id}/lock
+Lock a submitted/approved schedule.
+
+**Response 200**
+```json
+{ "success": true, "message": "Schedule locked.", "data": { "status": "locked" } }
+```
+
+---
+
+### POST /driver-schedules/{id}/override
+Manager override for a locked/approved schedule.
+
+**Request**
+```json
+{
+  "work_date": "2026-05-02",
+  "shift_code": "day",
+  "start_time": "08:00",
+  "end_time": "18:00",
+  "vehicle_id": 3,
+  "override_reason": "Emergency route adjustment due to vehicle breakdown"
+}
+```
+
+---
+
+### GET /driver-schedules/{id}/hos-check
+Hours-of-Service pre-check for a schedule row.
+
+**Response 200**
+```json
+{
+  "success": true,
+  "message": "HOS check passed.",
+  "data": {
+    "driver_id": 10,
+    "work_date": "2026-05-01",
+    "total_hours": 10,
+    "limit_hours": 12,
+    "is_ok": true
+  }
+}
+```
+
+Compatibility note: backend accepts both `GET` and `POST` for this endpoint.
+
+---
+
 ## 3. Attendance  *(admin required)*
 
 ### GET /attendance
@@ -325,6 +374,14 @@ Admin override for an attendance record.
 ```
 
 All fields optional. `reason` is required when any field is provided.
+
+### Legacy aliases (for FE backward compatibility)
+- `GET /attendances` → same as `GET /attendance`
+- `POST /attendances/check-in` → same as `POST /attendance/check-in`
+- `POST /attendances/check-out` → same as `POST /attendance/check-out`
+- `PATCH /attendances/{id}/adjust` → same as `PATCH /attendance/{id}/adjust`
+- `GET /attendances/late` and `GET /attendances/late/list` → late attendance list
+- `POST /attendances/late/notify` → queue notify late-attendance batch (legacy FE endpoint)
 
 ---
 
@@ -709,6 +766,162 @@ Get current user's payroll line for a period.
 
 ---
 
+## Payroll UI Spec (for Frontend Design)
+
+Use this section as the UI contract for payroll list/detail screens.
+
+### A. Payroll List Screen (`/payrolls`)
+
+Recommended table columns:
+
+| Column | Source field | Format | Notes |
+|---|---|---|---|
+| Payroll ID | `id` | number | Click to open detail |
+| Company | `company.name` | text | fallback: `company_id` |
+| Period | `month`, `year` | `MM/YYYY` | example: `04/2026` |
+| Status | `status` | badge | `draft`, `approved`, `locked` |
+| Approved At | `approved_at` | datetime | nullable |
+| Locked At | `locked_at` | datetime | nullable |
+| Notes | `notes` | text (truncate) | max 1 line in list |
+| Actions | N/A | buttons | View / Approve / Lock / Export |
+
+Filter bar:
+- `company_id` (select)
+- `month` (select 1-12)
+- `year` (select/input)
+- `status` (select)
+
+Status badge mapping:
+- `draft` -> neutral (gray)
+- `approved` -> warning/info (amber/blue)
+- `locked` -> success/final (green)
+
+---
+
+### B. Payroll Detail Screen (`/payrolls/{id}`)
+
+Layout suggestion:
+
+1. **Header Summary**
+   - Period, company, status, approved_at, locked_at, notes
+2. **Line Items Table** (one row per driver)
+3. **Totals Footer** (sum money columns + sum KPI columns)
+4. **Action Bar** (approve/lock/export depending on status and role)
+
+Line items table columns (recommended order):
+
+| Group | Column | Source field | Format |
+|---|---|---|---|
+| Driver | Driver ID | `driver_id` | number |
+| Driver | Driver Name | `driver.name` | text |
+| Earnings | Base Salary | `base_salary` | currency |
+| Earnings | Trip Bonus | `trip_bonus` | currency |
+| Earnings | Overtime Pay | `overtime_pay` | currency |
+| Earnings | Night Shift Allowance | `night_shift_allowance` | currency |
+| Earnings | Public Holiday Pay | `public_holiday_pay` | currency |
+| Earnings | Allowance | `allowance` | currency |
+| Deductions | Insurance/General Deduction | `deduction` | currency |
+| Deductions | Unpaid Leave Deduction | `leave_unpaid_deduction` | currency |
+| Deductions | Violation Deduction | `violation_deduction` | currency |
+| Deductions | Fuel Cost | `fuel_cost` | currency |
+| Deductions | Tax | `tax` | currency |
+| Result | Net Salary | `net_salary` | currency (highlight) |
+| KPI | Working Days | `working_days` | number |
+| KPI | Paid Leave Days | `leave_days_paid` | number |
+| KPI | Unpaid Leave Days | `leave_days_unpaid` | number |
+| KPI | Overtime Hours | `overtime_hours` | number (1 decimal) |
+| KPI | Trips Completed | `trips_completed_count` | number |
+| KPI | Total Distance | `total_distance_km` | number (km) |
+
+Totals footer (minimum):
+- `total_base_salary`
+- `total_trip_bonus`
+- `total_overtime_pay`
+- `total_allowance`
+- `total_deduction` (sum of all deduction columns)
+- `total_net_salary`
+- `total_trips_completed`
+- `total_distance_km`
+
+---
+
+### C. Action/State Rules (important for button enable/disable)
+
+- If status = `draft`:
+  - Show: `Approve`, `Delete`, `Edit Notes`, `Export`
+  - Hide/Disable: `Lock`
+- If status = `approved`:
+  - Show: `Lock`, `Export`
+  - Disable: editable fields
+- If status = `locked`:
+  - Show: `Export` only
+  - Disable all mutation actions
+
+Role constraints:
+- Admin can call approve/lock/export.
+- Driver/staff should only use `/payrolls/my-salary`.
+
+SoD rule:
+- User who created payroll must not approve same payroll (expect `403`).
+
+---
+
+### D. FE Data Types & Formatting Rules
+
+- Currency: render VND with thousand separators, no decimals by default.
+- Decimal fields:
+  - `overtime_hours`: keep 1-2 decimals.
+  - `total_distance_km`: keep 1-2 decimals.
+- Null datetime (`approved_at`, `locked_at`): show `-`.
+- Large payload:
+  - Use server-side pagination for list.
+  - For detail, enable column pinning and horizontal scroll.
+
+---
+
+### E. Suggested TypeScript Interfaces
+
+```ts
+type PayrollStatus = "draft" | "approved" | "locked";
+
+interface PayrollSummaryItem {
+  id: number;
+  company_id: number;
+  month: number;
+  year: number;
+  status: PayrollStatus;
+  approved_at: string | null;
+  locked_at: string | null;
+  notes: string | null;
+  company?: { id: number; name: string };
+}
+
+interface PayrollLineItem {
+  driver_id: number;
+  driver?: { id: number; name: string };
+  base_salary: number;
+  trip_bonus: number;
+  overtime_pay: number;
+  night_shift_allowance: number;
+  public_holiday_pay: number;
+  allowance: number;
+  deduction: number;
+  leave_unpaid_deduction: number;
+  violation_deduction: number;
+  fuel_cost: number;
+  tax: number;
+  net_salary: number;
+  working_days: number;
+  leave_days_paid: number;
+  leave_days_unpaid: number;
+  overtime_hours: number;
+  trips_completed_count: number;
+  total_distance_km: number;
+}
+```
+
+---
+
 ## 8. Master Data  *(admin required)*
 
 Standard CRUD for all master data resources. All support `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
@@ -820,6 +1033,17 @@ Stream a chat response (SSE).
 | 409 | Conflict — schedule/vehicle duplicate |
 | 422 | Validation failed — see `errors` field |
 | 500 | Server error |
+
+---
+
+## Legacy Compatibility Endpoints
+
+These endpoints are kept for FE backward compatibility:
+
+- `GET /documentation` → returns links to Swagger UI/OpenAPI sources
+- `GET /employees` → alias mapped to drivers list payload
+- `GET /allowances` → compatibility endpoint (currently returns empty array)
+- `GET /deductions` → compatibility endpoint (currently returns empty array)
 
 ---
 

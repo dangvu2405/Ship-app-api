@@ -18,7 +18,7 @@ class DriverController extends BaseController
 {
     use HasIndexQuery;
 
-    protected array $allowedSortColumns = ['id', 'employee_id', 'license_no', 'available_status', 'expired_date', 'created_at'];
+    protected array $allowedSortColumns = ['id', 'code', 'name', 'license_no', 'available_status', 'expired_date', 'created_at'];
 
     /**
      * @OA\Get(
@@ -35,9 +35,9 @@ class DriverController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Driver::query()->with('employee.office');
+        $query = Driver::query()->with(['office', 'department', 'position']);
         $result = $this->indexQuery($request, $query, ['license_no'], [
-            'employee_id' => 'employee_id',
+            'office_id' => 'office_id',
             'available_status' => 'available_status',
         ]);
 
@@ -68,7 +68,7 @@ class DriverController extends BaseController
     {
         $driver = Driver::create($request->validated());
 
-        return $this->successResponse($driver->load('employee'), 'Driver created successfully', 201);
+        return $this->successResponse($driver->load(['office', 'department', 'position']), 'Driver created successfully', 201);
     }
 
     /**
@@ -83,7 +83,7 @@ class DriverController extends BaseController
      */
     public function show(string $driver): JsonResponse
     {
-        $model = Driver::with('employee.office')->find($driver);
+        $model = Driver::with(['office', 'department', 'position'])->find($driver);
         if (! $model) {
             return $this->notFoundResponse('Driver not found');
         }
@@ -120,7 +120,7 @@ class DriverController extends BaseController
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh('employee'), 'Driver updated successfully');
+        return $this->successResponse($model->fresh(['office', 'department', 'position']), 'Driver updated successfully');
     }
 
     /**

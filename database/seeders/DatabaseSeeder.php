@@ -207,5 +207,9 @@ class DatabaseSeeder extends Seeder
         if (Schema::hasTable('payrolls')) {
             $this->call(DriverPayrollBulkSeeder::class);
         }
+
+        $this->call(PhaseOneMinimalDataSeeder::class);
+        $this->call(CompanyRevenueSeeder::class);
+        $this->call(BusinessLogicFullSeeder::class);
     }
 }

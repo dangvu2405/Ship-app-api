@@ -51,3 +51,5 @@ alwaysApply: true
 - Add/adjust Unit tests for service/business rules.
 - Keep architecture checks passing (controllers extend `BaseController`, strict types, etc.).
 - Run relevant tests after edits before finalizing.
+
+
