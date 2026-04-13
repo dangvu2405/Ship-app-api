@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Company;
-use App\Models\Employee;
+use App\Models\Driver;
 use App\Models\Payroll;
 use App\Models\Trip;
 use App\Models\Vehicle;
@@ -24,8 +24,8 @@ class ReportService
         $data = Cache::remember($key, 3600, function () use ($month, $year): array {
             $companiesTotal = Company::count();
             $companiesActive = Company::where('status', 'active')->count();
-            $employeesTotal = Employee::count();
-            $employeesActive = Employee::where('status', 'active')->count();
+            $employeesTotal = Driver::count();
+            $employeesActive = Driver::where('status', 'active')->count();
             $vehiclesTotal = Vehicle::count();
             $vehiclesActive = Vehicle::where('status', 'active')->count();
             $tripsTotal = Trip::whereMonth('created_at', $month)
@@ -90,7 +90,7 @@ class ReportService
 
         /** @var array<string, mixed>|null $data */
         $data = Cache::remember($key, 86400, function () use ($companyId, $month, $year): ?array {
-            $payroll = Payroll::with('details.employee')
+            $payroll = Payroll::with('lines.driver')
                 ->where('company_id', $companyId)
                 ->where('month', $month)
                 ->where('year', $year)
@@ -102,8 +102,8 @@ class ReportService
 
             return [
                 'payroll' => $payroll,
-                'total_net' => $payroll->details->sum('net_salary'),
-                'employees_count' => $payroll->details->count(),
+                'total_net' => $payroll->lines->sum('net_salary'),
+                'employees_count' => $payroll->lines->pluck('driver_id')->filter()->unique()->count(),
             ];
         });
 

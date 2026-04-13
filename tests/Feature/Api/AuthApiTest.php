@@ -7,8 +7,12 @@ namespace Tests\Feature\Api;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Tests\TestCase;
 
 class AuthApiTest extends TestCase
@@ -100,14 +104,28 @@ class AuthApiTest extends TestCase
         ];
     }
 
-    public function test_email_password_login_route_is_removed(): void
+    public function test_email_password_login_works_with_v1_prefix(): void
     {
-        $response = $this->postJson('/api/v1/auth/login', [
-            'email' => 'any@example.com',
-            'password' => 'password',
+        $user = User::factory()->create([
+            'email' => 'login.v1@example.com',
+            'password' => Hash::make('password123'),
+            'status' => 'active',
         ]);
 
-        $response->assertStatus(404);
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'login.v1@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Login successful',
+            ])
+            ->assertJsonPath('data.user.id', $user->id)
+            ->assertJsonStructure([
+                'data' => ['user', 'token'],
+            ]);
     }
 
     public function test_user_endpoint_requires_auth(): void
@@ -344,6 +362,53 @@ class AuthApiTest extends TestCase
             ->assertJsonPath('message', 'Provider email is not verified');
     }
 
+    public function test_forgot_password_sends_reset_link_for_existing_user(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create([
+            'email' => 'forgot@example.com',
+            'status' => 'active',
+        ]);
+
+        $response = $this->postJson('/api/v1/auth/forgot-password', [
+            'email' => 'forgot@example.com',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Password reset link sent',
+            ]);
+
+        Notification::assertSentTo($user, ResetPassword::class);
+    }
+
+    public function test_reset_password_updates_password_with_valid_token(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'reset@example.com',
+            'status' => 'active',
+        ]);
+
+        $token = Password::broker()->createToken($user);
+
+        $response = $this->postJson('/api/v1/auth/reset-password', [
+            'email' => 'reset@example.com',
+            'token' => $token,
+            'password' => 'new-password-123',
+            'password_confirmation' => 'new-password-123',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'message' => 'Password reset successful',
+            ]);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('new-password-123', $user->password));
+    }
+
     public function test_user_endpoint_returns_user_info_for_authenticated_user(): void
     {
         $user = User::factory()->create([
@@ -381,7 +446,7 @@ class AuthApiTest extends TestCase
 
         $me->assertStatus(200);
         $legacy->assertStatus(200);
-        $this->assertSame($me->json('data.email'), $legacy->json('data.email'));
+        $this->assertSame($me->json('data.user.email'), $legacy->json('data.user.email'));
     }
 
     public function test_logout_invalidates_token(): void

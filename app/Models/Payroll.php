@@ -22,14 +22,17 @@ class Payroll extends Model
         'year',
         'status',
         'locked_at',
+        'approved_by',
+        'approved_at',
         'notes',
         'snapshot_json',
     ];
 
     protected $casts = [
-        'month' => 'integer',
-        'year' => 'integer',
-        'locked_at' => 'datetime',
+        'month'         => 'integer',
+        'year'          => 'integer',
+        'locked_at'     => 'datetime',
+        'approved_at'   => 'datetime',
         'snapshot_json' => 'array',
     ];
 
@@ -43,8 +46,23 @@ class Payroll extends Model
         return $this->hasMany(PayrollLine::class);
     }
 
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function isLocked(): bool
     {
         return $this->status === 'locked';
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === 'draft';
     }
 }

@@ -96,10 +96,11 @@ class PayrollController extends BaseController
                 (int) $validated['year']
             );
         } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 422);
+            $statusCode = is_int($e->getCode()) && $e->getCode() >= 400 && $e->getCode() <= 499 ? $e->getCode() : 422;
+            return $this->errorResponse($e->getMessage(), $statusCode);
         }
 
-        return $this->successResponse($payroll->load('company')->load('details.employee'), 'Payroll generated successfully', 201);
+        return $this->successResponse($payroll->load(['company', 'lines.driver']), 'Payroll generated successfully', 201);
     }
 
     /**
@@ -114,7 +115,7 @@ class PayrollController extends BaseController
      */
     public function show(string $payroll): JsonResponse
     {
-        $model = Payroll::with(['company', 'details.employee'])->find($payroll);
+        $model = Payroll::with(['company', 'lines.driver'])->find($payroll);
         if (! $model) {
             return $this->notFoundResponse('Payroll not found');
         }
@@ -152,7 +153,7 @@ class PayrollController extends BaseController
             return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return $this->successResponse($model->fresh(['company', 'details.employee']), 'Payroll updated successfully');
+        return $this->successResponse($model->fresh(['company', 'lines.driver']), 'Payroll updated successfully');
     }
 
     /**
@@ -205,7 +206,7 @@ class PayrollController extends BaseController
             return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return $this->successResponse($payroll->fresh(['company', 'details.employee']), 'Payroll approved successfully');
+        return $this->successResponse($payroll->fresh(['company', 'lines.driver']), 'Payroll approved successfully');
     }
 
     /**
@@ -231,7 +232,7 @@ class PayrollController extends BaseController
             return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return $this->successResponse($payroll->fresh(['company', 'details.employee']), 'Payroll locked successfully');
+        return $this->successResponse($payroll->fresh(['company', 'lines.driver']), 'Payroll locked successfully');
     }
 
     /**
@@ -270,8 +271,8 @@ class PayrollController extends BaseController
     public function mySalary(MySalaryRequest $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user->employee) {
-            return $this->successResponse(null, 'No employee linked to your account');
+        if (! $user->driver) {
+            return $this->successResponse(null, 'No driver linked to your account');
         }
 
         $validated = $request->validated();

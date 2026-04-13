@@ -31,7 +31,9 @@ $currentUserResponse = static function (Request $request) {
     return response()->json([
         'success' => true,
         'message' => 'OK',
-        'data' => $user,
+        'data' => [
+            'user' => $user,
+        ],
     ]);
 };
 
@@ -72,11 +74,42 @@ $registerAdminRoutes = static function (): void {
     Route::apiResource('trip_bonus_rules', \App\Http\Controllers\Api\TripBonusRuleController::class);
     Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
 
-
+    // Payroll
     Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
     Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
     Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
     Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);
+
+    // Driver Work Schedules
+    Route::post('driver-schedules/{driverWorkSchedule}/submit', [\App\Http\Controllers\Api\DriverScheduleController::class, 'submit'])->name('driver-schedules.submit');
+    Route::post('driver-schedules/{driverWorkSchedule}/approve', [\App\Http\Controllers\Api\DriverScheduleController::class, 'approve'])->name('driver-schedules.approve');
+    Route::post('driver-schedules/{driverWorkSchedule}/reject', [\App\Http\Controllers\Api\DriverScheduleController::class, 'reject'])->name('driver-schedules.reject');
+    Route::apiResource('driver-schedules', \App\Http\Controllers\Api\DriverScheduleController::class);
+
+    // Attendance
+    Route::post('attendance/check-in', [\App\Http\Controllers\Api\AttendanceController::class, 'checkIn'])->name('attendance.check-in');
+    Route::post('attendance/check-out', [\App\Http\Controllers\Api\AttendanceController::class, 'checkOut'])->name('attendance.check-out');
+    Route::patch('attendance/{id}/adjust', [\App\Http\Controllers\Api\AttendanceController::class, 'adjust'])->name('attendance.adjust');
+    Route::get('attendance', [\App\Http\Controllers\Api\AttendanceController::class, 'index'])->name('attendance.index');
+
+    // Leave
+    Route::get('leave/types', [\App\Http\Controllers\Api\LeaveController::class, 'types'])->name('leave.types');
+    Route::post('leave/{leaveRequest}/approve', [\App\Http\Controllers\Api\LeaveController::class, 'approve'])->name('leave.approve');
+    Route::post('leave/{leaveRequest}/reject', [\App\Http\Controllers\Api\LeaveController::class, 'reject'])->name('leave.reject');
+    Route::post('leave/{leaveRequest}/cancel', [\App\Http\Controllers\Api\LeaveController::class, 'cancel'])->name('leave.cancel');
+    Route::apiResource('leave', \App\Http\Controllers\Api\LeaveController::class)->only(['index', 'store', 'show']);
+
+    // Overtime
+    Route::post('overtime/{overtimeRequest}/approve', [\App\Http\Controllers\Api\OvertimeController::class, 'approve'])->name('overtime.approve');
+    Route::post('overtime/{overtimeRequest}/reject', [\App\Http\Controllers\Api\OvertimeController::class, 'reject'])->name('overtime.reject');
+    Route::apiResource('overtime', \App\Http\Controllers\Api\OvertimeController::class)->only(['index', 'store', 'show']);
+
+    // Violations
+    Route::post('violations/{violation}/confirm', [\App\Http\Controllers\Api\ViolationController::class, 'confirm'])->name('violations.confirm');
+    Route::post('violations/{violation}/dispute', [\App\Http\Controllers\Api\ViolationController::class, 'dispute'])->name('violations.dispute');
+    Route::post('violations/{violation}/resolve-dispute', [\App\Http\Controllers\Api\ViolationController::class, 'resolveDispute'])->name('violations.resolve-dispute');
+    Route::post('violations/{violation}/waive', [\App\Http\Controllers\Api\ViolationController::class, 'waive'])->name('violations.waive');
+    Route::apiResource('violations', \App\Http\Controllers\Api\ViolationController::class)->only(['index', 'store', 'show']);
 
     Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
     Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])->name('roles.permissions');
@@ -137,7 +170,10 @@ Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthentica
     }
 
     Route::prefix('auth')->group(function (): void {
+        Route::post('/login', [AuthController::class, 'login']);
         Route::post('/social/login', [AuthController::class, 'socialLogin']);
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     });
 
     Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);

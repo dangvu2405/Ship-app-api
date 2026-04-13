@@ -6,11 +6,13 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Models\User;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -127,6 +129,37 @@ class AuthService
         $this->revokeCurrentToken($user);
 
         return $user->createToken('auth-token')->plainTextToken;
+    }
+
+    public function sendPasswordResetLink(string $email): void
+    {
+        $status = Password::broker()->sendResetLink(['email' => $email]);
+
+        if (! in_array($status, [Password::RESET_LINK_SENT, Password::INVALID_USER], true)) {
+            throw new AuthenticationException('Unable to send password reset link');
+        }
+    }
+
+    /**
+     * @param array{email: string, token: string, password: string, password_confirmation: string} $payload
+     */
+    public function resetPassword(array $payload): void
+    {
+        $status = Password::broker()->reset(
+            $payload,
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw new AuthenticationException(__($status));
+        }
     }
 
     /**

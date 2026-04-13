@@ -20,10 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Register custom middleware aliases
         $middleware->alias([
-            'role' => \App\Http\Middleware\RoleMiddleware::class,
-            'permission' => \App\Http\Middleware\PermissionMiddleware::class,
-            'tenant.context' => \App\Http\Middleware\EnsureTenantContext::class,
+            'role'                  => \App\Http\Middleware\RoleMiddleware::class,
+            'permission'            => \App\Http\Middleware\PermissionMiddleware::class,
+            'tenant.context'        => \App\Http\Middleware\EnsureTenantContext::class,
             'audit.sensitive_reads' => \App\Http\Middleware\LogSensitiveResourceReads::class,
+            'sod'                   => \App\Http\Middleware\SodGuard::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\SocialLoginRequest;
 use App\Services\AuthService;
 use Illuminate\Auth\AuthenticationException;
@@ -73,6 +75,36 @@ class AuthController extends BaseController
             return $this->errorResponse($e->getMessage(), 401);
         } catch (Throwable $e) {
             return $this->handleException($e, 'Social login failed');
+        }
+    }
+
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        try {
+            $this->authService->sendPasswordResetLink($validated['email']);
+
+            return $this->successResponse(null, 'Password reset link sent');
+        } catch (AuthenticationException $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            return $this->handleException($e, 'Forgot password failed');
+        }
+    }
+
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        try {
+            $this->authService->resetPassword($validated);
+
+            return $this->successResponse(null, 'Password reset successful');
+        } catch (AuthenticationException $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            return $this->handleException($e, 'Reset password failed');
         }
     }
 
