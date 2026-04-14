@@ -6,12 +6,15 @@ namespace Tests\Feature\Api;
 
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Office;
+use App\Models\Department;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Tests\TestCase;
 
@@ -124,8 +127,13 @@ class AuthApiTest extends TestCase
             ])
             ->assertJsonPath('data.user.id', $user->id)
             ->assertJsonStructure([
-                'data' => ['user', 'token'],
+                'data' => ['user', 'token', 'refreshToken'],
             ]);
+
+        $this->assertDatabaseHas('refresh_tokens', [
+            'user_id' => $user->id,
+            'is_revoked' => false,
+        ]);
     }
 
     public function test_user_endpoint_requires_auth(): void
@@ -390,7 +398,7 @@ class AuthApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $token = Password::broker()->createToken($user);
+        $token = Password::getRepository()->create($user);
 
         $response = $this->postJson('/api/v1/auth/reset-password', [
             'email' => 'reset@example.com',
@@ -449,6 +457,180 @@ class AuthApiTest extends TestCase
         $this->assertSame($me->json('data.user.email'), $legacy->json('data.user.email'));
     }
 
+    public function test_auth_actions_requires_authentication(): void
+    {
+        $response = $this->getJson('/api/v1/auth/actions');
+
+        $response->assertStatus(401)
+            ->assertJson([
+                'success' => false,
+            ]);
+    }
+
+    public function test_admin_can_filter_auth_actions_by_filters(): void
+    {
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create(['status' => 'active', 'username' => 'root-admin']);
+        $admin->roles()->attach($adminRole->id);
+
+        $targetUser = User::factory()->create(['status' => 'active', 'username' => 'driver.target']);
+        $otherUser = User::factory()->create(['status' => 'active', 'username' => 'driver.other']);
+
+        DB::table('audit_logs')->insert([
+            [
+                'user_id' => $targetUser->id,
+                'company_id' => null,
+                'action' => 'POST /api/v1/trips',
+                'table_name' => 'api_requests',
+                'resource' => '/api/v1/trips',
+                'record_id' => null,
+                'old_data' => null,
+                'new_data' => json_encode(['status_code' => 201]),
+                'metadata' => null,
+                'ip_address' => '127.0.0.1',
+                'request_id' => 'req-1',
+                'user_agent' => 'PHPUnit',
+                'created_at' => now()->subMinutes(10),
+                'updated_at' => now()->subMinutes(10),
+            ],
+            [
+                'user_id' => $otherUser->id,
+                'company_id' => null,
+                'action' => 'GET /api/v1/trips',
+                'table_name' => 'api_requests',
+                'resource' => '/api/v1/trips',
+                'record_id' => null,
+                'old_data' => null,
+                'new_data' => json_encode(['status_code' => 200]),
+                'metadata' => null,
+                'ip_address' => '127.0.0.1',
+                'request_id' => 'req-2',
+                'user_agent' => 'PHPUnit',
+                'created_at' => now()->subMinutes(5),
+                'updated_at' => now()->subMinutes(5),
+            ],
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/auth/actions?username=driver.target&action=POST&from='.urlencode(now()->subDay()->toDateTimeString()).'&to='.urlencode(now()->toDateTimeString()).'&status_code=201');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Auth actions retrieved')
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.username', 'driver.target')
+            ->assertJsonPath('data.0.action', 'POST /api/v1/trips')
+            ->assertJsonPath('data.0.statusCode', 201)
+            ->assertJsonStructure([
+                'data' => [[
+                    'id',
+                    'username',
+                    'action',
+                    'resource',
+                    'tableName',
+                    'recordId',
+                    'entityType',
+                    'statusCode',
+                    'performedBy',
+                    'createdAt',
+                ]],
+            ]);
+    }
+
+    public function test_auth_actions_capture_crud_and_other_authenticated_actions(): void
+    {
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create(['status' => 'active', 'username' => 'audit.admin']);
+        $admin->roles()->attach($adminRole->id);
+
+        $this->actingAs($admin, 'sanctum');
+
+        $office = Office::factory()->create();
+
+        $create = $this->postJson('/api/v1/departments', [
+            'office_id' => $office->id,
+            'code' => 'DEP-AUDIT-01',
+            'name' => 'Audit Department',
+        ]);
+        $create->assertStatus(201);
+
+        $departmentId = (int) Department::query()
+            ->where('code', 'DEP-AUDIT-01')
+            ->value('id');
+        $this->assertNotSame(0, $departmentId);
+
+        $this->putJson('/api/v1/departments/'.$departmentId, [
+            'name' => 'Audit Department Updated',
+        ])->assertStatus(200);
+
+        $this->deleteJson('/api/v1/departments/'.$departmentId)->assertStatus(200);
+        $this->postJson('/api/v1/auth/refresh')->assertStatus(200);
+
+        $response = $this->getJson('/api/v1/auth/actions?username=audit.admin');
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Auth actions retrieved')
+            ->assertJsonStructure([
+                'data' => [[
+                    'id',
+                    'username',
+                    'action',
+                    'resource',
+                    'tableName',
+                    'recordId',
+                    'entityType',
+                    'statusCode',
+                    'performedBy',
+                    'createdAt',
+                ]],
+            ]);
+
+        $actions = collect($response->json('data'))->pluck('action')->all();
+        $this->assertContains('POST /api/v1/departments', $actions);
+        $this->assertContains('PUT /api/v1/departments/'.$departmentId, $actions);
+        $this->assertContains('DELETE /api/v1/departments/'.$departmentId, $actions);
+        $this->assertContains('POST /api/v1/auth/refresh', $actions);
+
+        $deleteAction = collect($response->json('data'))
+            ->firstWhere('action', 'DELETE /api/v1/departments/'.$departmentId);
+        $this->assertIsArray($deleteAction);
+        $this->assertSame('departments', $deleteAction['tableName']);
+        $this->assertSame($departmentId, $deleteAction['recordId']);
+        $this->assertSame('department', $deleteAction['entityType']);
+    }
+
+    public function test_auth_actions_date_range_with_yyyy_mm_dd_is_inclusive_for_whole_day(): void
+    {
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $admin = User::factory()->create(['status' => 'active', 'username' => 'admin']);
+        $admin->roles()->attach($adminRole->id);
+
+        DB::table('audit_logs')->insert([
+            'user_id' => $admin->id,
+            'company_id' => null,
+            'action' => 'DELETE /api/v1/departments/10',
+            'table_name' => 'api_requests',
+            'resource' => '/api/v1/departments/10',
+            'record_id' => null,
+            'old_data' => null,
+            'new_data' => json_encode(['status_code' => 200]),
+            'metadata' => null,
+            'ip_address' => '127.0.0.1',
+            'request_id' => 'req-delete-day',
+            'user_agent' => 'PHPUnit',
+            'created_at' => '2026-04-14 15:30:00',
+            'updated_at' => '2026-04-14 15:30:00',
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/auth/actions?username=admin&action=DELETE&from=2026-04-14&to=2026-04-14&status_code=200');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Auth actions retrieved')
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.action', 'DELETE /api/v1/departments/10')
+            ->assertJsonPath('data.0.statusCode', 200);
+    }
+
     public function test_logout_invalidates_token(): void
     {
         $user = User::factory()->create();
@@ -484,11 +666,50 @@ class AuthApiTest extends TestCase
             ->assertJsonStructure([
                 'data' => [
                     'token',
+                    'refreshToken',
                 ],
             ]);
 
         $this->assertCount(1, $user->tokens);
         $this->assertStringNotContainsString(explode('|', $token)[1] ?? '', $response->json('data.token'));
+        $this->assertDatabaseHas('refresh_tokens', [
+            'user_id' => $user->id,
+            'is_revoked' => false,
+        ]);
+    }
+
+    public function test_refresh_rotates_refresh_token_when_logged_in_token_was_issued_by_login(): void
+    {
+        $password = 'password123';
+        User::factory()->create([
+            'email' => 'rotate-refresh@example.com',
+            'password' => Hash::make($password),
+            'status' => 'active',
+        ]);
+
+        $loginResponse = $this->postJson('/api/v1/auth/login', [
+            'email' => 'rotate-refresh@example.com',
+            'password' => $password,
+        ]);
+
+        $loginResponse->assertStatus(200);
+        $accessToken = (string) $loginResponse->json('data.token');
+
+        $refreshResponse = $this->withHeaders([
+            'Authorization' => 'Bearer '.$accessToken,
+        ])->postJson('/api/v1/auth/refresh');
+
+        $refreshResponse->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => ['token', 'refreshToken'],
+            ]);
+
+        $userId = (int) User::query()->where('email', 'rotate-refresh@example.com')->value('id');
+        $activeRefreshTokenCount = DB::table('refresh_tokens')
+            ->where('user_id', $userId)
+            ->where('is_revoked', false)
+            ->count();
+        $this->assertSame(1, $activeRefreshTokenCount);
     }
 
     public function test_admin_can_register_new_user(): void

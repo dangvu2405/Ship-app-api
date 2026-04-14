@@ -41,6 +41,12 @@ $registerAuthenticatedRoutes = static function () use ($currentUserResponse): vo
     Route::prefix('auth')->group(function () use ($currentUserResponse): void {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
+        Route::get('/logs', [AuthController::class, 'logs']);
+        Route::get('/actions', [AuthController::class, 'actions']);
+        Route::get('/sessions', [AuthController::class, 'sessions']);
+        Route::get('/sessions/summary', [AuthController::class, 'sessionsSummary']);
+        Route::post('/sessions/{sessionId}/revoke', [AuthController::class, 'revokeSession']);
+        Route::post('/sessions/{sessionId}/lock-account', [AuthController::class, 'lockAccountForSession']);
         Route::get('/me', $currentUserResponse);
     });
 
@@ -197,10 +203,10 @@ if (class_exists($larkWebhookController)) {
 }
 
 // Protected routes: authenticated users (legacy)
-Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
+Route::middleware(['auth:sanctum', 'track.actions'])->group($registerAuthenticatedRoutes);
 
 // Protected routes: admin only (legacy)
-Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
+Route::middleware(['auth:sanctum', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
 
 // Versioned API routes
 Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes, $larkWebhookController, $larkAuthController): void {
@@ -226,8 +232,8 @@ Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthentica
         Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     });
 
-    Route::middleware(['auth:sanctum'])->group($registerAuthenticatedRoutes);
-    Route::middleware(['auth:sanctum', 'role:admin'])->group($registerAdminRoutes);
+    Route::middleware(['auth:sanctum', 'track.actions'])->group($registerAuthenticatedRoutes);
+    Route::middleware(['auth:sanctum', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
 });
 
 if (class_exists($larkAuthController)) {

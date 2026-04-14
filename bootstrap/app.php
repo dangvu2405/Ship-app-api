@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.context'        => \App\Http\Middleware\EnsureTenantContext::class,
             'audit.sensitive_reads' => \App\Http\Middleware\LogSensitiveResourceReads::class,
             'sod'                   => \App\Http\Middleware\SodGuard::class,
+            'track.actions'         => \App\Http\Middleware\TrackUserActions::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

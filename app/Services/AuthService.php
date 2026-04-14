@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Role;
+use App\Models\AuditLog;
+use App\Models\LoginLog;
+use App\Models\RefreshToken;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\AuthenticationException;
@@ -19,7 +22,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 class AuthService
 {
     /**
-     * @return array{user: User, token: string}
+     * @return array{user: User, token: string, refreshToken: string}
      */
     public function login(string $email, string $password): array
     {
@@ -31,18 +34,29 @@ class AuthService
             throw new AuthenticationException('Invalid credentials');
         }
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $tokenPair = $this->issueTokenPair($user);
         $user->update(['last_login_at' => now()]);
+        LoginLog::query()->create([
+            'user_id' => $user->id,
+            'ip' => request()->ip(),
+            'device' => (string) request()->userAgent(),
+            'login_at' => now(),
+            'logout_at' => null,
+            'status' => 'active',
+            'action' => 'login',
+            'performed_by' => $user->username,
+        ]);
         $user->load(['driver', 'roles.permissions']);
 
         return [
             'user' => $user,
-            'token' => $token,
+            'token' => $tokenPair['token'],
+            'refreshToken' => $tokenPair['refreshToken'],
         ];
     }
 
     /**
-     * @return array{user: User, token: string}
+     * @return array{user: User, token: string, refreshToken: string}
      */
     public function socialLogin(string $provider, ?string $accessToken, ?string $idToken): array
     {
@@ -94,12 +108,23 @@ class AuthService
             $user->save();
         }
 
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $tokenPair = $this->issueTokenPair($user);
+        LoginLog::query()->create([
+            'user_id' => $user->id,
+            'ip' => request()->ip(),
+            'device' => (string) request()->userAgent(),
+            'login_at' => now(),
+            'logout_at' => null,
+            'status' => 'active',
+            'action' => 'social_login',
+            'performed_by' => $user->username,
+        ]);
         $user->load(['driver', 'roles.permissions']);
 
         return [
             'user' => $user,
-            'token' => $token,
+            'token' => $tokenPair['token'],
+            'refreshToken' => $tokenPair['refreshToken'],
         ];
     }
 
@@ -124,11 +149,247 @@ class AuthService
         $this->revokeCurrentToken($user);
     }
 
-    public function refresh(User $user): string
+    /**
+     * @return array{token: string, refreshToken: string}
+     */
+    public function refresh(User $user): array
     {
         $this->revokeCurrentToken($user);
 
-        return $user->createToken('auth-token')->plainTextToken;
+        return $this->issueTokenPair($user);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function sessionsSummary(User $user): array
+    {
+        $activeSessions = LoginLog::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->count();
+
+        $failedLogins = LoginLog::query()
+            ->where('user_id', $user->id)
+            ->where('action', 'failed_login')
+            ->count();
+
+        return [
+            'activeSessions' => $activeSessions,
+            'failedLogins' => $failedLogins,
+        ];
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, int>}
+     */
+    public function sessions(User $user, int $perPage = 10): array
+    {
+        $perPage = max(1, min($perPage, 100));
+
+        $paginator = LoginLog::query()
+            ->where('user_id', $user->id)
+            ->orderByDesc('login_at')
+            ->paginate($perPage);
+
+        $logs = collect($paginator->items())
+            ->map(static fn (LoginLog $log): array => [
+                'id' => (string) $log->id,
+                'device' => (string) ($log->device ?? 'Unknown device'),
+                'ip' => $log->ip,
+                'lastLogin' => optional($log->login_at)->toIso8601String() ?? '',
+                'logoutTime' => optional($log->logout_at)->toIso8601String(),
+                'status' => $log->status ?? 'active',
+            ])
+            ->values()
+            ->toArray();
+
+        return [
+            'logs' => $logs,
+            'total' => $paginator->total(),
+        ];
+    }
+
+    /**
+     * @return array{data: array<int, array<string, mixed>>, meta: array<string, int>}
+     */
+    public function logs(User $user, ?string $date = null): array
+    {
+        $isAdmin = $user->hasRole('admin');
+        $loginLogsQuery = LoginLog::query()->with('user');
+        $auditLogsQuery = AuditLog::query()->with('user');
+
+        if (! $isAdmin) {
+            $loginLogsQuery->where('user_id', $user->id);
+            $auditLogsQuery->where('user_id', $user->id);
+        }
+
+        if ($date !== null && $date !== '') {
+            $loginLogsQuery->whereDate('login_at', $date);
+            $auditLogsQuery->whereDate('created_at', $date);
+        }
+
+        $loginRows = $loginLogsQuery
+            ->orderByDesc('login_at')
+            ->limit(200)
+            ->get()
+            ->map(static fn (LoginLog $log): array => [
+                'id' => 'login-'.(string) $log->id,
+                'username' => (string) ($log->user?->username ?? ''),
+                'loginTime' => optional($log->login_at)->toIso8601String(),
+                'logoutTime' => optional($log->logout_at)->toIso8601String(),
+                'action' => (string) ($log->action ?? 'login'),
+                'performedBy' => (string) ($log->performed_by ?? ($log->user?->username ?? 'system')),
+            ]);
+
+        $auditRows = $auditLogsQuery
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get()
+            ->map(static fn (AuditLog $log): array => [
+                'id' => 'audit-'.(string) $log->id,
+                'username' => (string) ($log->user?->username ?? ''),
+                'loginTime' => optional($log->created_at)->toIso8601String(),
+                'logoutTime' => null,
+                'action' => (string) $log->action,
+                'performedBy' => (string) ($log->user?->username ?? 'system'),
+            ]);
+
+        return $loginRows
+            ->concat($auditRows)
+            ->sortByDesc('loginTime')
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array<int, array<string, mixed>>
+     */
+    public function actions(User $user, array $filters = []): array
+    {
+        $query = AuditLog::query()
+            ->with('user')
+            ->orderByDesc('created_at');
+
+        if (! $user->hasRole('admin')) {
+            $query->where('user_id', $user->id);
+        }
+
+        $username = isset($filters['username']) && is_string($filters['username'])
+            ? trim($filters['username'])
+            : '';
+        if ($username !== '') {
+            $query->whereHas('user', static function ($userQuery) use ($username): void {
+                $userQuery->where('username', 'like', '%'.$username.'%');
+            });
+        }
+
+        $action = isset($filters['action']) && is_string($filters['action'])
+            ? trim($filters['action'])
+            : '';
+        if ($action !== '') {
+            $query->where('action', 'like', '%'.$action.'%');
+        }
+
+        $from = isset($filters['from']) && is_string($filters['from']) ? $filters['from'] : null;
+        if ($from !== null && $from !== '') {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) === 1) {
+                $query->whereDate('created_at', '>=', $from);
+            } else {
+                $query->where('created_at', '>=', $from);
+            }
+        }
+
+        $to = isset($filters['to']) && is_string($filters['to']) ? $filters['to'] : null;
+        if ($to !== null && $to !== '') {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $to) === 1) {
+                $query->whereDate('created_at', '<=', $to);
+            } else {
+                $query->where('created_at', '<=', $to);
+            }
+        }
+
+        $statusCode = $filters['status_code'] ?? null;
+        if ($statusCode !== null) {
+            $query->where('new_data->status_code', (int) $statusCode);
+        }
+
+        return $query
+            ->limit(500)
+            ->get()
+            ->map(static function (AuditLog $log): array {
+                return [
+                    'id' => 'audit-'.(string) $log->id,
+                    'username' => (string) ($log->user?->username ?? ''),
+                    'action' => (string) $log->action,
+                    'resource' => (string) ($log->resource ?? ''),
+                    'tableName' => (string) ($log->table_name ?? ''),
+                    'recordId' => $log->record_id !== null ? (int) $log->record_id : null,
+                    'entityType' => (string) data_get(
+                        $log->metadata,
+                        'entity_type',
+                        $log->table_name !== null ? \Illuminate\Support\Str::singular(str_replace('-', '_', (string) $log->table_name)) : ''
+                    ),
+                    'statusCode' => (int) data_get($log->new_data, 'status_code', 0),
+                    'performedBy' => (string) ($log->user?->username ?? 'system'),
+                    'createdAt' => optional($log->created_at)->toIso8601String(),
+                ];
+            })
+            ->values()
+            ->toArray();
+    }
+
+    public function revokeSession(User $user, string $sessionId): void
+    {
+        $log = LoginLog::query()
+            ->where('id', $sessionId)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        $log->update([
+            'status' => 'logged_out',
+            'logout_at' => now(),
+            'action' => 'revoke_session',
+            'performed_by' => $user->username,
+        ]);
+    }
+
+    public function lockAccountForSession(User $user, string $sessionId): void
+    {
+        $log = LoginLog::query()
+            ->where('id', $sessionId)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        DB::transaction(function () use ($user, $log): void {
+            $user->update(['status' => 'inactive']);
+            DB::table('personal_access_tokens')
+                ->where('tokenable_type', User::class)
+                ->where('tokenable_id', $user->id)
+                ->delete();
+            RefreshToken::query()
+                ->where('user_id', $user->id)
+                ->where('is_revoked', false)
+                ->update(['is_revoked' => true]);
+
+            LoginLog::query()
+                ->where('user_id', $user->id)
+                ->where('status', 'active')
+                ->update([
+                    'status' => 'expired',
+                    'logout_at' => now(),
+                    'action' => 'lock_account',
+                    'performed_by' => $user->username,
+                ]);
+
+            $log->update([
+                'status' => 'expired',
+                'logout_at' => now(),
+                'action' => 'lock_account',
+                'performed_by' => $user->username,
+            ]);
+        });
     }
 
     public function sendPasswordResetLink(string $email): void
@@ -419,8 +680,47 @@ class AuthService
     private function revokeCurrentToken(User $user): void
     {
         $token = $user->currentAccessToken();
+        $revoked = 0;
+
         if ($token instanceof PersonalAccessToken) {
+            $revoked = RefreshToken::query()
+                ->where('access_token_id', $token->id)
+                ->where('is_revoked', false)
+                ->update(['is_revoked' => true]);
             $token->delete();
         }
+
+        if ($revoked === 0) {
+            RefreshToken::query()
+                ->where('user_id', $user->id)
+                ->where('is_revoked', false)
+                ->orderByDesc('id')
+                ->limit(1)
+                ->update(['is_revoked' => true]);
+        }
+    }
+
+    /**
+     * @return array{token: string, refreshToken: string}
+     */
+    private function issueTokenPair(User $user): array
+    {
+        $accessToken = $user->createToken('auth-token');
+        $refreshToken = RefreshToken::generateToken();
+
+        RefreshToken::query()->create([
+            'user_id' => $user->id,
+            'token' => $refreshToken,
+            'access_token_id' => $accessToken->accessToken->id,
+            'expires_at' => now()->addDays(30),
+            'is_revoked' => false,
+            'ip_address' => request()->ip(),
+            'user_agent' => (string) request()->userAgent(),
+        ]);
+
+        return [
+            'token' => $accessToken->plainTextToken,
+            'refreshToken' => $refreshToken,
+        ];
     }
 }
