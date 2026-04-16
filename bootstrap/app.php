@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Register custom middleware aliases
         $middleware->alias([
+            'auth'                  => \App\Http\Middleware\Authenticate::class,
             'role'                  => \App\Http\Middleware\RoleMiddleware::class,
             'permission'            => \App\Http\Middleware\PermissionMiddleware::class,
             'tenant.context'        => \App\Http\Middleware\EnsureTenantContext::class,

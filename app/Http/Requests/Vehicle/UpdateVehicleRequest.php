@@ -26,6 +26,10 @@ class UpdateVehicleRequest extends FormRequest
             'year' => 'nullable|integer|min:1900|max:2100',
             'capacity' => 'nullable|integer|min:0',
             'status' => 'sometimes|in:active,maintenance,inactive',
+            'image_front' => 'nullable|url|max:255',
+            'image_back' => 'nullable|url|max:255',
+            'image_side' => 'nullable|url|max:255',
+            'image_other' => 'nullable|url|max:255',
         ];
     }
 }

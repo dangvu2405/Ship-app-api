@@ -25,6 +25,10 @@ class Vehicle extends Model
         'year',
         'capacity',
         'status',
+        'image_front',
+        'image_back',
+        'image_side',
+        'image_other',
     ];
 
     protected $casts = [

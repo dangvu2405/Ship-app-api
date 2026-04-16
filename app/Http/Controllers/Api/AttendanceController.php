@@ -10,6 +10,7 @@ use App\Services\AttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Throwable;
 
@@ -35,22 +36,39 @@ class AttendanceController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $query = DB::table('attendances');
+        $useLegacyAttendance = Schema::hasTable('attendances');
+        $dateColumn = $useLegacyAttendance ? 'date' : 'work_date';
+
+        $query = $useLegacyAttendance
+            ? DB::table('attendances')
+            : DB::table('driver_work_schedules')->select([
+                'id',
+                'driver_id',
+                DB::raw('work_date as date'),
+                DB::raw('start_time as check_in'),
+                DB::raw('end_time as check_out'),
+                DB::raw('NULL as work_hours'),
+                DB::raw('NULL as overtime_hours'),
+                DB::raw("CASE WHEN status IN ('approved', 'locked') THEN 'present' ELSE status END as status"),
+                'created_at',
+                'updated_at',
+            ]);
 
         if ($request->filled('driver_id')) {
             $query->where('driver_id', $request->integer('driver_id'));
         }
         if ($request->filled('date')) {
-            $query->where('date', $request->input('date'));
+            $query->where($dateColumn, $request->input('date'));
         }
         if ($request->filled('from') && $request->filled('to')) {
-            $query->whereBetween('date', [$request->input('from'), $request->input('to')]);
+            $query->whereBetween($dateColumn, [$request->input('from'), $request->input('to')]);
         }
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
         }
 
-        $records = $query->orderByDesc('date')->paginate(50);
+        $perPage = $request->integer('per_page', 50);
+        $records = $query->orderByDesc($dateColumn)->paginate($perPage > 0 ? min($perPage, 200) : 50);
 
         return $this->successResponse($records, 'Attendance records retrieved.');
     }
@@ -126,6 +144,24 @@ class AttendanceController extends BaseController
      */
     public function late(Request $request): JsonResponse
     {
+        if (! Schema::hasTable('attendances')) {
+            return $this->successResponse(
+                DB::table('driver_work_schedules')
+                    ->where('status', 'submitted')
+                    ->when(
+                        $request->filled('driver_id'),
+                        fn ($q) => $q->where('driver_id', $request->integer('driver_id')),
+                    )
+                    ->when(
+                        $request->filled('from') && $request->filled('to'),
+                        fn ($q) => $q->whereBetween('work_date', [$request->input('from'), $request->input('to')]),
+                    )
+                    ->orderByDesc('work_date')
+                    ->paginate(50),
+                'Late attendances retrieved.',
+            );
+        }
+
         $query = DB::table('attendances')->where('status', 'late');
 
         if ($request->filled('driver_id')) {

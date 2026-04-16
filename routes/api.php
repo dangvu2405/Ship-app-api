@@ -60,6 +60,16 @@ $registerAuthenticatedRoutes = static function () use ($currentUserResponse): vo
         Route::post('/messages', [\App\Http\Controllers\Api\ChatController::class, 'store']);
         Route::post('/messages/stream', [\App\Http\Controllers\Api\ChatController::class, 'stream']);
     });
+
+    Route::prefix('workforce')->group(function (): void {
+        Route::get('driver-schedules', [\App\Http\Controllers\Api\WorkforceController::class, 'schedules']);
+        Route::put('driver-schedules/{id}/approve', [\App\Http\Controllers\Api\WorkforceController::class, 'approveSchedule']);
+        Route::put('driver-schedules/{id}/lock', [\App\Http\Controllers\Api\WorkforceController::class, 'lockSchedule']);
+        Route::get('leave-requests', [\App\Http\Controllers\Api\WorkforceController::class, 'leaveRequests']);
+        Route::get('absences', [\App\Http\Controllers\Api\WorkforceController::class, 'absences']);
+    });
+
+    Route::get('public-holidays', [\App\Http\Controllers\Api\PublicHolidayController::class, 'index']);
 };
 
 $registerAdminRoutes = static function (): void {

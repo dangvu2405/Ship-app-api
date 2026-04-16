@@ -34,11 +34,11 @@ class ShipAppFullSampleSeeder extends Seeder
         $companies = $this->seedCompanies(3);
         $offices = $this->seedOffices($companies);
         $departments = $this->seedDepartments($offices, 12);
-        $positions = $this->seedPositions(10);
+        $positions = $this->seedPositions(10, $companies);
         [$users, $usersByRole] = $this->seedUsers(20);
         $drivers = $this->seedDrivers(30, $offices, $departments, $positions);
         $vehicles = $this->seedVehicles(40, $offices);
-        $customers = $this->seedCustomers(25);
+        $customers = $this->seedCustomers(25, $companies);
 
         $this->linkUsersToDrivers($users, $drivers);
 
@@ -134,11 +134,13 @@ class ShipAppFullSampleSeeder extends Seeder
     }
 
     /** @return \Illuminate\Support\Collection<int, Position> */
-    private function seedPositions(int $count)
+    private function seedPositions(int $count, $companies)
     {
         $items = collect();
         for ($i = 1; $i <= $count; $i++) {
+            $company = $companies[($i - 1) % $companies->count()];
             $items->push(Position::query()->create([
+                'company_id' => $company->id,
                 'code' => sprintf('POS%03d', $i),
                 'name' => "Position {$i}",
                 'base_salary' => 7000000 + ($i * 300000),
@@ -240,11 +242,13 @@ class ShipAppFullSampleSeeder extends Seeder
     }
 
     /** @return \Illuminate\Support\Collection<int, Customer> */
-    private function seedCustomers(int $count)
+    private function seedCustomers(int $count, $companies)
     {
         $items = collect();
         for ($i = 1; $i <= $count; $i++) {
+            $company = $companies[($i - 1) % $companies->count()];
             $items->push(Customer::query()->create([
+                'company_id' => $company->id,
                 'type' => $i % 3 === 0 ? 'individual' : 'company',
                 'name' => "Customer {$i}",
                 'tax_code' => 'TAX'.str_pad((string) $i, 8, '0', STR_PAD_LEFT),

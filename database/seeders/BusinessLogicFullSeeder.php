@@ -37,8 +37,8 @@ class BusinessLogicFullSeeder extends Seeder
 
         // 2) Seed operational resources
         $vehicleIds = $this->seedVehicles($officeId, 5);
-        $customerId = $this->seedCustomer();
-        $this->seedTripBonusRules();
+        $customerId = $this->seedCustomer($companyId);
+        $this->seedTripBonusRules($companyId, $now->toDateString());
         $tripIds = $this->seedTrips($drivers->pluck('id')->all(), $vehicleIds, $customerId);
         $invoiceIds = $this->seedInvoices($customerId, $tripIds);
         $this->seedVehicleAssignments($drivers->pluck('id')->all(), $vehicleIds);
@@ -118,12 +118,13 @@ class BusinessLogicFullSeeder extends Seeder
         return $ids;
     }
 
-    private function seedCustomer(): int
+    private function seedCustomer(int $companyId): int
     {
         DB::table('customers')->updateOrInsert(
-            ['name' => 'Cong ty Khach Hang Logistics A'],
+            ['name' => 'Cong ty Khach Hang Logistics A', 'company_id' => $companyId],
             [
                 'type' => 'company',
+                'company_id' => $companyId,
                 'tax_code' => '0312345678',
                 'phone' => '02838889999',
                 'email' => 'finance@khachhang-a.vn',
@@ -134,10 +135,13 @@ class BusinessLogicFullSeeder extends Seeder
             ]
         );
 
-        return (int) DB::table('customers')->where('name', 'Cong ty Khach Hang Logistics A')->value('id');
+        return (int) DB::table('customers')
+            ->where('name', 'Cong ty Khach Hang Logistics A')
+            ->where('company_id', $companyId)
+            ->value('id');
     }
 
-    private function seedTripBonusRules(): void
+    private function seedTripBonusRules(int $companyId, string $effectiveFrom): void
     {
         $rules = [
             ['min_km' => 0, 'max_km' => 200, 'bonus_per_km' => 1200],
@@ -147,9 +151,15 @@ class BusinessLogicFullSeeder extends Seeder
 
         foreach ($rules as $rule) {
             DB::table('trip_bonus_rules')->updateOrInsert(
-                ['min_km' => $rule['min_km'], 'max_km' => $rule['max_km']],
+                [
+                    'company_id' => $companyId,
+                    'effective_from' => $effectiveFrom,
+                    'min_km' => $rule['min_km'],
+                    'max_km' => $rule['max_km'],
+                ],
                 [
                     'bonus_per_km' => $rule['bonus_per_km'],
+                    'effective_to' => null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]

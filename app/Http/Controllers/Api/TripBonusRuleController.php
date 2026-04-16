@@ -18,12 +18,26 @@ class TripBonusRuleController extends BaseController
 {
     use HasIndexQuery;
 
-    protected array $allowedSortColumns = ['id', 'min_km', 'max_km', 'bonus_per_km', 'created_at'];
+    protected array $allowedSortColumns = [
+        'id',
+        'company_id',
+        'effective_from',
+        'effective_to',
+        'min_km',
+        'max_km',
+        'bonus_per_km',
+        'created_at',
+    ];
 
     public function index(Request $request): JsonResponse
     {
         $query = TripBonusRule::query();
-        $result = $this->indexQuery($request, $query, [], []);
+        $companyId = $request->user()?->driver?->company_id;
+        if (! $request->filled('company_id') && $companyId !== null) {
+            $request->merge(['company_id' => $companyId]);
+        }
+
+        $result = $this->indexQuery($request, $query, [], ['company_id' => 'company_id']);
 
         return $this->successResponse($result, 'OK');
     }

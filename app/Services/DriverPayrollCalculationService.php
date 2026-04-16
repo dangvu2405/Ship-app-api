@@ -51,7 +51,15 @@ class DriverPayrollCalculationService
             // Hard-delete lines so the unique (payroll_id, driver_id) constraint is not blocked by soft-deleted rows.
             PayrollLine::query()->where('payroll_id', $payroll->id)->forceDelete();
 
-            $rules           = TripBonusRule::query()->orderBy('min_km')->get();
+            $rules = TripBonusRule::query()
+                ->where('company_id', $companyId)
+                ->whereDate('effective_from', '<=', $end->toDateString())
+                ->where(function ($query) use ($start): void {
+                    $query->whereNull('effective_to')
+                        ->orWhereDate('effective_to', '>=', $start->toDateString());
+                })
+                ->orderBy('min_km')
+                ->get();
             $workingDays     = (int) config('payroll.default_working_days', 22);
             $insurancePct    = (float) config('payroll.insurance_percent_of_base', 0.105);
             $taxPct          = (float) config('payroll.tax_percent_of_base', 0.0);
@@ -297,7 +305,19 @@ class DriverPayrollCalculationService
     /** @return array<string, mixed> */
     private function buildLockSnapshot(Payroll $payroll): array
     {
-        $rules   = TripBonusRule::query()->orderBy('min_km')->get()->toArray();
+        $start = Carbon::createFromDate($payroll->year, $payroll->month, 1)->startOfDay();
+        $end = (clone $start)->endOfMonth()->endOfDay();
+
+        $rules = TripBonusRule::query()
+            ->where('company_id', $payroll->company_id)
+            ->whereDate('effective_from', '<=', $end->toDateString())
+            ->where(function ($query) use ($start): void {
+                $query->whereNull('effective_to')
+                    ->orWhereDate('effective_to', '>=', $start->toDateString());
+            })
+            ->orderBy('min_km')
+            ->get()
+            ->toArray();
         $drivers = [];
         foreach ($payroll->lines as $line) {
             $driver = $line->driver;

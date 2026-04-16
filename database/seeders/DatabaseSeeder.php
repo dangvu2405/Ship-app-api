@@ -49,6 +49,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $managerPosition = Position::create([
+            'company_id' => $company->id,
             'code' => 'MGR',
             'name' => 'Manager',
             'base_salary' => 15000000,
@@ -56,6 +57,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $driverPosition = Position::create([
+            'company_id' => $company->id,
             'code' => 'DRV',
             'name' => 'Driver',
             'base_salary' => 8000000,
@@ -197,9 +199,33 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Create Trip Bonus Rules
-        TripBonusRule::create(['min_km' => 0, 'max_km' => 1000, 'bonus_per_km' => 1000]);
-        TripBonusRule::create(['min_km' => 1001, 'max_km' => 2000, 'bonus_per_km' => 1500]);
-        TripBonusRule::create(['min_km' => 2001, 'max_km' => null, 'bonus_per_km' => 2000]);
+        $effectiveFrom = now()->toDateString();
+        foreach ([$company, $company2] as $tenantCompany) {
+            TripBonusRule::create([
+                'company_id' => $tenantCompany->id,
+                'effective_from' => $effectiveFrom,
+                'effective_to' => null,
+                'min_km' => 0,
+                'max_km' => 1000,
+                'bonus_per_km' => 1000,
+            ]);
+            TripBonusRule::create([
+                'company_id' => $tenantCompany->id,
+                'effective_from' => $effectiveFrom,
+                'effective_to' => null,
+                'min_km' => 1001,
+                'max_km' => 2000,
+                'bonus_per_km' => 1500,
+            ]);
+            TripBonusRule::create([
+                'company_id' => $tenantCompany->id,
+                'effective_from' => $effectiveFrom,
+                'effective_to' => null,
+                'min_km' => 2001,
+                'max_km' => null,
+                'bonus_per_km' => 2000,
+            ]);
+        }
 
         $this->call(AllTablesSeeder::class);
         $this->call(SpecReferenceDataSeeder::class);

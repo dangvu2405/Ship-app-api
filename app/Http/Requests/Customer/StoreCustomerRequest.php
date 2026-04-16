@@ -13,9 +13,17 @@ class StoreCustomerRequest extends FormRequest
         return true;
     }
 
+    public function prepareForValidation(): void
+    {
+        if (! $this->filled('company_id') && $this->user()?->driver?->company_id !== null) {
+            $this->merge(['company_id' => $this->user()->driver->company_id]);
+        }
+    }
+
     public function rules(): array
     {
         return [
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
             'type' => 'required|in:individual,company',
             'name' => 'required|string|max:255',
             'tax_code' => 'nullable|string|max:50',
