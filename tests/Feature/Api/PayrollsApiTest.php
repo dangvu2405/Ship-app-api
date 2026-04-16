@@ -143,4 +143,50 @@ class PayrollsApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
     }
+
+    public function test_admin_can_get_driver_monthly_payroll(): void
+    {
+        Sanctum::actingAs($this->adminUser());
+
+        $company = Company::factory()->create();
+        $office = Office::factory()->create(['company_id' => $company->id]);
+        $department = Department::factory()->create(['office_id' => $office->id]);
+        $position = Position::factory()->create(['base_salary' => 10_000_000.00]);
+        $driver = Driver::factory()->create([
+            'office_id' => $office->id,
+            'department_id' => $department->id,
+            'position_id' => $position->id,
+            'status' => 'active',
+        ]);
+
+        $payroll = Payroll::query()->create([
+            'company_id' => $company->id,
+            'month' => 6,
+            'year' => 2026,
+            'status' => 'approved',
+        ]);
+        \App\Models\PayrollLine::query()->create([
+            'payroll_id' => $payroll->id,
+            'company_id' => $company->id,
+            'driver_id' => $driver->id,
+            'base_salary' => 9_000_000,
+            'trip_bonus' => 200_000,
+            'allowance' => 0,
+            'deduction' => 0,
+            'fuel_cost' => 0,
+            'tax' => 0,
+            'net_salary' => 9_200_000,
+            'working_days' => 22,
+            'trips_completed_count' => 10,
+            'total_distance_km' => 500,
+        ]);
+
+        $response = $this->getJson('/api/v1/payrolls/driver/'.$driver->id.'?month=6&year=2026');
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.driver_id', $driver->id)
+            ->assertJsonPath('data.month', 6)
+            ->assertJsonPath('data.year', 2026)
+            ->assertJsonPath('data.line.net_salary', '9200000.00');
+    }
 }

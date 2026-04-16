@@ -160,6 +160,41 @@ class AuthService
     }
 
     /**
+     * @return array{token: string, refreshToken: string}
+     */
+    public function refreshWithRefreshToken(string $refreshToken): array
+    {
+        $storedToken = RefreshToken::query()
+            ->where('token', $refreshToken)
+            ->where('is_revoked', false)
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if ($storedToken === null) {
+            throw new AuthenticationException('Invalid or expired refresh token');
+        }
+
+        $user = User::query()
+            ->where('id', $storedToken->user_id)
+            ->where('status', 'active')
+            ->first();
+
+        if ($user === null) {
+            throw new AuthenticationException('User not found or inactive');
+        }
+
+        return DB::transaction(function () use ($storedToken, $user): array {
+            $storedToken->update(['is_revoked' => true]);
+
+            if ($storedToken->access_token_id !== null) {
+                PersonalAccessToken::query()->where('id', $storedToken->access_token_id)->delete();
+            }
+
+            return $this->issueTokenPair($user);
+        });
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function sessionsSummary(User $user): array

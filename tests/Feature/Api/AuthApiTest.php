@@ -712,6 +712,45 @@ class AuthApiTest extends TestCase
         $this->assertSame(1, $activeRefreshTokenCount);
     }
 
+    public function test_can_refresh_with_refresh_token_without_access_token(): void
+    {
+        $password = 'password123';
+        User::factory()->create([
+            'email' => 'refresh.by.token@example.com',
+            'password' => Hash::make($password),
+            'status' => 'active',
+        ]);
+
+        $loginResponse = $this->postJson('/api/v1/auth/login', [
+            'email' => 'refresh.by.token@example.com',
+            'password' => $password,
+        ]);
+        $loginResponse->assertStatus(200);
+        $refreshToken = (string) $loginResponse->json('data.refreshToken');
+
+        $refreshResponse = $this->postJson('/api/v1/auth/refresh-token', [
+            'refresh_token' => $refreshToken,
+        ]);
+
+        $refreshResponse->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Token refreshed successfully')
+            ->assertJsonStructure([
+                'data' => ['token', 'refreshToken'],
+            ]);
+    }
+
+    public function test_refresh_with_invalid_refresh_token_returns_401(): void
+    {
+        $response = $this->postJson('/api/v1/auth/refresh-token', [
+            'refresh_token' => str_repeat('a', 64),
+        ]);
+
+        $response->assertStatus(401)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invalid or expired refresh token');
+    }
+
     public function test_admin_can_register_new_user(): void
     {
         $adminRole = Role::firstOrCreate(['name' => 'admin']);

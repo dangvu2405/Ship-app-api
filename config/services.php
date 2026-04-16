@@ -41,6 +41,12 @@ return [
         'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
     ],
 
+    'groq' => [
+        'api_key' => env('GROQ_API_KEY'),
+        'model' => env('GROQ_MODEL', 'openai/gpt-oss-20b'),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+    ],
+
     'cloudinary' => [
         'url' => env('CLOUDINARY_URL'),
     ],
@@ -49,20 +55,6 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
-    ],
-
-    'facebook' => [
-        'client_id' => env('FACEBOOK_CLIENT_ID'),
-        'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
-        'redirect' => env('FACEBOOK_REDIRECT_URI'),
-    ],
-
-    'apple' => [
-        'client_id' => env('APPLE_CLIENT_ID'),
-        'team_id' => env('APPLE_TEAM_ID'),
-        'key_id' => env('APPLE_KEY_ID'),
-        'private_key' => env('APPLE_PRIVATE_KEY'),
-        'redirect' => env('APPLE_REDIRECT_URI'),
     ],
 
 ];

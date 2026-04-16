@@ -84,6 +84,7 @@ $registerAdminRoutes = static function (): void {
     Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
     Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
     Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
+    Route::get('payrolls/driver/{driverId}', [\App\Http\Controllers\Api\PayrollController::class, 'driverMonthlySalary'])->name('payrolls.driver-monthly');
     Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);
 
     // Driver Work Schedules
@@ -137,6 +138,7 @@ $registerAdminRoutes = static function (): void {
 
     Route::get('reports/dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
     Route::get('reports/payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
+    Route::get('reports/revenue-summary', [\App\Http\Controllers\Api\ReportsController::class, 'revenueSummary']);
     Route::post('ai/business-assist', [\App\Http\Controllers\Api\AiAdvisorController::class, 'businessAssist']);
 
     // Legacy compatibility routes
@@ -192,6 +194,7 @@ Route::get('/health', $healthResponse);
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/social/login', [AuthController::class, 'socialLogin']);
+    Route::post('/refresh-token', [AuthController::class, 'refreshByToken']);
 });
 
 $larkWebhookController = 'App\\Http\\Controllers\\Api\\LarkWebhookController';
@@ -228,6 +231,7 @@ Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthentica
     Route::prefix('auth')->group(function (): void {
         Route::post('/login', [AuthController::class, 'login']);
         Route::post('/social/login', [AuthController::class, 'socialLogin']);
+        Route::post('/refresh-token', [AuthController::class, 'refreshByToken']);
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
         Route::post('/reset-password', [AuthController::class, 'resetPassword']);
     });

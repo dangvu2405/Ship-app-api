@@ -1,0 +1,271 @@
+@startuml IdentityAccess
+title Company Ship - Identity & Access
+left to right direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor "Authenticated User" as AuthUser
+actor Administrator as Admin
+actor "Identity Provider" as IdP
+
+rectangle "Company Ship Management System" {
+  usecase "Sign In" as UC_SignIn
+  usecase "Sign Out" as UC_SignOut
+  usecase "Refresh Session" as UC_Refresh
+  usecase "View My Profile" as UC_Profile
+  usecase "Register User" as UC_Register
+  usecase "Manage Roles" as UC_Roles
+  usecase "Assign Permissions" as UC_Perms
+  usecase "View User Sessions" as UC_ViewSessions
+  usecase "Revoke Session" as UC_Revoke
+  usecase "Lock Account" as UC_Lock
+  usecase "Record User Action" as UC_RecordAction
+}
+
+AuthUser --> UC_SignIn
+AuthUser --> UC_SignOut
+AuthUser --> UC_Refresh
+AuthUser --> UC_Profile
+Admin --> UC_Register
+Admin --> UC_Roles
+Admin --> UC_Perms
+Admin --> UC_ViewSessions
+Admin --> UC_Revoke
+Admin --> UC_Lock
+IdP --> UC_SignIn
+
+UC_SignOut ..> UC_RecordAction : <<include>>
+UC_Refresh ..> UC_RecordAction : <<include>>
+UC_Revoke ..> UC_ViewSessions : <<extend>>
+UC_Lock ..> UC_ViewSessions : <<extend>>
+@enduml
+
+@startuml MasterDataOrganization
+title Company Ship - Master Data & Organization
+left to right direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor Administrator as Admin
+actor "HR Staff" as HR
+actor "Operations Staff" as Ops
+
+rectangle "Company Ship Management System" {
+  usecase "Manage Company" as UC_Company
+  usecase "Manage Office" as UC_Office
+  usecase "Manage Department" as UC_Department
+  usecase "Manage Position" as UC_Position
+  usecase "Manage User" as UC_User
+  usecase "Manage Driver Profile" as UC_DriverProfile
+  usecase "Manage Vehicle" as UC_Vehicle
+  usecase "Assign Vehicle" as UC_AssignVehicle
+}
+
+Admin --> UC_Company
+Admin --> UC_Office
+Admin --> UC_Department
+Admin --> UC_Position
+Admin --> UC_User
+HR --> UC_DriverProfile
+Ops --> UC_Vehicle
+Ops --> UC_AssignVehicle
+@enduml
+
+@startuml OperationsBilling
+title Company Ship - Operations & Billing
+left to right direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor "Operations Staff" as Ops
+actor "Customer Service Staff" as CS
+
+rectangle "Company Ship Management System" {
+  usecase "Manage Trip" as UC_Trip
+  usecase "Update Trip Status" as UC_TripStatus
+  usecase "Manage Customer" as UC_Customer
+  usecase "Manage Invoice" as UC_Invoice
+  usecase "Update Invoice Status" as UC_InvoiceStatus
+}
+
+Ops --> UC_Trip
+Ops --> UC_TripStatus
+CS --> UC_Customer
+CS --> UC_Invoice
+CS --> UC_InvoiceStatus
+@enduml
+
+@startuml WorkforceManagement
+title Company Ship - Workforce Management
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor Driver
+actor "HR Staff" as HR
+actor "Operations Staff" as Ops
+actor "Approver (Manager)" as Approver
+
+rectangle "Company Ship Management System" {
+  package "Scheduling" {
+    usecase "Create Work Schedule" as UC_CreateSchedule
+    usecase "Submit Work Schedule" as UC_SubmitSchedule
+    usecase "Approve Work Schedule" as UC_ApproveSchedule
+    usecase "Reject Work Schedule" as UC_RejectSchedule
+    usecase "Lock Work Schedule Period" as UC_LockSchedule
+    usecase "Override Work Schedule Lock" as UC_OverrideLock
+  }
+  package "Attendance" {
+    usecase "Check In" as UC_CheckIn
+    usecase "Check Out" as UC_CheckOut
+    usecase "Adjust Attendance" as UC_AdjustAttendance
+    usecase "Review Late Attendance" as UC_ReviewLate
+  }
+  package "Leave & Overtime" {
+    usecase "Submit Leave Request" as UC_SubmitLeave
+    usecase "Approve Leave Request" as UC_ApproveLeave
+    usecase "Reject Leave Request" as UC_RejectLeave
+    usecase "Cancel Leave Request" as UC_CancelLeave
+    usecase "Submit Overtime Request" as UC_SubmitOT
+    usecase "Approve Overtime Request" as UC_ApproveOT
+    usecase "Reject Overtime Request" as UC_RejectOT
+  }
+  usecase "Check Separation of Duties" as UC_CheckSoD
+}
+
+Ops --> UC_CreateSchedule
+Ops --> UC_SubmitSchedule
+Approver --> UC_ApproveSchedule
+Approver --> UC_RejectSchedule
+Approver --> UC_LockSchedule
+Approver --> UC_OverrideLock
+Driver --> UC_CheckIn
+Driver --> UC_CheckOut
+HR --> UC_AdjustAttendance
+HR --> UC_ReviewLate
+Driver --> UC_SubmitLeave
+Driver --> UC_CancelLeave
+Approver --> UC_ApproveLeave
+Approver --> UC_RejectLeave
+Driver --> UC_SubmitOT
+Approver --> UC_ApproveOT
+Approver --> UC_RejectOT
+
+UC_ApproveSchedule ..> UC_CheckSoD : <<include>>
+UC_ApproveLeave ..> UC_CheckSoD : <<include>>
+UC_ApproveOT ..> UC_CheckSoD : <<include>>
+UC_LockSchedule ..> UC_ApproveSchedule : <<extend>>
+UC_OverrideLock ..> UC_LockSchedule : <<extend>>
+UC_RejectSchedule ..> UC_SubmitSchedule : <<extend>>
+UC_RejectLeave ..> UC_SubmitLeave : <<extend>>
+UC_RejectOT ..> UC_SubmitOT : <<extend>>
+@enduml
+
+@startuml ComplianceAudit
+title Company Ship - Compliance & Audit
+left to right direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor Driver
+actor "Operations Staff" as Ops
+actor "Approver (Manager)" as Approver
+actor "Auditor/Compliance" as Auditor
+
+rectangle "Company Ship Management System" {
+  usecase "Report Violation" as UC_ReportViolation
+  usecase "Confirm Violation" as UC_ConfirmViolation
+  usecase "Waive Violation" as UC_WaiveViolation
+  usecase "Submit Violation Dispute" as UC_Dispute
+  usecase "Resolve Violation Dispute" as UC_ResolveDispute
+  usecase "Monitor User Actions" as UC_MonitorActions
+  usecase "View Audit Action Log" as UC_AuditLog
+  usecase "Review Separation of Duties Breach" as UC_ReviewSoD
+  usecase "Check Separation of Duties" as UC_CheckSoD
+}
+
+Ops --> UC_ReportViolation
+Ops --> UC_ConfirmViolation
+Ops --> UC_WaiveViolation
+Driver --> UC_Dispute
+Approver --> UC_ResolveDispute
+Auditor --> UC_MonitorActions
+Auditor --> UC_AuditLog
+Auditor --> UC_ReviewSoD
+
+UC_ConfirmViolation ..> UC_CheckSoD : <<include>>
+UC_MonitorActions ..> UC_AuditLog : <<include>>
+UC_Dispute ..> UC_ConfirmViolation : <<extend>>
+UC_WaiveViolation ..> UC_ConfirmViolation : <<extend>>
+@enduml
+
+@startuml PayrollReportingAI
+title Company Ship - Payroll, Reporting & AI
+top to bottom direction
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+
+actor Driver
+actor Administrator as Admin
+actor "Payroll Staff" as Payroll
+actor "Auditor/Compliance" as Auditor
+actor "Staff" as Staff
+actor "AI Assistant Service" as AI
+
+rectangle "Company Ship Management System" {
+  package "Payroll Processing" {
+    usecase "Calculate Payroll" as UC_CalcPayroll
+    usecase "Approve Payroll" as UC_ApprovePayroll
+    usecase "Lock Payroll" as UC_LockPayroll
+    usecase "Export Payroll" as UC_ExportPayroll
+    usecase "View My Salary" as UC_ViewSalary
+  }
+  package "Management Reports" {
+    usecase "View Dashboard Report" as UC_Dashboard
+    usecase "View Payroll Summary Report" as UC_PayrollSummary
+  }
+  package "Smart Assistant" {
+    usecase "Request Business Advice" as UC_Advice
+  }
+  package "Internal Rules" {
+    usecase "Record User Action" as UC_RecordAction
+    usecase "Check Separation of Duties" as UC_CheckSoD
+    usecase "Validate Attendance Data" as UC_ValidateAttendance
+    usecase "Apply Overtime Policy" as UC_ApplyOTPolicy
+    usecase "Apply Leave Rules" as UC_ApplyLeaveRules
+    usecase "Apply Violation Deduction" as UC_ApplyViolationDeduction
+  }
+}
+
+Payroll --> UC_CalcPayroll
+Payroll --> UC_ApprovePayroll
+Payroll --> UC_LockPayroll
+Payroll --> UC_ExportPayroll
+Driver --> UC_ViewSalary
+Admin --> UC_Dashboard
+Admin --> UC_PayrollSummary
+Auditor --> UC_Dashboard
+Auditor --> UC_PayrollSummary
+Staff --> UC_Advice
+AI --> UC_Advice
+
+UC_ApprovePayroll ..> UC_CheckSoD : <<include>>
+UC_LockPayroll ..> UC_CheckSoD : <<include>>
+UC_ExportPayroll ..> UC_RecordAction : <<include>>
+UC_CalcPayroll ..> UC_ValidateAttendance : <<include>>
+UC_CalcPayroll ..> UC_ApplyOTPolicy : <<include>>
+UC_CalcPayroll ..> UC_ApplyLeaveRules : <<include>>
+UC_CalcPayroll ..> UC_ApplyViolationDeduction : <<include>>
+@enduml

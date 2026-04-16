@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\RefreshTokenRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\SocialLoginRequest;
 use App\Services\AuthService;
@@ -180,6 +181,21 @@ class AuthController extends BaseController
             $tokens = $this->authService->refresh($request->user());
 
             return $this->successResponse($tokens, 'Token refreshed successfully');
+        } catch (Throwable $e) {
+            return $this->handleException($e, 'Token refresh failed');
+        }
+    }
+
+    public function refreshByToken(RefreshTokenRequest $request): JsonResponse
+    {
+        try {
+            $validated = $request->validated();
+            /** @var array{token: string, refreshToken: string} $tokens */
+            $tokens = call_user_func([$this->authService, 'refreshWithRefreshToken'], (string) $validated['refresh_token']);
+
+            return $this->successResponse($tokens, 'Token refreshed successfully');
+        } catch (AuthenticationException $e) {
+            return $this->errorResponse($e->getMessage(), 401);
         } catch (Throwable $e) {
             return $this->handleException($e, 'Token refresh failed');
         }

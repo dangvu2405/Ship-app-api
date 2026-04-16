@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Report\DashboardRequest;
 use App\Http\Requests\Report\PayrollSummaryRequest;
+use App\Http\Requests\Report\RevenueSummaryRequest;
 use App\Services\ReportService;
 use Illuminate\Http\JsonResponse;
 
@@ -56,6 +57,17 @@ class ReportsController extends BaseController
         $month = (int) ($validated['month'] ?? now()->month);
         $year = (int) ($validated['year'] ?? now()->year);
         $data = $this->reportService->getPayrollSummaryData($companyId, $month, $year);
+
+        return $this->successResponse($data, 'OK');
+    }
+
+    public function revenueSummary(RevenueSummaryRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $companyId = isset($validated['company_id']) ? (int) $validated['company_id'] : null;
+        $from = (string) $validated['from'];
+        $to = (string) $validated['to'];
+        $data = $this->reportService->getRevenueSummaryData($companyId, $from, $to);
 
         return $this->successResponse($data, 'OK');
     }

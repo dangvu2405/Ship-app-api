@@ -8,6 +8,7 @@ use App\Http\Requests\Payroll\StorePayrollRequest;
 use App\Http\Requests\Payroll\MySalaryRequest;
 use App\Http\Requests\Payroll\UpdatePayrollRequest;
 use App\Http\Traits\HasIndexQuery;
+use App\Models\Driver;
 use App\Models\Payroll;
 use App\Services\PayrollQueryService;
 use App\Services\PayrollService;
@@ -286,5 +287,28 @@ class PayrollController extends BaseController
         }
 
         return $this->successResponse($payroll);
+    }
+
+    public function driverMonthlySalary(Request $request, int $driverId): JsonResponse
+    {
+        $driver = Driver::query()->find($driverId);
+        if ($driver === null) {
+            return $this->notFoundResponse('Driver not found');
+        }
+
+        $validated = $request->validate([
+            'month' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $month = (int) ($validated['month'] ?? now()->month);
+        $year = (int) ($validated['year'] ?? now()->year);
+
+        $payload = $this->payrollService->getDriverMonthlyPayroll($driverId, $month, $year);
+        if ($payload === null) {
+            return $this->successResponse(null, 'No payroll found for this driver and period');
+        }
+
+        return $this->successResponse($payload, 'OK');
     }
 }

@@ -120,6 +120,7 @@ class DriverPayrollCalculationService
                 // Paid leave counts towards working days (no deduction needed)
                 $paidLeaveDays   = $this->paidLeaveDaysForPeriod($driver->id, $start, $end);
                 $actualWorkingDays = max(0, $workingDays - (int) $unpaidLeaveDays);
+                $proratedBaseSalary = round($baseSalary * ($actualWorkingDays / max(1, $workingDays)), 2);
 
                 // --- Overtime pay ---
                 $otPay = $this->calculateOtPay(
@@ -160,6 +161,16 @@ class DriverPayrollCalculationService
                     ->where('driver_id', $driver->id)
                     ->where('status', 'confirmed')
                     ->whereBetween('occurred_at', [$start->toDateTimeString(), $end->toDateTimeString()])
+                    // Keep violations in 3-day dispute window on hold.
+                    ->where('occurred_at', '<=', $end->copy()->subDays(3)->toDateTimeString())
+                    // Exclude open/under-review/overturned disputes from deduction.
+                    ->whereNotExists(function ($query): void {
+                        $query->selectRaw('1')
+                            ->from('violation_disputes')
+                            ->whereColumn('violation_disputes.violation_id', 'violations.id')
+                            ->whereIn('violation_disputes.status', ['open', 'under_review', 'resolved_overturned'])
+                            ->whereNull('violation_disputes.deleted_at');
+                    })
                     ->sum('penalty_amount');
 
                 // --- Insurance deduction on gross base ---
@@ -167,17 +178,22 @@ class DriverPayrollCalculationService
                 $deduction = round($baseSalary * $insurancePct, 2);
                 $tax       = round($baseSalary * $taxPct, 2);
 
+                $fuelQuota = (float) config('payroll.fuel_monthly_quota', 0.0);
+                $fuelSavingBonusRate = (float) config('payroll.fuel_saving_bonus_rate', 0.0);
+                $fuelDeduction = max(0.0, $fuelCost - $fuelQuota);
+                $fuelSavingBonus = max(0.0, $fuelQuota - $fuelCost) * $fuelSavingBonusRate;
+
                 $net = round(
-                    $baseSalary
+                    $proratedBaseSalary
                     + $tripBonus
                     + $otPay
                     + $nightShiftAllowance
                     + $publicHolidayPay
                     + $allowance
+                    + $fuelSavingBonus
                     - $deduction
-                    - $leaveUnpaidDeduction
                     - $violationDeduction
-                    - $fuelCost
+                    - $fuelDeduction
                     - $tax,
                     0,
                 );
@@ -186,7 +202,7 @@ class DriverPayrollCalculationService
                     'payroll_id'            => $payroll->id,
                     'company_id'            => $companyId,
                     'driver_id'             => $driver->id,
-                    'base_salary'           => $baseSalary,
+                    'base_salary'           => $proratedBaseSalary,
                     'trip_bonus'            => round($tripBonus, 2),
                     'overtime_pay'          => round($otPay, 2),
                     'night_shift_allowance' => round($nightShiftAllowance, 2),
@@ -195,7 +211,7 @@ class DriverPayrollCalculationService
                     'deduction'             => $deduction,
                     'leave_unpaid_deduction' => round($leaveUnpaidDeduction, 2),
                     'violation_deduction'   => round($violationDeduction, 2),
-                    'fuel_cost'             => round($fuelCost, 2),
+                    'fuel_cost'             => round($fuelDeduction, 2),
                     'tax'                   => $tax,
                     'net_salary'            => $net,
                     'working_days'          => $actualWorkingDays,
@@ -207,8 +223,21 @@ class DriverPayrollCalculationService
                     'meta_json'             => [
                         'period'         => ['month' => $month, 'year' => $year],
                         'effective_std_days' => $effectiveStdDays,
+                        'working_days_standard' => $workingDays,
+                        'working_days_actual' => $actualWorkingDays,
+                        'prorated_base_salary' => $proratedBaseSalary,
                         'holiday_count'  => $holidayCount,
                         'holiday_dates'  => $holidayDates,
+                        'fuel' => [
+                            'actual_fuel_cost' => round($fuelCost, 2),
+                            'fuel_quota' => round($fuelQuota, 2),
+                            'fuel_deduction' => round($fuelDeduction, 2),
+                            'fuel_saving_bonus' => round($fuelSavingBonus, 2),
+                        ],
+                        'violation' => [
+                            'dispute_window_days' => 3,
+                            'deduction_only_confirmed_and_not_disputed' => true,
+                        ],
                         'trip_inclusion' => 'Trips with status=completed where COALESCE(end_time, updated_at) is within period.',
                         'trips'          => $tripMeta,
                         'config_snapshot' => [
