@@ -1,30 +1,89 @@
-# Company Ship API — Frontend Reference
+# Ship App API — Tài Liệu Nghiệp Vụ Frontend
 
-Base URL: `http://your-domain/api/v1`  
-Auth: All protected endpoints require `Authorization: Bearer <token>` header.  
-Content-Type: `application/json`
+> **Cập nhật lần cuối**: 2026-04-17  
+> **Base URL**: `http://your-domain/api/v1`  
+> **Auth**: Tất cả endpoint protected yêu cầu header `Authorization: Bearer <token>`  
+> **Content-Type**: `application/json`
 
 ---
 
-## Response Envelope
-
-All responses follow this structure:
+## Envelope Response (chuẩn chung)
 
 ```json
 {
   "success": true | false,
-  "message": "Human-readable status",
+  "message": "Mô tả kết quả",
   "data": { ... } | [ ... ],
-  "errors": { "field": ["error"] }  // only on 422
+  "errors": { "field": ["lỗi cụ thể"] }   // chỉ có khi 422
 }
 ```
 
 ---
 
-## 1. Authentication
+## Pagination (danh sách)
 
-### POST /auth/login
-Login with email and password.
+Tất cả endpoint GET danh sách trả về:
+
+```json
+{
+  "current_page": 1,
+  "data": [...],
+  "last_page": 5,
+  "per_page": 20,
+  "total": 98,
+  "next_page_url": "...",
+  "prev_page_url": null
+}
+```
+
+Truyền `?page=2&per_page=50` để điều hướng.
+
+---
+
+## Định dạng dữ liệu
+
+| Kiểu       | Format                         | Ví dụ                     |
+|------------|--------------------------------|---------------------------|
+| Date       | `YYYY-MM-DD`                   | `2026-05-01`              |
+| Datetime   | `YYYY-MM-DD HH:MM:SS`          | `2026-05-01 07:00:00`     |
+| Time       | `HH:MM`                        | `07:00`                   |
+| Currency   | Integer VND, không thập phân   | `10000000`                |
+| Decimal    | Float                          | `3200.5`                  |
+
+---
+
+## HTTP Status Codes
+
+| Code | Ý nghĩa                                              |
+|------|------------------------------------------------------|
+| 200  | Thành công                                           |
+| 201  | Tạo mới thành công                                   |
+| 400  | Bad request                                          |
+| 401  | Chưa xác thực — token thiếu hoặc không hợp lệ       |
+| 403  | Không có quyền hoặc vi phạm SoD                      |
+| 404  | Không tìm thấy resource                              |
+| 409  | Conflict — trùng lịch / trùng dữ liệu               |
+| 422  | Validation thất bại — xem field `errors`             |
+| 500  | Server error                                         |
+
+---
+
+## Quy tắc SoD (Separation of Duties)
+
+| Nghiệp vụ                  | Người tạo KHÔNG được làm              |
+|----------------------------|---------------------------------------|
+| Leave request              | Approve chính đơn mình tạo           |
+| Overtime request           | Approve chính đơn mình gửi           |
+| Violation report           | Confirm / Waive vi phạm mình báo cáo |
+| Payroll                    | Approve bảng lương mình tạo          |
+
+Backend trả về `403` nếu vi phạm.
+
+---
+
+## 1. Xác Thực (Auth)
+
+### POST /auth/login — Đăng nhập
 
 **Request**
 ```json
@@ -35,60 +94,42 @@ Login with email and password.
 ```json
 {
   "success": true,
-  "message": "Login successful",
   "data": {
     "token": "eyJ...",
     "token_type": "Bearer",
-    "user": { "id": 1, "name": "Admin", "email": "admin@example.com", "roles": ["admin"] }
+    "user": { "id": 1, "name": "Admin", "email": "...", "roles": ["admin"] }
   }
 }
 ```
 
-**Errors**: `401 Invalid credentials`, `422 Validation failed`
+**Lỗi**: `401` sai thông tin đăng nhập, `422` validation.
 
 ---
 
-### POST /auth/social/login
-Login via Google / Facebook / Apple OAuth token.
+### POST /auth/social/login — Đăng nhập social
 
-**Request**
-```json
-{
-  "provider": "google",
-  "access_token": "ya29...",
-  "id_token": null
-}
-```
+| Field          | Bắt buộc | Ghi chú                              |
+|----------------|----------|--------------------------------------|
+| `provider`     | Có       | `google` / `facebook` / `apple`      |
+| `access_token` | Có*      | Bắt buộc nếu không có `id_token`     |
+| `id_token`     | Có*      | Bắt buộc nếu không có `access_token` |
 
-| Field | Type | Required |
-|-------|------|----------|
-| provider | string | yes — `google`, `facebook`, `apple` |
-| access_token | string | required if `id_token` absent |
-| id_token | string | required if `access_token` absent (Apple uses id_token) |
-
-**Response 200** — same as `/auth/login`
+**Response 200** — cùng cấu trúc như `/auth/login`.
 
 ---
 
 ### POST /auth/forgot-password
-Send password reset email.
 
-**Request**
 ```json
 { "email": "user@example.com" }
 ```
 
-**Response 200**
-```json
-{ "success": true, "message": "Password reset link sent." }
-```
+**Response 200**: `{ "success": true, "message": "Password reset link sent." }`
 
 ---
 
 ### POST /auth/reset-password
-Reset password using the token from the email.
 
-**Request**
 ```json
 {
   "token": "abc123...",
@@ -98,34 +139,22 @@ Reset password using the token from the email.
 }
 ```
 
-**Response 200**
-```json
-{ "success": true, "message": "Password reset successfully." }
-```
+---
+
+### POST /auth/logout *(auth)*
+
+**Response 200**: `{ "success": true, "message": "Logged out." }`
 
 ---
 
-### POST /auth/logout  *(auth required)*
-Revoke current token.
+### POST /auth/refresh *(auth)*
 
-**Response 200**
-```json
-{ "success": true, "message": "Logged out." }
-```
+Trả về `token` mới.
 
 ---
 
-### POST /auth/refresh  *(auth required)*
-Refresh access token.
+### GET /auth/me *(auth)*
 
-**Response 200** — returns new `token`.
-
----
-
-### GET /auth/me  *(auth required)*
-Get current authenticated user.
-
-**Response 200**
 ```json
 {
   "success": true,
@@ -143,26 +172,33 @@ Get current authenticated user.
 
 ---
 
-## 2. Driver Work Schedules  *(admin required)*
+## 2. Lịch Làm Việc Tài Xế *(admin)*
+
+### Vòng đời trạng thái
+
+```
+draft → submitted → approved → locked
+                ↘ rejected (về draft)
+```
+
+| Trạng thái  | Mô tả                              |
+|-------------|-------------------------------------|
+| `draft`     | Mới tạo, chưa gửi                  |
+| `submitted` | Đã gửi, chờ duyệt                  |
+| `approved`  | Đã duyệt                           |
+| `locked`    | Đã khóa, không thể chỉnh sửa      |
+
+---
 
 ### GET /driver-schedules
-List schedules. Supports filters: `driver_id`, `office_id`, `work_date`, `from`, `to`, `status`.
 
-**Query params**
-| Param | Type | Description |
-|-------|------|-------------|
-| driver_id | int | Filter by driver |
-| office_id | int | Filter by office |
-| work_date | date | Exact date (`YYYY-MM-DD`) |
-| from / to | date | Date range |
-| status | string | `draft`, `submitted`, `approved`, `locked` |
+**Query params**: `driver_id`, `office_id`, `work_date`, `from`, `to`, `status`, `page`, `per_page`
 
 **Response 200**
 ```json
 {
   "success": true,
   "data": {
-    "current_page": 1,
     "data": [
       {
         "id": 1,
@@ -173,6 +209,7 @@ List schedules. Supports filters: `driver_id`, `office_id`, `work_date`, `from`,
         "start_time": "07:00",
         "end_time": "17:00",
         "vehicle_id": 5,
+        "notes": null,
         "status": "approved",
         "driver": { "id": 10, "name": "Nguyen Van A" },
         "vehicle": { "id": 5, "plate_number": "51A-12345" }
@@ -187,91 +224,36 @@ List schedules. Supports filters: `driver_id`, `office_id`, `work_date`, `from`,
 ---
 
 ### POST /driver-schedules
-Create a new draft schedule.
 
-**Request**
-```json
-{
-  "driver_id": 10,
-  "office_id": 2,
-  "work_date": "2026-05-01",
-  "shift_code": "day",
-  "start_time": "07:00",
-  "end_time": "17:00",
-  "vehicle_id": 5,
-  "notes": "Regular route"
-}
-```
+| Field              | Bắt buộc | Validation                              |
+|--------------------|----------|-----------------------------------------|
+| `driver_id`        | Có       | exists:drivers                          |
+| `office_id`        | Có       | exists:offices                          |
+| `work_date`        | Có       | date >= today                           |
+| `shift_code`       | Không    | `day` / `night` / `split` / `custom`   |
+| `start_time`       | Có       | HH:MM                                   |
+| `end_time`         | Có       | HH:MM                                   |
+| `vehicle_id`       | Không    | Kiểm tra conflict                       |
+| `notes`            | Không    | max 500 ký tự                           |
 
-| Field | Required | Notes |
-|-------|----------|-------|
-| driver_id | yes | Must be active driver |
-| office_id | yes | |
-| work_date | yes | >= today |
-| shift_code | no | `day`, `night`, `split`, `custom`. Default: `day` |
-| start_time / end_time | yes | `HH:MM` format |
-| vehicle_id | no | Conflict check applied |
-| notes | no | max 500 chars |
-
-**Response 201** — created schedule object.
-
-**Errors**:
-- `409 Conflict` — driver or vehicle already has a non-draft schedule on this date/shift.
-- `422 Validation failed`
-
----
-
-### GET /driver-schedules/{id}
-Get single schedule detail.
-
----
-
-### PUT/PATCH /driver-schedules/{id}
-Update a draft or submitted schedule.
-
-**Request** — any updatable fields (same as POST, all optional).
-
-**Errors**: `422` if locked; `409` if conflict.
-
----
-
-### DELETE /driver-schedules/{id}
-Delete a schedule. Cannot delete locked schedules.
+**Lỗi**: `409` driver/xe đã có lịch trùng ngày/ca.
 
 ---
 
 ### POST /driver-schedules/{id}/submit
-Submit a draft schedule for approval.
-
-**Response 200**
-```json
-{ "success": true, "message": "Schedule submitted for approval.", "data": { ... } }
-```
-
----
+Chuyển draft → submitted.
 
 ### POST /driver-schedules/{id}/approve
-Approve a submitted schedule.
-
----
+Chuyển submitted → approved.
 
 ### POST /driver-schedules/{id}/reject
-Reject and return schedule to draft.
-
----
+Chuyển submitted → draft.
 
 ### POST /driver-schedules/{id}/lock
-Lock a submitted/approved schedule.
+Chuyển approved → locked.
 
-**Response 200**
-```json
-{ "success": true, "message": "Schedule locked.", "data": { "status": "locked" } }
-```
-
----
-
-### POST /driver-schedules/{id}/override
-Manager override for a locked/approved schedule.
+### POST /driver-schedules/{id}/override *(admin)*
+Ghi đè lịch đã locked.
 
 **Request**
 ```json
@@ -281,20 +263,18 @@ Manager override for a locked/approved schedule.
   "start_time": "08:00",
   "end_time": "18:00",
   "vehicle_id": 3,
-  "override_reason": "Emergency route adjustment due to vehicle breakdown"
+  "override_reason": "Xe hỏng đột xuất, điều phối lại"
 }
 ```
 
 ---
 
 ### GET /driver-schedules/{id}/hos-check
-Hours-of-Service pre-check for a schedule row.
+Kiểm tra Hours of Service (HOS) — giới hạn 12h/ngày.
 
-**Response 200**
 ```json
 {
   "success": true,
-  "message": "HOS check passed.",
   "data": {
     "driver_id": 10,
     "work_date": "2026-05-01",
@@ -305,33 +285,26 @@ Hours-of-Service pre-check for a schedule row.
 }
 ```
 
-Compatibility note: backend accepts both `GET` and `POST` for this endpoint.
+> Backend chấp nhận cả `GET` lẫn `POST` cho endpoint này.
 
 ---
 
-## 3. Attendance  *(admin required)*
+## 3. Chấm Công *(admin)*
 
 ### GET /attendance
-List attendance records. Filters: `driver_id`, `date`, `from`, `to`, `status`.
+**Query params**: `driver_id`, `date`, `from`, `to`, `status`, `page`, `per_page` (max 200)
 
 ---
 
 ### POST /attendance/check-in
-Record a driver check-in.
 
-**Request**
 ```json
-{
-  "driver_id": 10,
-  "check_in_time": "2026-05-01 07:05:00"
-}
+{ "driver_id": 10, "check_in_time": "2026-05-01 07:05:00" }
 ```
 
 **Response 201**
 ```json
 {
-  "success": true,
-  "message": "Check-in recorded.",
   "data": {
     "id": 101,
     "driver_id": 10,
@@ -348,52 +321,55 @@ Record a driver check-in.
 ---
 
 ### POST /attendance/check-out
-Record a driver check-out. Automatically calculates `work_hours` and `overtime_hours` (> 8h).
 
-**Request**
 ```json
-{
-  "driver_id": 10,
-  "check_out_time": "2026-05-01 17:30:00"
-}
+{ "driver_id": 10, "check_out_time": "2026-05-01 17:30:00" }
 ```
+
+Backend tự tính `work_hours` và `overtime_hours` (> 8h).
 
 ---
 
 ### PATCH /attendance/{id}/adjust
-Admin override for an attendance record.
 
-**Request**
 ```json
 {
   "check_in": "2026-05-01 07:00:00",
   "check_out": "2026-05-01 16:00:00",
   "status": "present",
-  "reason": "GPS system was offline, manual correction."
+  "reason": "GPS offline, điều chỉnh thủ công"
 }
 ```
 
-All fields optional. `reason` is required when any field is provided.
+`reason` bắt buộc khi thay đổi bất kỳ field nào.
 
-### Legacy aliases (for FE backward compatibility)
-- `GET /attendances` → same as `GET /attendance`
-- `POST /attendances/check-in` → same as `POST /attendance/check-in`
-- `POST /attendances/check-out` → same as `POST /attendance/check-out`
-- `PATCH /attendances/{id}/adjust` → same as `PATCH /attendance/{id}/adjust`
-- `GET /attendances/late` and `GET /attendances/late/list` → late attendance list
-- `POST /attendances/late/notify` → queue notify late-attendance batch (legacy FE endpoint)
+#### Legacy aliases (tương thích FE cũ)
+- `GET /attendances` → `/attendance`
+- `POST /attendances/check-in` → `/attendance/check-in`
+- `POST /attendances/check-out` → `/attendance/check-out`
+- `PATCH /attendances/{id}/adjust` → `/attendance/{id}/adjust`
+- `GET /attendances/late` → danh sách đến muộn
+- `POST /attendances/late/notify` → thông báo đến muộn
 
 ---
 
-## 4. Leave Management  *(admin required)*
+## 4. Quản Lý Phép *(admin)*
+
+### Vòng đời trạng thái
+
+```
+pending → approved
+        ↘ rejected
+pending | approved → cancelled
+```
+
+---
 
 ### GET /leave/types
-List active leave types.
+Danh sách loại phép.
 
-**Response 200**
 ```json
 {
-  "success": true,
   "data": {
     "leave_types": [
       {
@@ -419,231 +395,226 @@ List active leave types.
 ---
 
 ### GET /leave
-List leave requests. Filters: `driver_id`, `status`, `from`, `to`.
-
-**Status values**: `pending`, `approved`, `rejected`, `cancelled`
+**Query params**: `driver_id`, `status`, `from`, `to`
 
 ---
 
 ### POST /leave
-Submit a new leave request.
 
-**Request**
-```json
-{
-  "driver_id": 10,
-  "leave_type_id": 1,
-  "from_date": "2026-05-10",
-  "to_date": "2026-05-12",
-  "total_days": 3,
-  "reason": "Family vacation",
-  "attachment_urls": ["https://cdn.example.com/doc.pdf"]
-}
-```
+| Field             | Bắt buộc | Validation                         |
+|-------------------|----------|------------------------------------|
+| `driver_id`       | Có       | exists:drivers                     |
+| `leave_type_id`   | Có       | exists:leave_types                 |
+| `from_date`       | Có       | date >= today                      |
+| `to_date`         | Có       | date >= from_date                  |
+| `total_days`      | Có       | numeric, min: 0.5                  |
+| `reason`          | Không    | max 1000 ký tự                     |
+| `attachment_urls` | Không    | array of URLs                      |
 
-**Errors**:
-- `422` — overlapping leave request exists, or insufficient balance for paid leave.
-
----
-
-### GET /leave/{id}
-Get single leave request detail.
+**Lỗi**:
+- `422` — đơn phép trùng ngày đã tồn tại
+- `422` — số dư phép không đủ (phép có lương)
 
 ---
 
 ### POST /leave/{id}/approve
-Approve a leave request. **SoD rule**: the user who created the request cannot approve it.
-
-**Response 200**
-```json
-{ "success": true, "message": "Leave request approved." }
-```
-
-**Errors**: `403 Separation of Duties violation`, `422 Wrong status`
-
----
+**SoD**: người tạo đơn không được approve.
 
 ### POST /leave/{id}/reject
-Reject a leave request.
-
-**Request**
 ```json
-{ "rejection_reason": "Peak season, insufficient staff coverage." }
+{ "rejection_reason": "Mùa cao điểm, không đủ nhân lực." }
 ```
 
----
-
 ### POST /leave/{id}/cancel
-Cancel a leave request (driver or admin). Restores balance for paid leave that was already approved.
+Huỷ đơn. Nếu đơn đã `approved` và là phép có lương → **tự động hoàn trả số dư phép**.
 
 ---
 
-## 5. Overtime  *(admin required)*
+## 5. Tăng Ca *(admin)*
+
+### Giới hạn nghiệp vụ
+- **Tối đa 40 giờ/tháng** (Bộ Luật Lao Động VN)
+- Khi submit OT mới: hệ thống kiểm tra tổng giờ OT đã approved trong tháng + giờ mới ≤ 40h
+- Khi tính lương: payroll engine cap OT tại 40h, ưu tiên các request theo thứ tự ngày tăng dần
+
+---
 
 ### GET /overtime
-List OT requests. Filters: `driver_id`, `company_id`, `status`, `from`, `to`.
+**Query params**: `driver_id`, `company_id`, `status`, `from`, `to`
 
 ---
 
 ### POST /overtime
-Submit an OT request.
 
-**Request**
-```json
-{
-  "driver_id": 10,
-  "company_id": 1,
-  "work_date": "2026-05-01",
-  "start_time": "17:00",
-  "end_time": "20:00",
-  "ot_hours": 3,
-  "reason": "Urgent delivery"
-}
-```
+| Field        | Bắt buộc | Validation                  |
+|--------------|----------|-----------------------------|
+| `driver_id`  | Có       | exists:drivers              |
+| `company_id` | Có       | exists:companies            |
+| `work_date`  | Có       | date                        |
+| `start_time` | Có       | HH:MM                       |
+| `end_time`   | Có       | HH:MM, sau start_time       |
+| `ot_hours`   | Có       | numeric, 0.5–8              |
+| `reason`     | Không    | max 500 ký tự               |
 
-**Errors**:
-- `422` — monthly OT cap of 40 hours would be exceeded.
-
----
-
-### GET /overtime/{id}
-Get single OT request.
+**Lỗi**: `422` — vượt cap 40h/tháng.
 
 ---
 
 ### POST /overtime/{id}/approve
-Approve an OT request. **SoD rule**: the requester cannot approve their own OT.
-
-**Response 200**
-```json
-{ "success": true, "message": "Overtime request approved." }
-```
-
-**Errors**: `403 Separation of Duties violation`
-
----
+**SoD**: người gửi không được approve.
 
 ### POST /overtime/{id}/reject
-Reject an OT request.
-
-**Request**
 ```json
-{ "rejection_reason": "Not justified." }
+{ "rejection_reason": "Không có lý do chính đáng." }
 ```
 
 ---
 
-## 6. Violations & Disputes  *(admin required)*
+## 6. Vi Phạm & Khiếu Nại *(admin)*
+
+### Vòng đời trạng thái
+
+```
+pending → confirmed → (deduct payroll)
+        ↘ disputed  → resolved_upheld   (giữ phạt)
+                    → resolved_overturned → waived (bỏ phạt, auto-recalc payroll draft)
+pending | confirmed → waived (admin bỏ qua)
+```
+
+> **Tự động**: Khi violation bị `waived` hoặc dispute `overturned`, hệ thống **tự động recalculate** payroll draft/approved trong tháng xảy ra vi phạm.  
+> Payroll đã `locked` hoặc `paid` **không bị ảnh hưởng**.
+
+---
 
 ### GET /violations
-List violations. Filters: `driver_id`, `company_id`, `status`, `from`, `to`.
+**Query params**: `driver_id`, `company_id`, `status`, `from`, `to`
 
-**Status values**: `pending`, `confirmed`, `disputed`, `waived`
+**Status values**: `pending` / `confirmed` / `disputed` / `waived`
 
 ---
 
 ### POST /violations
-Record a new violation.
 
-**Request**
-```json
-{
-  "driver_id": 10,
-  "company_id": 1,
-  "trip_id": 55,
-  "type": "speeding",
-  "occurred_at": "2026-05-01 14:30:00",
-  "description": "Driver exceeded speed limit by 30km/h on Highway 1.",
-  "penalty_amount": 500000,
-  "evidence_urls": ["https://cdn.example.com/gps-screenshot.jpg"]
-}
-```
-
-| type values | Description |
-|-------------|-------------|
-| speeding | Speed limit exceeded |
-| route_deviation | Significant off-route |
-| fuel_misuse | Fuel card abuse detected |
-| behavior | Driver misconduct report |
-| accident | Traffic accident |
-| other | Other violations |
-
-**Response 201** — violation object.
-
----
-
-### GET /violations/{id}
-Get violation detail including dispute if any.
+| Field            | Bắt buộc | Ghi chú                                                           |
+|------------------|----------|-------------------------------------------------------------------|
+| `driver_id`      | Có       |                                                                   |
+| `company_id`     | Có       |                                                                   |
+| `trip_id`        | Không    |                                                                   |
+| `type`           | Có       | `speeding` / `route_deviation` / `fuel_misuse` / `behavior` / `accident` / `other` |
+| `occurred_at`    | Có       | Datetime                                                          |
+| `description`    | Có       | max 2000 ký tự                                                   |
+| `penalty_amount` | Có       | VND, ≥ 0                                                         |
+| `evidence_urls`  | Không    | array of URLs                                                     |
 
 ---
 
 ### POST /violations/{id}/confirm
-Confirm a pending violation. **SoD rule**: the reporter cannot be the confirmer.
-
-**Response 200**
-```json
-{
-  "success": true,
-  "message": "Violation confirmed. Penalty will be applied to next payroll."
-}
-```
-
-**Errors**: `403 Separation of Duties violation`, `422 Not in pending status`
+**SoD**: người báo cáo không được confirm.
 
 ---
 
 ### POST /violations/{id}/dispute
-Open a dispute on a violation (driver response).
+Tài xế khiếu nại vi phạm.
 
-**Request**
 ```json
 {
-  "reason": "GPS data is incorrect. I was within speed limit. See dashcam footage.",
+  "reason": "Dữ liệu GPS sai, tôi không vượt tốc độ.",
   "evidence_urls": ["https://cdn.example.com/dashcam.mp4"]
 }
 ```
 
-**Response 201** — dispute object. Violation status changes to `disputed`.
+Violation status → `disputed`.
 
 ---
 
 ### POST /violations/{id}/resolve-dispute
-Resolve a dispute.
 
-**Request**
 ```json
 {
   "resolution": "upheld",
-  "resolution_note": "GPS data verified by 3rd party. Violation stands."
+  "resolution_note": "Xác minh GPS của bên thứ 3. Vi phạm hợp lệ."
 }
 ```
 
-| resolution | Effect |
-|-----------|--------|
-| `upheld` | Dispute rejected; violation confirmed |
-| `overturned` | Dispute accepted; violation waived |
+| `resolution`  | Kết quả                                                  |
+|---------------|----------------------------------------------------------|
+| `upheld`      | Khiếu nại bị bác, violation `confirmed`, **giữ phạt**   |
+| `overturned`  | Khiếu nại thắng, violation → `waived`, **bỏ phạt**      |
 
 ---
 
 ### POST /violations/{id}/waive
-Waive a violation without a dispute. **SoD**: reporter cannot waive.
+Admin bỏ vi phạm không qua khiếu nại.  
+**SoD**: người báo cáo không được waive.
 
-**Request**
 ```json
-{ "waive_reason": "First offense. Driver acknowledged and trained." }
+{ "waive_reason": "Vi phạm lần đầu, tài xế đã được đào tạo lại." }
 ```
 
 ---
 
-## 7. Payroll  *(admin required)*
+## 7. Bảng Lương *(admin)*
+
+### Vòng đời trạng thái
+
+```
+draft → approved → locked → paid
+```
+
+| Trạng thái  | Mô tả                                              | Có thể recalculate? |
+|-------------|-----------------------------------------------------|----------------------|
+| `draft`     | Đang soạn thảo, có thể recalculate                 | Có                   |
+| `approved`  | Đã duyệt, chờ lock                                 | Có (nếu cần)         |
+| `locked`    | Đã khóa, tạo snapshot, sẵn sàng thanh toán         | Không                |
+| `paid`      | Đã trả lương thực tế                               | Không                |
+
+> **Lưu ý**: Payroll `locked` hoặc `paid` là **bất biến** — không thể update, delete, hoặc recalculate.
+
+---
+
+### Công thức tính lương
+
+```
+Net = proratedBaseSalary
+    + tripBonus
+    + overtimePay
+    + nightShiftAllowance
+    + publicHolidayPay
+    + allowance
+    + fuelSavingBonus        ← Nếu chi phí xăng < quota tháng
+    − deduction              ← BHXH (10.5% × proratedBaseSalary)
+    − tax                    ← Thuế TNCN (% × proratedBaseSalary)
+    − leaveUnpaidDeduction   ← Phép không lương
+    − violationDeduction     ← Vi phạm confirmed, không bị waived
+    − fuelExcessDeduction    ← Chi phí xăng vượt quota
+```
+
+**Giải thích chi tiết**:
+
+| Thành phần              | Công thức                                                      |
+|-------------------------|----------------------------------------------------------------|
+| `proratedBaseSalary`    | `baseSalary × actualWorkingDays / effectiveStdDays`            |
+| `effectiveStdDays`      | `workingDays (22) − holidayCount`                              |
+| `actualWorkingDays`     | `effectiveStdDays − unpaidLeaveDays`                           |
+| `tripBonus`             | Σ (km_chuyến × bonusPerKm theo tier)                          |
+| `overtimePay`           | Σ (hours × hourlyRate × multiplier), cap 40h/tháng            |
+| `hourlyRate`            | `baseSalary / (effectiveStdDays × 8)`                          |
+| OT multiplier           | Weekday: 150% / Weekend: 200% / Holiday: 300%                  |
+| `nightShiftAllowance`   | Σ (giờ ca đêm × hourlyRate × differential%)                   |
+| `publicHolidayPay`      | Số ngày lễ có mặt đủ (check_in + check_out) × dailyRate × 300% |
+| `deduction` (BHXH)      | `proratedBaseSalary × 10.5%`                                   |
+| `leaveUnpaidDeduction`  | `baseSalary × unpaidLeaveDays / effectiveStdDays`              |
+| `fuelExcessDeduction`   | `max(0, actualFuelCost − fuelQuota)`                           |
+| `fuelSavingBonus`       | `max(0, fuelQuota − actualFuelCost) × savingBonusRate`         |
+
+---
 
 ### GET /payrolls
-List payrolls. Filters: `company_id`, `month`, `year`, `status`.
+**Query params**: `company_id`, `month`, `year`, `status`, `page`, `per_page`
 
 **Response 200**
 ```json
 {
-  "success": true,
   "data": {
     "data": [
       {
@@ -652,8 +623,12 @@ List payrolls. Filters: `company_id`, `month`, `year`, `status`.
         "month": 5,
         "year": 2026,
         "status": "draft",
-        "locked_at": null,
         "approved_at": null,
+        "approved_by": null,
+        "locked_at": null,
+        "paid_at": null,
+        "paid_by": null,
+        "notes": null,
         "company": { "id": 1, "name": "Company A" }
       }
     ]
@@ -663,81 +638,85 @@ List payrolls. Filters: `company_id`, `month`, `year`, `status`.
 
 ---
 
-### POST /payrolls
-Generate / recalculate a payroll draft.
+### POST /payrolls — Tạo / Recalculate draft
 
-**Request**
 ```json
 { "company_id": 1, "month": 5, "year": 2026 }
 ```
 
-**How calculation works**:
-1. Base salary from `positions.base_salary`.
-2. Proration: unpaid leave days reduce base (base × unpaid_days / std_days).
-3. Trip bonus: km × bonus_per_km per applicable rule tier.
-4. Overtime pay: OT hours × hourly_rate × multiplier (150%/200%/300%).
-5. Night shift allowance: night hours × hourly_rate × differential%.
-6. Public holiday pay: 300% daily rate for each holiday worked.
-7. Deductions: insurance (10.5%), confirmed violations, unpaid leave.
-8. Net = base + trip_bonus + ot_pay + night_allowance + ph_pay + allowance − deduction − leave_deduction − violation_deduction − fuel_cost − tax.
+- Nếu payroll tháng đó chưa tồn tại → tạo mới.
+- Nếu đã tồn tại và đang `draft`/`approved` → **recalculate** (xóa lines cũ, tính lại).
+- Nếu đang `locked`/`paid` → lỗi `422`.
 
-**Response 201** — payroll + lines array.
+**Response 201** — payroll object + array `lines`.
 
 ---
 
 ### GET /payrolls/{id}
-Get payroll detail with lines.
+
+**Response 200** — payroll với `lines` (mảng PayrollLine kèm `driver`).
 
 ---
 
-### PUT/PATCH /payrolls/{id}
-Update payroll notes or status (draft only).
+### PUT /payrolls/{id} — Cập nhật ghi chú
 
----
+Chỉ cho phép khi status `draft` hoặc `approved`.
 
-### DELETE /payrolls/{id}
-Delete a draft payroll.
-
----
-
-### POST /payrolls/{id}/approve
-Approve a draft payroll. Status changes `draft → approved`.
-
-**SoD**: the creator of the payroll cannot be the approver.
-
-**Response 200**
 ```json
-{ "success": true, "message": "Payroll approved.", "data": { "status": "approved", ... } }
+{ "notes": "Ghi chú tháng 5" }
 ```
 
 ---
 
+### DELETE /payrolls/{id}
+
+Chỉ cho phép khi status `draft` hoặc `approved`.
+
+---
+
+### POST /payrolls/{id}/approve
+Chuyển `draft → approved`.  
+**SoD**: người tạo payroll không được approve.
+
+---
+
 ### POST /payrolls/{id}/lock
-Lock an approved payroll. Status changes `approved → locked`. Creates `snapshot_json`.
+Chuyển `approved → locked`. Tạo `snapshot_json` lưu trữ toàn bộ dữ liệu tính lương.
+
+---
+
+### POST /payrolls/{id}/mark-paid
+Chuyển `locked → paid`. Ghi nhận `paid_at` và `paid_by`.
 
 **Response 200**
 ```json
-{ "success": true, "message": "Payroll locked.", "data": { "status": "locked", "locked_at": "2026-05-31T23:59:00Z" } }
+{
+  "success": true,
+  "message": "Payroll marked as paid",
+  "data": {
+    "id": 1,
+    "status": "paid",
+    "paid_at": "2026-05-31T23:59:00Z",
+    "paid_by": 2
+  }
+}
 ```
 
 ---
 
 ### GET /payrolls/{id}/export
-Export payroll as CSV.
-
-**Response 200** — CSV file download.
+Xuất CSV bảng lương.
 
 ---
 
-### GET /payrolls/my-salary  *(auth required, any role)*
-Get current user's payroll line for a period.
+### GET /payrolls/my-salary *(auth, mọi role)*
+Tài xế xem lương cá nhân.
 
 **Query params**: `month`, `year`
 
 **Response 200**
 ```json
 {
-  "success": true,
   "data": {
     "payroll": { "month": 5, "year": 2026, "status": "locked" },
     "line": {
@@ -750,13 +729,13 @@ Get current user's payroll line for a period.
       "deduction": 1050000,
       "leave_unpaid_deduction": 0,
       "violation_deduction": 0,
-      "fuel_cost": 300000,
+      "fuel_excess_deduction": 300000,
       "tax": 0,
       "net_salary": 12300000,
-      "working_days": 22,
+      "working_days": 20,
       "leave_days_paid": 0,
-      "leave_days_unpaid": 0,
-      "overtime_hours": 5,
+      "leave_days_unpaid": 2,
+      "overtime_hours": 5.0,
       "trips_completed_count": 15,
       "total_distance_km": 3200.5
     }
@@ -766,125 +745,84 @@ Get current user's payroll line for a period.
 
 ---
 
-## Payroll UI Spec (for Frontend Design)
+### GET /payrolls/driver/{driverId}
+Lịch sử lương của tài xế cụ thể.
 
-Use this section as the UI contract for payroll list/detail screens.
-
-### A. Payroll List Screen (`/payrolls`)
-
-Recommended table columns:
-
-| Column | Source field | Format | Notes |
-|---|---|---|---|
-| Payroll ID | `id` | number | Click to open detail |
-| Company | `company.name` | text | fallback: `company_id` |
-| Period | `month`, `year` | `MM/YYYY` | example: `04/2026` |
-| Status | `status` | badge | `draft`, `approved`, `locked` |
-| Approved At | `approved_at` | datetime | nullable |
-| Locked At | `locked_at` | datetime | nullable |
-| Notes | `notes` | text (truncate) | max 1 line in list |
-| Actions | N/A | buttons | View / Approve / Lock / Export |
-
-Filter bar:
-- `company_id` (select)
-- `month` (select 1-12)
-- `year` (select/input)
-- `status` (select)
-
-Status badge mapping:
-- `draft` -> neutral (gray)
-- `approved` -> warning/info (amber/blue)
-- `locked` -> success/final (green)
+**Query params**: `month`, `year`
 
 ---
 
-### B. Payroll Detail Screen (`/payrolls/{id}`)
+## Payroll UI Spec (Hợp đồng giao diện)
 
-Layout suggestion:
+### A. Danh sách Payroll
 
-1. **Header Summary**
-   - Period, company, status, approved_at, locked_at, notes
-2. **Line Items Table** (one row per driver)
-3. **Totals Footer** (sum money columns + sum KPI columns)
-4. **Action Bar** (approve/lock/export depending on status and role)
+| Cột              | Field nguồn       | Format            | Ghi chú                    |
+|------------------|-------------------|-------------------|-----------------------------|
+| ID               | `id`              | number            | Click mở detail             |
+| Công ty          | `company.name`    | text              |                             |
+| Kỳ lương         | `month` + `year`  | `MM/YYYY`         |                             |
+| Trạng thái       | `status`          | badge             | Xem màu sắc bên dưới        |
+| Approved At      | `approved_at`     | datetime / `-`    |                             |
+| Locked At        | `locked_at`       | datetime / `-`    |                             |
+| Paid At          | `paid_at`         | datetime / `-`    |                             |
+| Ghi chú          | `notes`           | text (truncate)   |                             |
+| Actions          | —                 | buttons           |                             |
 
-Line items table columns (recommended order):
+**Badge status**:
+- `draft` → gray (Bản nháp)
+- `approved` → amber (Đã duyệt)
+- `locked` → blue (Đã khóa)
+- `paid` → green (Đã thanh toán)
 
-| Group | Column | Source field | Format |
-|---|---|---|---|
-| Driver | Driver ID | `driver_id` | number |
-| Driver | Driver Name | `driver.name` | text |
-| Earnings | Base Salary | `base_salary` | currency |
-| Earnings | Trip Bonus | `trip_bonus` | currency |
-| Earnings | Overtime Pay | `overtime_pay` | currency |
-| Earnings | Night Shift Allowance | `night_shift_allowance` | currency |
-| Earnings | Public Holiday Pay | `public_holiday_pay` | currency |
-| Earnings | Allowance | `allowance` | currency |
-| Deductions | Insurance/General Deduction | `deduction` | currency |
-| Deductions | Unpaid Leave Deduction | `leave_unpaid_deduction` | currency |
-| Deductions | Violation Deduction | `violation_deduction` | currency |
-| Deductions | Fuel Cost | `fuel_cost` | currency |
-| Deductions | Tax | `tax` | currency |
-| Result | Net Salary | `net_salary` | currency (highlight) |
-| KPI | Working Days | `working_days` | number |
-| KPI | Paid Leave Days | `leave_days_paid` | number |
-| KPI | Unpaid Leave Days | `leave_days_unpaid` | number |
-| KPI | Overtime Hours | `overtime_hours` | number (1 decimal) |
-| KPI | Trips Completed | `trips_completed_count` | number |
-| KPI | Total Distance | `total_distance_km` | number (km) |
-
-Totals footer (minimum):
-- `total_base_salary`
-- `total_trip_bonus`
-- `total_overtime_pay`
-- `total_allowance`
-- `total_deduction` (sum of all deduction columns)
-- `total_net_salary`
-- `total_trips_completed`
-- `total_distance_km`
+**Filter bar**: `company_id`, `month`, `year`, `status`
 
 ---
 
-### C. Action/State Rules (important for button enable/disable)
+### B. Chi tiết Payroll — Bảng PayrollLine
 
-- If status = `draft`:
-  - Show: `Approve`, `Delete`, `Edit Notes`, `Export`
-  - Hide/Disable: `Lock`
-- If status = `approved`:
-  - Show: `Lock`, `Export`
-  - Disable: editable fields
-- If status = `locked`:
-  - Show: `Export` only
-  - Disable all mutation actions
-
-Role constraints:
-- Admin can call approve/lock/export.
-- Driver/staff should only use `/payrolls/my-salary`.
-
-SoD rule:
-- User who created payroll must not approve same payroll (expect `403`).
-
----
-
-### D. FE Data Types & Formatting Rules
-
-- Currency: render VND with thousand separators, no decimals by default.
-- Decimal fields:
-  - `overtime_hours`: keep 1-2 decimals.
-  - `total_distance_km`: keep 1-2 decimals.
-- Null datetime (`approved_at`, `locked_at`): show `-`.
-- Large payload:
-  - Use server-side pagination for list.
-  - For detail, enable column pinning and horizontal scroll.
+| Nhóm       | Cột                       | Field                    | Format         |
+|------------|---------------------------|--------------------------|----------------|
+| Tài xế     | Tên tài xế                | `driver.name`            | text           |
+| Thu nhập   | Lương cơ bản              | `base_salary`            | VND            |
+| Thu nhập   | Thưởng trip               | `trip_bonus`             | VND            |
+| Thu nhập   | Lương tăng ca             | `overtime_pay`           | VND            |
+| Thu nhập   | Phụ cấp ca đêm            | `night_shift_allowance`  | VND            |
+| Thu nhập   | Lương ngày lễ             | `public_holiday_pay`     | VND            |
+| Thu nhập   | Phụ cấp                   | `allowance`              | VND            |
+| Khấu trừ  | BHXH/Bảo hiểm            | `deduction`              | VND            |
+| Khấu trừ  | Phép không lương          | `leave_unpaid_deduction` | VND            |
+| Khấu trừ  | Vi phạm                   | `violation_deduction`    | VND            |
+| Khấu trừ  | Vượt định mức xăng        | `fuel_excess_deduction`  | VND            |
+| Khấu trừ  | Thuế TNCN                 | `tax`                    | VND            |
+| Kết quả   | **Lương thực nhận**       | `net_salary`             | VND (in đậm)   |
+| KPI        | Ngày công thực tế         | `working_days`           | number         |
+| KPI        | Ngày phép có lương        | `leave_days_paid`        | number         |
+| KPI        | Ngày phép không lương     | `leave_days_unpaid`      | number         |
+| KPI        | Giờ tăng ca               | `overtime_hours`         | number (1 dec) |
+| KPI        | Số chuyến                 | `trips_completed_count`  | number         |
+| KPI        | Tổng km                   | `total_distance_km`      | number (1 dec) |
 
 ---
 
-### E. Suggested TypeScript Interfaces
+### C. Quy tắc hiển thị nút Action
 
-```ts
-type PayrollStatus = "draft" | "approved" | "locked";
+| Status    | Nút hiển thị                                  |
+|-----------|-----------------------------------------------|
+| `draft`   | Approve, Xóa, Sửa ghi chú, Export            |
+| `approved`| Lock, Export                                  |
+| `locked`  | Mark Paid, Export                             |
+| `paid`    | Export (chỉ xem, không chỉnh sửa gì được)    |
 
-interface PayrollSummaryItem {
+> **SoD**: Người tạo payroll không được bấm Approve → backend trả `403`.
+
+---
+
+### D. TypeScript Interfaces
+
+```typescript
+type PayrollStatus = "draft" | "approved" | "locked" | "paid";
+
+interface PayrollSummary {
   id: number;
   company_id: number;
   month: number;
@@ -892,11 +830,15 @@ interface PayrollSummaryItem {
   status: PayrollStatus;
   approved_at: string | null;
   locked_at: string | null;
+  paid_at: string | null;
+  paid_by: number | null;
   notes: string | null;
   company?: { id: number; name: string };
 }
 
-interface PayrollLineItem {
+interface PayrollLine {
+  id: number;
+  payroll_id: number;
   driver_id: number;
   driver?: { id: number; name: string };
   base_salary: number;
@@ -908,7 +850,7 @@ interface PayrollLineItem {
   deduction: number;
   leave_unpaid_deduction: number;
   violation_deduction: number;
-  fuel_cost: number;
+  fuel_excess_deduction: number;   // ⚠ đổi tên từ fuel_cost (phiên bản cũ)
   tax: number;
   net_salary: number;
   working_days: number;
@@ -918,164 +860,175 @@ interface PayrollLineItem {
   trips_completed_count: number;
   total_distance_km: number;
 }
+
+type ScheduleStatus = "draft" | "submitted" | "approved" | "locked";
+
+type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+type OvertimeStatus = "pending" | "approved" | "rejected";
+
+type ViolationStatus = "pending" | "confirmed" | "disputed" | "waived";
+
+type DisputeResolution = "upheld" | "overturned";
 ```
 
 ---
 
-## 8. Master Data  *(admin required)*
+## 8. Dữ Liệu Gốc (Master Data) *(admin)*
 
-Standard CRUD for all master data resources. All support `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
+Tất cả resource hỗ trợ CRUD: `GET /`, `POST /`, `GET /{id}`, `PUT /{id}`, `DELETE /{id}`.
 
-| Resource | Path | Notes |
-|----------|------|-------|
-| Companies | `/companies` | Top-level tenant |
-| Offices | `/offices` | Cost/profit centers |
-| Departments | `/departments` | |
-| Positions | `/positions` | Contains `base_salary` |
-| Drivers | `/drivers` | Core driver record |
-| Vehicles | `/vehicles` | Fleet |
-| Vehicle Assignments | `/vehicle_assignments` | Driver ↔ vehicle |
-| Vehicle Expenses | `/vehicle_expenses` | Fuel, maintenance |
-| Customers | `/customers` | Freight customers |
-| Trips | `/trips` | Individual hauls |
-| Trip Bonus Rules | `/trip_bonus_rules` | km-tier bonus config |
-| Invoices | `/invoices` | Customer invoices |
+| Resource              | Path                    | Field quan trọng                                        |
+|-----------------------|-------------------------|---------------------------------------------------------|
+| Companies             | `/companies`            | Tenant gốc                                              |
+| Offices               | `/offices`              | `company_id`, `manager_id`                             |
+| Departments           | `/departments`          | `office_id`                                             |
+| Positions             | `/positions`            | `base_salary` — dùng tính lương                        |
+| Drivers               | `/drivers`              | Xem bên dưới                                           |
+| Vehicles              | `/vehicles`             | `plate_number`, `type`, `status`                       |
+| Vehicle Assignments   | `/vehicle_assignments`  | `driver_id`, `vehicle_id`, `from_date`, `to_date`      |
+| Vehicle Expenses      | `/vehicle_expenses`     | `type=fuel` ảnh hưởng fuel_excess_deduction           |
+| Customers             | `/customers`            | Khách hàng gửi hàng                                    |
+| Trips                 | `/trips`                | `status`, `distance_km`, `driver_id`                   |
+| Trip Bonus Rules      | `/trip_bonus_rules`     | `min_km`, `max_km`, `bonus_per_km`, `effective_from`   |
+| Invoices              | `/invoices`             | `status`: draft / issued / paid / cancelled            |
+| Public Holidays       | `/public-holidays`      | Ảnh hưởng lương ngày lễ và effective working days      |
 
 ---
 
-## 9. Reports  *(admin required)*
+### Driver — Field quan trọng
+
+| Nhóm       | Field                           | Ghi chú                             |
+|------------|---------------------------------|--------------------------------------|
+| Cá nhân    | `name`, `email`, `phone`, `dob` |                                      |
+| Tổ chức    | `office_id`, `position_id`      | `position.base_salary` dùng tính lương |
+| Trạng thái | `status`                        | `active` / `inactive` / `resigned`  |
+| Tài xế     | `license_no`, `license_class`   |                                      |
+| Sẵn sàng   | `available_status`              | `available` / `busy` / `offline`    |
+| Ngân hàng  | `bank_name`, `bank_account_no`  | Dùng khi xuất lương                 |
+
+---
+
+### Trip — Vòng đời
+
+```
+pending → in_progress → completed
+        ↘ cancelled
+```
+
+**Validation quan trọng**:
+- `start_point ≠ end_point`
+- Khi `status = in_progress`: bắt buộc `start_time`
+- Khi `status = completed`: bắt buộc `end_time`
+- Không tài xế/xe nào có thể có 2 trip `in_progress` cùng lúc
+
+---
+
+### Trip Bonus Rule — Cấu hình thưởng theo km
+
+```json
+{
+  "company_id": 1,
+  "min_km": 100,
+  "max_km": 300,
+  "bonus_per_km": 5000,
+  "effective_from": "2026-01-01",
+  "effective_to": null
+}
+```
+
+- Một trip sẽ match rule có `min_km ≤ distance_km ≤ max_km`
+- `max_km = null` nghĩa là không giới hạn trên
+- `max_km > min_km` (validation bắt buộc)
+
+---
+
+## 9. Báo Cáo *(admin)*
 
 ### GET /reports/dashboard
-Summary metrics: total drivers, trips this month, revenue, payroll cost.
+**Query params**: `month`, `year` (mặc định tháng hiện tại)
 
-### GET /reports/payroll-summary
-Payroll cost breakdown by company/office for a period.
-
-**Query params**: `company_id` (required), `month`, `year`
+KPI tổng hợp: tổng tài xế, chuyến, doanh thu, chi phí lương.
 
 ---
 
-## 10. Users & RBAC  *(admin required)*
+### GET /reports/payroll-summary
+**Query params**: `company_id` (bắt buộc), `month`, `year`
 
-### GET /users / POST /users / GET /users/{id} / PUT /users/{id} / DELETE /users/{id}
-User management.
+Chi tiết chi phí lương theo công ty/văn phòng.
 
-### GET /roles / POST /roles / GET /roles/{id} / PUT /roles/{id} / DELETE /roles/{id}
-Role management.
+---
+
+### GET /reports/revenue-summary
+**Query params**: `company_id`, `month`, `year`, `from`, `to`
+
+Nếu không có `from`/`to`, phải có `month`/`year`.
+
+---
+
+## 10. Người Dùng & Phân Quyền *(admin)*
+
+### CRUD Users: `/users`
+### CRUD Roles: `/roles`
 
 ### POST /roles/{id}/permissions
-Sync permissions for a role.
-
-**Request**
+Gán quyền cho role:
 ```json
 { "permissions": ["payrolls.approve", "drivers.edit"] }
 ```
 
 ### GET /permissions
-List all available permissions.
+Danh sách tất cả permission có thể gán.
 
 ---
 
-## 11. AI Business Assist  *(admin required)*
+## 11. AI & Chat
 
-### POST /ai/business-assist
-Ask the AI advisor a business question.
-
-**Request**
+### POST /ai/business-assist *(admin)*
 ```json
-{ "question": "Which drivers have the highest fuel cost this month?" }
+{ "question": "Tài xế nào có chi phí xăng cao nhất tháng này?" }
 ```
 
-**Response 200**
-```json
-{
-  "success": true,
-  "data": { "answer": "Driver Nguyen Van A has the highest fuel cost at 1,500,000 VND..." }
-}
-```
+### Chat *(auth)*
+- `GET /chat/sessions` — Danh sách phiên chat
+- `DELETE /chat/sessions/{id}` — Xóa phiên
+- `GET /chat/messages?session_id=xxx` — Tin nhắn trong phiên
+- `POST /chat/messages` — Gửi tin nhắn
+- `POST /chat/messages/stream` — Stream SSE
 
 ---
 
-## 12. Chat  *(auth required)*
+## 12. Legacy Endpoints (tương thích ngược)
 
-### GET /chat/sessions
-List chat sessions for current user.
-
-### DELETE /chat/sessions/{sessionId}
-Delete a chat session.
-
-### GET /chat/messages
-List messages. Query: `session_id`.
-
-### POST /chat/messages
-Send a message.
-
-**Request**
-```json
-{ "session_id": "abc-123", "content": "Hello" }
-```
-
-### POST /chat/messages/stream
-Stream a chat response (SSE).
+| Endpoint                  | Mapping thực tế                   |
+|---------------------------|-----------------------------------|
+| `GET /employees`          | Alias → `GET /drivers`            |
+| `GET /allowances`         | Trả array rỗng (deprecated)      |
+| `GET /deductions`         | Trả array rỗng (deprecated)      |
+| `GET /documentation`      | Trả links Swagger                 |
 
 ---
 
-## Error Codes Reference
+## ⚠ Những điểm Frontend cần kiểm tra
 
-| HTTP Code | Meaning |
-|-----------|---------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad request |
-| 401 | Unauthenticated — missing or invalid token |
-| 403 | Forbidden — insufficient role or SoD violation |
-| 404 | Resource not found |
-| 409 | Conflict — schedule/vehicle duplicate |
-| 422 | Validation failed — see `errors` field |
-| 500 | Server error |
+### Breaking changes từ các fix gần nhất
 
----
+| Thay đổi | Cũ | Mới | Ảnh hưởng |
+|----------|-----|-----|-----------|
+| Field tên xăng trong PayrollLine | `fuel_cost` | `fuel_excess_deduction` | Rename tất cả chỗ hiển thị và TypeScript interface |
+| Payroll status thêm `paid` | `draft/approved/locked` | + `paid` | Thêm badge, thêm nút "Mark Paid", cập nhật type |
+| Endpoint mark-paid | *(chưa có)* | `POST /payrolls/{id}/mark-paid` | Gọi API mới sau khi lock |
+| BHXH tính trên | `baseSalary` (full) | `proratedBaseSalary` | Số `deduction` có thể thay đổi với driver nghỉ phép |
+| OT cap trong payroll | Không cap | Cap 40h/tháng | `overtime_hours` trong line có thể < tổng OT approved |
 
-## Legacy Compatibility Endpoints
+### Checklist kiểm tra frontend
 
-These endpoints are kept for FE backward compatibility:
-
-- `GET /documentation` → returns links to Swagger UI/OpenAPI sources
-- `GET /employees` → alias mapped to drivers list payload
-- `GET /allowances` → compatibility endpoint (currently returns empty array)
-- `GET /deductions` → compatibility endpoint (currently returns empty array)
-
----
-
-## Common Pagination Response
-
-All list endpoints return paginated results:
-
-```json
-{
-  "current_page": 1,
-  "data": [...],
-  "first_page_url": "...",
-  "last_page": 5,
-  "last_page_url": "...",
-  "next_page_url": "...",
-  "per_page": 20,
-  "prev_page_url": null,
-  "total": 98
-}
-```
-
-Pass `?page=2` to navigate pages.
-
----
-
-## Date / Time Formats
-
-| Field type | Format |
-|-----------|--------|
-| Date | `YYYY-MM-DD` (e.g. `2026-05-01`) |
-| Datetime | `YYYY-MM-DD HH:MM:SS` (e.g. `2026-05-01 07:00:00`) |
-| Time | `HH:MM` (e.g. `07:00`) |
-| Currency | Integer VND, no decimal (e.g. `10000000`) |
-
-All timestamps in API responses are UTC ISO 8601. Frontend should convert to local timezone (`Asia/Ho_Chi_Minh`) for display.
+- [ ] `PayrollLine.fuel_cost` → đổi thành `PayrollLine.fuel_excess_deduction`
+- [ ] `PayrollStatus` type thêm `"paid"`
+- [ ] Màu badge `paid` (gợi ý: green)
+- [ ] Nút **Mark Paid** hiển thị khi status = `locked`, gọi `POST /payrolls/{id}/mark-paid`
+- [ ] Nút **Export** hiển thị ở tất cả status kể cả `paid`
+- [ ] Khi status = `paid`: disable toàn bộ action ngoại trừ Export
+- [ ] Cột `paid_at` trong danh sách payroll (hiện `-` nếu null)
+- [ ] Nếu violation bị waive/overturn → payroll draft sẽ tự recalculate → FE cần refresh danh sách payroll
+- [ ] OT cap 40h: hiển thị warning khi submit OT gần đến giới hạn tháng

@@ -92,26 +92,50 @@ class LeaveService
         return DB::transaction(function () use ($request, $actor): LeaveRequest {
             $before = $request->toArray();
 
-            $request->update([
+            // Re-read the request inside the transaction with a row-level lock so
+            // two concurrent approvals cannot both pass the pending-status check.
+            $locked = LeaveRequest::lockForUpdate()->find($request->id);
+            if ($locked === null || $locked->status !== 'pending') {
+                throw new InvalidArgumentException("Cannot approve request in status '{$locked?->status}'.");
+            }
+
+            $locked->update([
                 'status'      => 'approved',
                 'approved_by' => $actor->id,
                 'approved_at' => now(),
             ]);
 
-            // Deduct from balance for paid leave
-            $leaveType = $request->leaveType;
+            // Deduct from balance for paid leave — lock the balance row so
+            // concurrent approvals cannot both pass the quota check.
+            $leaveType = $locked->leaveType;
             if ($leaveType && $leaveType->is_paid) {
-                $year = (int) $request->from_date->year;
-                LeaveBalance::query()
-                    ->where('driver_id', $request->driver_id)
-                    ->where('leave_type_id', $request->leave_type_id)
+                $year = (int) $locked->from_date->year;
+
+                $balance = LeaveBalance::query()
+                    ->where('driver_id', $locked->driver_id)
+                    ->where('leave_type_id', $locked->leave_type_id)
                     ->where('year', $year)
-                    ->increment('used_days', (float) $request->total_days);
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($balance && $balance->remainingDays() < (float) $locked->total_days) {
+                    throw new InvalidArgumentException(
+                        sprintf(
+                            'Insufficient leave balance. Remaining: %.1f days, Requested: %.1f days.',
+                            $balance->remainingDays(),
+                            (float) $locked->total_days,
+                        ),
+                    );
+                }
+
+                if ($balance) {
+                    $balance->increment('used_days', (float) $locked->total_days);
+                }
             }
 
-            $this->auditLog($actor, 'leave.approved', $request->id, $before, $request->fresh()->toArray());
+            $this->auditLog($actor, 'leave.approved', $locked->id, $before, $locked->fresh()->toArray());
 
-            return $request->fresh(['driver', 'leaveType', 'approver']);
+            return $locked->fresh(['driver', 'leaveType', 'approver']);
         });
     }
 

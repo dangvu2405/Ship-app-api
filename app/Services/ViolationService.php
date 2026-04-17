@@ -5,14 +5,20 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\AuditLog;
+use App\Models\Payroll;
 use App\Models\User;
 use App\Models\Violation;
 use App\Models\ViolationDispute;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class ViolationService
 {
+    public function __construct(
+        private readonly DriverPayrollCalculationService $payrollCalc,
+    ) {}
+
     /**
      * Create a new violation. Reporter is set to the acting user.
      *
@@ -114,7 +120,7 @@ class ViolationService
         }
 
         return DB::transaction(function () use ($dispute, $data, $actor): ViolationDispute {
-            $resolution = $data['resolution'] ?? 'upheld';
+            $resolution    = $data['resolution'] ?? 'upheld';
             $disputeStatus = $resolution === 'overturned' ? 'resolved_overturned' : 'resolved_upheld';
 
             $dispute->update([
@@ -124,7 +130,7 @@ class ViolationService
                 'resolution_note' => $data['resolution_note'] ?? null,
             ]);
 
-            $violation = $dispute->violation;
+            $violation          = $dispute->violation;
             $newViolationStatus = $resolution === 'overturned' ? 'waived' : 'confirmed';
 
             $violation->update([
@@ -139,6 +145,11 @@ class ViolationService
                 'resolution'     => $resolution,
                 'dispute_status' => $disputeStatus,
             ]);
+
+            // When overturned the deduction must disappear from any open draft.
+            if ($resolution === 'overturned') {
+                $this->recalculateDraftForViolation($violation);
+            }
 
             return $dispute->fresh('violation');
         });
@@ -169,9 +180,39 @@ class ViolationService
                 'waive_reason' => $reason,
             ]);
             $this->auditLog($actor, 'violation.waived', $violation->id, $before, $violation->fresh()->toArray());
+
+            // Remove the deduction from any open draft payroll for this period.
+            $this->recalculateDraftForViolation($violation);
         });
 
         return $violation->fresh(['driver', 'reporter']);
+    }
+
+    /**
+     * If there is an unlocked (draft/approved) payroll for the month of the
+     * violation, recalculate it so the deduction change is reflected immediately.
+     * Locked payrolls are intentionally left untouched.
+     */
+    private function recalculateDraftForViolation(Violation $violation): void
+    {
+        $occurredAt = Carbon::parse($violation->occurred_at);
+
+        $payroll = Payroll::query()
+            ->where('company_id', $violation->company_id)
+            ->where('month', $occurredAt->month)
+            ->where('year', $occurredAt->year)
+            ->whereIn('status', ['draft', 'approved'])  // never touch locked or paid
+            ->first();
+
+        if ($payroll === null) {
+            return;
+        }
+
+        $this->payrollCalc->createOrRecalculateDraft(
+            $violation->company_id,
+            $occurredAt->month,
+            $occurredAt->year,
+        );
     }
 
     /**

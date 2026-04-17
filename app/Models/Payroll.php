@@ -24,6 +24,8 @@ class Payroll extends Model
         'locked_at',
         'approved_by',
         'approved_at',
+        'paid_at',
+        'paid_by',
         'notes',
         'snapshot_json',
     ];
@@ -33,6 +35,7 @@ class Payroll extends Model
         'year'          => 'integer',
         'locked_at'     => 'datetime',
         'approved_at'   => 'datetime',
+        'paid_at'       => 'datetime',
         'snapshot_json' => 'array',
     ];
 
@@ -51,6 +54,11 @@ class Payroll extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function paidBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'paid_by');
+    }
+
     public function isLocked(): bool
     {
         return $this->status === 'locked';
@@ -64,5 +72,16 @@ class Payroll extends Model
     public function isDraft(): bool
     {
         return $this->status === 'draft';
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->status === 'paid';
+    }
+
+    /** A payroll that is locked or paid cannot be recalculated or modified. */
+    public function isFrozen(): bool
+    {
+        return in_array($this->status, ['locked', 'paid'], true);
     }
 }

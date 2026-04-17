@@ -93,6 +93,7 @@ $registerAdminRoutes = static function (): void {
     // Payroll
     Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
     Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
+    Route::post('payrolls/{id}/mark-paid', [\App\Http\Controllers\Api\PayrollController::class, 'markPaid'])->name('payrolls.mark-paid');
     Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
     Route::get('payrolls/driver/{driverId}', [\App\Http\Controllers\Api\PayrollController::class, 'driverMonthlySalary'])->name('payrolls.driver-monthly');
     Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);

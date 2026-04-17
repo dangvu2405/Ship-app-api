@@ -289,6 +289,33 @@ class PayrollController extends BaseController
         return $this->successResponse($payroll);
     }
 
+    /**
+     * @OA\Post(
+     *     path="/api/payrolls/{id}/mark-paid",
+     *     tags={"Payrolls"},
+     *     summary="Đánh dấu đã trả lương",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Đã trả lương"),
+     *     @OA\Response(response=404, description="Không tìm thấy"),
+     *     @OA\Response(response=422, description="Bảng lương chưa ở trạng thái locked")
+     * )
+     */
+    public function markPaid(string $id): JsonResponse
+    {
+        $payroll = Payroll::find($id);
+        if (! $payroll) {
+            return $this->notFoundResponse('Payroll not found');
+        }
+
+        try {
+            $payroll = $this->payrollWorkflowService->markPaid((int) $id, (int) request()->user()->id);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
+
+        return $this->successResponse($payroll, 'Payroll marked as paid');
+    }
+
     public function driverMonthlySalary(Request $request, int $driverId): JsonResponse
     {
         $driver = Driver::query()->find($driverId);

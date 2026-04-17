@@ -44,8 +44,8 @@ class DriverPayrollCalculationService
                 ['status' => 'draft', 'notes' => null],
             );
 
-            if ($payroll->isLocked()) {
-                throw new InvalidArgumentException('Payroll is locked and cannot be recalculated.');
+            if ($payroll->isFrozen()) {
+                throw new InvalidArgumentException('Payroll is locked or paid and cannot be recalculated.');
             }
 
             // Hard-delete lines so the unique (payroll_id, driver_id) constraint is not blocked by soft-deleted rows.
@@ -120,15 +120,17 @@ class DriverPayrollCalculationService
                     ->sum('amount');
 
                 // --- Leave proration (unpaid leave reduces base_salary) ---
+                // Both deduction and prorated salary use effectiveStdDays as the
+                // denominator so the per-day rate is consistent within the period.
                 $unpaidLeaveDays = $this->unpaidLeaveDaysForPeriod($driver->id, $start, $end);
                 $leaveUnpaidDeduction = $unpaidLeaveDays > 0
                     ? round($baseSalary * $unpaidLeaveDays / $effectiveStdDays, 0)
                     : 0.0;
 
                 // Paid leave counts towards working days (no deduction needed)
-                $paidLeaveDays   = $this->paidLeaveDaysForPeriod($driver->id, $start, $end);
-                $actualWorkingDays = max(0, $workingDays - (int) $unpaidLeaveDays);
-                $proratedBaseSalary = round($baseSalary * ($actualWorkingDays / max(1, $workingDays)), 2);
+                $paidLeaveDays     = $this->paidLeaveDaysForPeriod($driver->id, $start, $end);
+                $actualWorkingDays = max(0, $effectiveStdDays - (int) $unpaidLeaveDays);
+                $proratedBaseSalary = round($baseSalary * ($actualWorkingDays / max(1, $effectiveStdDays)), 2);
 
                 // --- Overtime pay ---
                 $otPay = $this->calculateOtPay(
@@ -136,6 +138,7 @@ class DriverPayrollCalculationService
                     $start->toDateString(),
                     $end->toDateString(),
                     $baseSalary,
+                    $effectiveStdDays,
                     $holidayDates,
                 );
 
@@ -181,10 +184,12 @@ class DriverPayrollCalculationService
                     })
                     ->sum('penalty_amount');
 
-                // --- Insurance deduction on gross base ---
+                // --- Insurance & tax deduction on prorated base ---
+                // Using proratedBaseSalary ensures drivers on unpaid leave are not
+                // over-deducted for BHXH on days they did not receive pay.
                 $allowance = $defaultAllowance;
-                $deduction = round($baseSalary * $insurancePct, 2);
-                $tax       = round($baseSalary * $taxPct, 2);
+                $deduction = round($proratedBaseSalary * $insurancePct, 2);
+                $tax       = round($proratedBaseSalary * $taxPct, 2);
 
                 $fuelQuota = (float) config('payroll.fuel_monthly_quota', 0.0);
                 $fuelSavingBonusRate = (float) config('payroll.fuel_saving_bonus_rate', 0.0);
@@ -219,7 +224,7 @@ class DriverPayrollCalculationService
                     'deduction'             => $deduction,
                     'leave_unpaid_deduction' => round($leaveUnpaidDeduction, 2),
                     'violation_deduction'   => round($violationDeduction, 2),
-                    'fuel_cost'             => round($fuelDeduction, 2),
+                    'fuel_excess_deduction' => round($fuelDeduction, 2),
                     'tax'                   => $tax,
                     'net_salary'            => $net,
                     'working_days'          => $actualWorkingDays,
@@ -402,6 +407,9 @@ class DriverPayrollCalculationService
      * OT pay per Vietnamese Labor Code:
      *   Weekday: 150% | Weekend: 200% | Holiday: 300%
      *
+     * Uses the same $stdDays denominator as night-shift allowance so all
+     * per-hour rates are consistent within a single payroll period.
+     *
      * @param array<string> $holidayDates
      */
     private function calculateOtPay(
@@ -409,18 +417,32 @@ class DriverPayrollCalculationService
         string $from,
         string $to,
         float $monthlyBase,
+        int $stdDays,
         array $holidayDates,
     ): float {
-        $hourlyRate = $monthlyBase / (26 * self::STANDARD_HOURS_PER_DAY);
+        $hourlyRate = $monthlyBase / ($stdDays * self::STANDARD_HOURS_PER_DAY);
+        $maxOtHours = (float) config('payroll.max_ot_hours_per_month', 40.0);
 
         $otRequests = OvertimeRequest::query()
             ->where('driver_id', $driverId)
             ->where('status', 'approved')
             ->whereBetween('work_date', [$from, $to])
+            ->orderBy('work_date')
             ->get();
 
-        $total = 0.0;
+        $total        = 0.0;
+        $usedOtHours  = 0.0;
+
         foreach ($otRequests as $ot) {
+            $remaining = $maxOtHours - $usedOtHours;
+            if ($remaining <= 0.0) {
+                break;
+            }
+
+            // Clamp this request's hours to the remaining cap.
+            $hours = min((float) $ot->ot_hours, $remaining);
+            $usedOtHours += $hours;
+
             $dateStr   = $ot->work_date->toDateString();
             $dayOfWeek = $ot->work_date->dayOfWeek;
             $isHoliday = in_array($dateStr, $holidayDates);
@@ -432,7 +454,7 @@ class DriverPayrollCalculationService
                 default    => 1.5,
             };
 
-            $total += (float) $ot->ot_hours * $hourlyRate * $multiplier;
+            $total += $hours * $hourlyRate * $multiplier;
         }
 
         return round($total, 0);
@@ -531,6 +553,7 @@ class DriverPayrollCalculationService
             ->whereIn('date', $holidayDates)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
             ->whereNotNull('check_in')
+            ->whereNotNull('check_out')   // incomplete attendance records are excluded
             ->count();
 
         return round($workedHolidays * $dailyRate * 3.0, 0);

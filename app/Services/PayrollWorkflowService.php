@@ -17,8 +17,8 @@ class PayrollWorkflowService
      */
     public function update(Payroll $payroll, array $payload): Payroll
     {
-        if ($payroll->isLocked()) {
-            throw new InvalidArgumentException('Payroll is locked and cannot be updated.');
+        if ($payroll->isFrozen()) {
+            throw new InvalidArgumentException('Payroll is locked/paid and cannot be updated.');
         }
 
         $payroll->fill($payload);
@@ -29,8 +29,8 @@ class PayrollWorkflowService
 
     public function delete(Payroll $payroll): void
     {
-        if ($payroll->isLocked()) {
-            throw new InvalidArgumentException('Payroll is locked and cannot be deleted.');
+        if ($payroll->isFrozen()) {
+            throw new InvalidArgumentException('Payroll is locked/paid and cannot be deleted.');
         }
 
         DB::transaction(function () use ($payroll): void {
@@ -58,5 +58,28 @@ class PayrollWorkflowService
         $payroll = Payroll::query()->findOrFail($payrollId);
 
         return $this->calculationService->lock($payroll);
+    }
+
+    /**
+     * Mark a locked payroll as paid (salary has been disbursed).
+     * Transition: locked → paid
+     */
+    public function markPaid(int $payrollId, int $actorId): Payroll
+    {
+        $payroll = Payroll::query()->findOrFail($payrollId);
+
+        if (! $payroll->isLocked()) {
+            throw new InvalidArgumentException(
+                "Payroll must be in 'locked' status before marking as paid (current: {$payroll->status}).",
+            );
+        }
+
+        $payroll->update([
+            'status'  => 'paid',
+            'paid_at' => now(),
+            'paid_by' => $actorId,
+        ]);
+
+        return $payroll->fresh(['company', 'lines.driver']);
     }
 }
