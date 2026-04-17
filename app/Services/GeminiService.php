@@ -11,9 +11,11 @@ use Illuminate\Support\Facades\Http;
 class GeminiService
 {
     /**
+     * @param array{system: string, user: string, turns: list<array{role: string, text: string}>}|string $prompt
+     * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
-    public function generateContent(string $prompt, array $options = []): array
+    public function generateContent(array|string $prompt, array $options = []): array
     {
         $apiKey = (string) config('services.gemini.api_key');
         $requestedModel = (string) ($options['model'] ?? config('services.gemini.model', 'gemini-2.0-flash'));
@@ -29,7 +31,8 @@ class GeminiService
                 prompt: $prompt,
                 apiKey: $apiKey,
                 model: $model,
-                baseUrl: $baseUrl
+                baseUrl: $baseUrl,
+                options: $options,
             );
         }
 
@@ -59,7 +62,8 @@ class GeminiService
                 prompt: $prompt,
                 apiKey: $groqApiKey,
                 model: $groqModel,
-                baseUrl: $groqBaseUrl
+                baseUrl: $groqBaseUrl,
+                options: $options,
             );
         }
     }
@@ -70,11 +74,12 @@ class GeminiService
     }
 
     /**
+     * @param array{system: string, user: string, turns: list<array{role: string, text: string}>}|string $prompt
      * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
     private function generateWithGeminiApi(
-        string $prompt,
+        array|string $prompt,
         array $options,
         string $apiKey,
         string $requestedModel,
@@ -83,24 +88,53 @@ class GeminiService
     ): array {
         $endpoint = sprintf('%s/models/%s:generateContent', $baseUrl, $model);
 
-        $payload = [
-            'contents' => [[
-                'parts' => [[
-                    'text' => $prompt,
-                ]],
-            ]],
-        ];
+        $payload = [];
 
-        if (isset($options['system_instruction']) && is_string($options['system_instruction']) && $options['system_instruction'] !== '') {
+        if (is_array($prompt)) {
+            // Use systemInstruction + multi-turn contents
             $payload['systemInstruction'] = [
-                'parts' => [[
-                    'text' => $options['system_instruction'],
-                ]],
+                'parts' => [['text' => $prompt['system']]],
             ];
+
+            $contents = [];
+            foreach ($prompt['turns'] as $turn) {
+                $contents[] = [
+                    'role'  => $turn['role'],
+                    'parts' => [['text' => $turn['text']]],
+                ];
+            }
+            $contents[] = [
+                'role'  => 'user',
+                'parts' => [['text' => $prompt['user']]],
+            ];
+            $payload['contents'] = $contents;
+        } else {
+            // Legacy: single string prompt
+            if (isset($options['system_instruction']) && is_string($options['system_instruction']) && $options['system_instruction'] !== '') {
+                $payload['systemInstruction'] = [
+                    'parts' => [['text' => $options['system_instruction']]],
+                ];
+            }
+            $payload['contents'] = [[
+                'parts' => [['text' => $prompt]],
+            ]];
         }
 
         if (isset($options['generation_config']) && is_array($options['generation_config'])) {
             $payload['generationConfig'] = $options['generation_config'];
+        }
+
+        if (isset($options['response_format']) && is_array($options['response_format'])) {
+            $responseFormatType = (string) Arr::get($options, 'response_format.type', '');
+            if ($responseFormatType === 'json_object') {
+                $payload['generationConfig'] ??= [];
+                $payload['generationConfig']['responseMimeType'] = 'application/json';
+            }
+        }
+
+        if (isset($options['stop']) && is_array($options['stop']) && $options['stop'] !== []) {
+            $payload['generationConfig'] ??= [];
+            $payload['generationConfig']['stopSequences'] = array_values(array_filter($options['stop'], static fn ($value): bool => is_string($value) && $value !== ''));
         }
 
         $response = Http::timeout(30)
@@ -114,36 +148,68 @@ class GeminiService
 
             throw new ApiException($message, $status >= 400 && $status <= 599 ? $status : 502, [
                 'requested_model' => $requestedModel,
-                'resolved_model' => $model,
-                'status' => $status,
-                'body' => $errorBody,
+                'resolved_model'  => $model,
+                'status'          => $status,
+                'body'            => $errorBody,
             ]);
         }
 
-        /** @var array<string, mixed> $payload */
-        $payload = $response->json() ?? [];
+        /** @var array<string, mixed> $decoded */
+        $decoded = $response->json() ?? [];
 
         return [
-            'raw' => $payload,
-            'text' => Arr::get($payload, 'candidates.0.content.parts.0.text', ''),
+            'raw'  => $decoded,
+            'text' => Arr::get($decoded, 'candidates.0.content.parts.0.text', ''),
         ];
     }
 
     /**
+     * @param array{system: string, user: string, turns: list<array{role: string, text: string}>}|string $prompt
+     * @param array<string, mixed> $options
      * @return array<string, mixed>
      */
     private function generateWithOpenAiCompatibleApi(
-        string $prompt,
+        array|string $prompt,
         string $apiKey,
         string $model,
-        string $baseUrl
+        string $baseUrl,
+        array $options = [],
     ): array {
         $endpoint = sprintf('%s/responses', $baseUrl);
 
-        $payload = [
-            'model' => $model,
-            'input' => $prompt,
-        ];
+        if (is_array($prompt)) {
+            $messages = [
+                ['role' => 'system', 'content' => $prompt['system']],
+            ];
+            foreach ($prompt['turns'] as $turn) {
+                $messages[] = [
+                    'role'    => $turn['role'] === 'model' ? 'assistant' : $turn['role'],
+                    'content' => $turn['text'],
+                ];
+            }
+            $messages[] = ['role' => 'user', 'content' => $prompt['user']];
+
+            $maxTokens = (int) Arr::get($options, 'generation_config.maxOutputTokens', 400);
+
+            $payload = [
+                'model'             => $model,
+                'input'             => $messages,
+                'max_output_tokens' => $maxTokens,
+            ];
+        } else {
+            $payload = [
+                'model' => $model,
+                'input' => $prompt,
+            ];
+        }
+
+        if ($this->supportsResponseFormat($baseUrl) && isset($options['response_format']) && is_array($options['response_format'])) {
+            $payload['response_format'] = $options['response_format'];
+        }
+
+        if ($this->supportsStopSequences($baseUrl) && isset($options['stop']) && is_array($options['stop']) && $options['stop'] !== []) {
+            $payload['stop'] = array_values(array_filter($options['stop'], static fn ($value): bool => is_string($value) && $value !== ''));
+        }
 
         $response = Http::timeout(30)
             ->withToken($apiKey)
@@ -156,8 +222,8 @@ class GeminiService
 
             throw new ApiException($message, $status >= 400 && $status <= 599 ? $status : 502, [
                 'resolved_model' => $model,
-                'status' => $status,
-                'body' => $errorBody,
+                'status'         => $status,
+                'body'           => $errorBody,
             ]);
         }
 
@@ -166,8 +232,18 @@ class GeminiService
         $text = (string) (Arr::get($decoded, 'output_text', '') ?: Arr::get($decoded, 'output.0.content.0.text', ''));
 
         return [
-            'raw' => $decoded,
+            'raw'  => $decoded,
             'text' => $text,
         ];
+    }
+
+    private function supportsResponseFormat(string $baseUrl): bool
+    {
+        return ! str_contains($baseUrl, 'api.groq.com');
+    }
+
+    private function supportsStopSequences(string $baseUrl): bool
+    {
+        return ! str_contains($baseUrl, 'api.groq.com');
     }
 }

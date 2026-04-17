@@ -7,15 +7,21 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\ChatMessage;
 use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Throwable;
 
 class ChatService
 {
-    public function __construct(private readonly GeminiService $geminiService) {}
+    public function __construct(
+        private readonly GeminiService $geminiService,
+        private readonly ChatPromptService $chatPromptService,
+        private readonly ChatDataService $chatDataService,
+        private readonly ChatRagService $chatRagService,
+        private readonly TenantContext $tenantContext,
+    ) {}
 
     /**
      * @param array<string, mixed> $payload
@@ -75,28 +81,85 @@ class ChatService
             ];
         }
 
+        $context = $this->chatDataService->resolve($user, $message, $task, $context);
+
+        $intent = (string) ($context['_intent'] ?? 'GENERAL');
+        unset($context['_intent']);
+        unset($context['_user_message']);
+
+        $ragDocs = $this->chatRagService->search($message, $intent, $this->tenantContext->getCompanyId());
+
         $history = ChatMessage::query()
             ->where('user_id', $user->id)
             ->where('session_id', $sessionId)
+            ->where('status', 'success')
+            ->whereNotNull('response')
             ->orderBy('id', 'desc')
-            ->limit(10)
+            ->limit(16)
             ->get()
             ->reverse()
             ->values();
 
-        $prompt = $this->buildPrompt($history, $message, $context, $task);
-
-        try {
-            $result = $this->geminiService->generateContent($prompt, [
-                'model' => $payload['model'] ?? null,
-                'generation_config' => [
-                    'temperature' => 0.2,
-                    'topP' => 0.8,
-                    'maxOutputTokens' => 80,
-                ],
+        $missingContextQuestion = $this->chatPromptService->detectMissingContext($task, $context);
+        $useStructuredStatusMode = $this->shouldUseStructuredStatusMode($task, $intent, $message, $missingContextQuestion);
+        if ($missingContextQuestion !== null && ! $useStructuredStatusMode) {
+            $chat = ChatMessage::create([
+                'user_id' => $user->id,
+                'session_id' => $sessionId,
+                'message' => $message,
+                'response' => $missingContextQuestion,
+                'context' => $context,
+                'model' => 'local-missing-context',
+                'status' => 'success',
             ]);
 
-            $responseText = trim((string) ($result['text'] ?? ''));
+            return [
+                'session_id' => $sessionId,
+                'message' => $chat,
+                'response_text' => (string) $chat->response,
+                'cached' => false,
+                'guarded' => true,
+            ];
+        }
+
+        $prompt = $this->chatPromptService->build(
+            history: $history,
+            message: $message,
+            context: $context,
+            task: $task,
+            docs: $ragDocs,
+            metadata: [
+                'task' => $task,
+                'intent' => $intent,
+                'user_id' => $user->id,
+                'session_id' => $sessionId,
+                'rag_docs_count' => count($ragDocs),
+            ],
+        );
+
+        try {
+            if ($useStructuredStatusMode) {
+                $responseText = $this->generateStructuredStatusResponse(
+                    prompt: $prompt,
+                    message: $message,
+                    task: $task,
+                    intent: $intent,
+                    missingContextQuestion: $missingContextQuestion,
+                    model: $payload['model'] ?? null,
+                );
+            } else {
+                $result = $this->geminiService->generateContent($prompt, [
+                    'model' => $payload['model'] ?? null,
+                    'generation_config' => [
+                        'temperature' => 0.2,
+                        'topP' => 0.8,
+                        'maxOutputTokens' => 400,
+                    ],
+                ]);
+
+                $responseText = trim((string) ($result['text'] ?? ''));
+            }
+
             Cache::put($cacheKey, $responseText, now()->addMinutes(5));
 
             $chat = ChatMessage::create([
@@ -174,6 +237,124 @@ class ChatService
             'cached' => false,
             'guarded' => false,
         ];
+    }
+
+    private function shouldUseStructuredStatusMode(string $task, string $intent, string $message, ?string $missingContextQuestion): bool
+    {
+        if ($missingContextQuestion !== null) {
+            return true;
+        }
+
+        if (in_array(strtoupper($task), ['CHECK_STATUS', 'STATUS_CHECK'], true)) {
+            return true;
+        }
+
+        $statusIntents = ['COMPLIANCE', 'VIOLATION'];
+        if (in_array(strtoupper($intent), $statusIntents, true) && preg_match('/\b(trạng thái|status|kiểm tra)\b/ui', $message) === 1) {
+            return true;
+        }
+
+        return preg_match('/\b(thiếu dữ liệu|chưa đủ dữ liệu|kiểm tra trạng thái|status check|data status)\b/ui', $message) === 1;
+    }
+
+    /**
+     * @param array{system: string, user: string, turns: list<array{role: string, text: string}>} $prompt
+     */
+    private function generateStructuredStatusResponse(
+        array $prompt,
+        string $message,
+        string $task,
+        string $intent,
+        ?string $missingContextQuestion,
+        mixed $model,
+    ): string {
+        $jsonSystem = implode("\n", [
+            $prompt['system'],
+            'Bạn là API trạng thái dữ liệu.',
+            'Chỉ trả về DUY NHẤT JSON object hợp lệ, không markdown, không giải thích.',
+            'Schema bắt buộc: {"status":"string","missing_info":"string","next_action":"string"}',
+        ]);
+
+        $jsonUser = implode("\n\n", [
+            $prompt['user'],
+            'Yêu cầu thêm:',
+            '- status: "Đủ dữ liệu" hoặc "Chưa đủ dữ liệu".',
+            '- missing_info: 1 thông tin còn thiếu (nếu có), ngắn gọn.',
+            '- next_action: 1 hành động tiếp theo ngắn gọn.',
+            $missingContextQuestion !== null ? 'Gợi ý thiếu dữ liệu hiện tại: '.$missingContextQuestion : '',
+        ]);
+
+        $structuredPrompt = [
+            'system' => $jsonSystem,
+            'user' => $jsonUser,
+            'turns' => $prompt['turns'],
+        ];
+
+        $result = $this->geminiService->generateContent($structuredPrompt, [
+            'model' => is_string($model) ? $model : null,
+            'response_format' => ['type' => 'json_object'],
+            'stop' => ["\n\n\n"],
+            'generation_config' => [
+                'temperature' => 0.0,
+                'topP' => 0.1,
+                'maxOutputTokens' => 180,
+            ],
+        ]);
+
+        $rawText = trim((string) ($result['text'] ?? ''));
+        $parsed = $this->decodeJsonObject($rawText);
+        if ($parsed === null) {
+            return $this->buildStructuredFallbackText($task, $intent, $missingContextQuestion);
+        }
+
+        $status = (string) ($parsed['status'] ?? 'Chưa đủ dữ liệu');
+        $missingInfo = (string) ($parsed['missing_info'] ?? 'Cần bổ sung thêm thông tin đầu vào.');
+        $nextAction = (string) ($parsed['next_action'] ?? 'Vui lòng cung cấp thêm dữ liệu còn thiếu.');
+
+        return implode("\n", [
+            '- Trạng thái dữ liệu: '.$status.'.',
+            '- Cần bổ sung: '.$missingInfo,
+            '- Bước tiếp theo: '.$nextAction,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function decodeJsonObject(string $rawText): ?array
+    {
+        if ($rawText === '') {
+            return null;
+        }
+
+        $candidate = trim($rawText);
+        if (str_starts_with($candidate, '```')) {
+            $candidate = preg_replace('/^```(?:json)?\s*/', '', $candidate) ?? $candidate;
+            $candidate = preg_replace('/\s*```$/', '', $candidate) ?? $candidate;
+            $candidate = trim($candidate);
+        }
+
+        /** @var mixed $decoded */
+        $decoded = json_decode($candidate, true);
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        return $decoded;
+    }
+
+    private function buildStructuredFallbackText(string $task, string $intent, ?string $missingContextQuestion): string
+    {
+        $missingInfo = $missingContextQuestion ?? 'Cần bổ sung thông tin đầu vào phù hợp với yêu cầu.';
+        $nextAction = in_array(strtoupper($intent), ['COMPLIANCE', 'VIOLATION'], true)
+            ? 'Vui lòng cung cấp mã đối tượng hoặc khoảng thời gian cần kiểm tra.'
+            : 'Vui lòng cung cấp thêm thông tin còn thiếu để hệ thống tổng hợp.';
+
+        return implode("\n", [
+            '- Trạng thái dữ liệu: Chưa đủ dữ liệu.',
+            '- Cần bổ sung: '.$missingInfo,
+            '- Bước tiếp theo: '.$nextAction,
+        ]);
     }
 
     /**
@@ -279,53 +460,6 @@ class ChatService
             'session_id' => $sessionId,
             'deleted_messages' => $deleted,
         ];
-    }
-
-    /**
-     * @param Collection<int, ChatMessage> $history
-     * @param array<string, mixed> $context
-     */
-    private function buildPrompt(Collection $history, string $message, array $context, string $task): string
-    {
-        if ($task === 'classify') {
-            return str_replace('{input}', $message, "Bạn là bộ lọc tin nhắn cho ứng dụng Ship-app. Phân tích tin nhắn sau và chỉ trả về 1 từ khóa duy nhất trong danh sách: [ORDER, PRICE, TRACKING, OTHER].\n\nORDER: Khách muốn đặt giao hàng.\nPRICE: Khách hỏi giá tiền.\nTRACKING: Khách tìm đơn hàng.\nOTHER: Tin nhắn chào hỏi hoặc không liên quan.\n\nTin nhắn: {input}");
-        }
-
-        if ($task === 'extract') {
-            return str_replace('{input}', $message, "Bạn là máy trích xuất dữ liệu. Hãy chuyển câu lệnh sau thành JSON.\nYêu cầu:\n- Không giải thích, không viết chữ ngoài JSON.\n- Nếu thiếu thông tin, để giá trị là null.\n- Các key: {'sender': tên, 'phone': sđt, 'from': địa chỉ lấy, 'to': địa chỉ giao, 'item': loại hàng}.\n\nNội dung: {input}");
-        }
-
-        if ($task === 'advice') {
-            $item = (string) Arr::get($context, 'item', 'hàng hóa');
-            $from = (string) Arr::get($context, 'from', 'điểm lấy');
-            $to = (string) Arr::get($context, 'to', 'điểm giao');
-
-            return "Bạn là chuyên gia tư vấn vận chuyển của Ship-app. Dựa vào loại hàng là '{$item}', hãy đưa ra 1 lời khuyên duy nhất về cách đóng gói để hàng không bị hỏng khi vận chuyển từ {$from} đến {$to}. Trả lời tối đa 20 từ.";
-        }
-
-        $lines = [
-            'Bạn là trợ lý chat cho hệ thống Company Ship API.',
-            'Trả lời cực ngắn, rõ ràng, tập trung nghiệp vụ logistics, nhân sự, chấm công, payroll.',
-            'Nếu câu hỏi thiếu dữ liệu, hãy nói rõ giả định.',
-        ];
-
-        if ($context !== []) {
-            $lines[] = 'Context bổ sung: '.json_encode($context, JSON_UNESCAPED_UNICODE);
-        }
-
-        if ($history->isNotEmpty()) {
-            $lines[] = 'Lịch sử hội thoại gần nhất:';
-            foreach ($history as $item) {
-                $lines[] = 'User: '.$item->message;
-                if (! empty($item->response)) {
-                    $lines[] = 'Assistant: '.$item->response;
-                }
-            }
-        }
-
-        $lines[] = 'User hiện tại: '.$message;
-
-        return implode("\n", $lines);
     }
 
     /**

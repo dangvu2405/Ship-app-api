@@ -237,5 +237,8 @@ class DatabaseSeeder extends Seeder
         $this->call(PhaseOneMinimalDataSeeder::class);
         $this->call(CompanyRevenueSeeder::class);
         $this->call(BusinessLogicFullSeeder::class);
+        $this->call(KnowledgeArticleSeeder::class);
+        $this->call(ChatContextSeeder::class);
+        $this->call(TenantChatContextSeeder::class);
     }
 }
