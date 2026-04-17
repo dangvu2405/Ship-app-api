@@ -673,16 +673,18 @@ class AuthService
 
     private function verifyAppleSignature(string $signingInput, string $signature, string $kid): bool
     {
-        $keys = Cache::remember('apple:oauth:public_keys', now()->addHours(6), function (): array {
+        // Fetch outside Cache::remember so a network failure throws cleanly instead of
+        // poisoning the cache with an exception or an empty value.
+        $keys = Cache::get('apple:oauth:public_keys');
+        if (! is_array($keys)) {
             $response = Http::timeout(10)->get('https://appleid.apple.com/auth/keys');
             if (! $response->successful()) {
                 throw new AuthenticationException('Unable to fetch Apple public keys');
             }
-
             $payload = $response->json();
-
-            return is_array($payload['keys'] ?? null) ? $payload['keys'] : [];
-        });
+            $keys    = is_array($payload['keys'] ?? null) ? $payload['keys'] : [];
+            Cache::put('apple:oauth:public_keys', $keys, now()->addHour());
+        }
 
         $matchingKey = collect($keys)->first(
             fn (mixed $key): bool => is_array($key) && ($key['kid'] ?? '') === $kid

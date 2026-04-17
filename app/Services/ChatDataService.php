@@ -19,40 +19,58 @@ use Illuminate\Support\Facades\DB;
 
 final class ChatDataService
 {
-    /** @var array<string, list<string>> */
+    /**
+     * Intent classification keywords.
+     * Order matters: first match wins. More specific intents must appear before generic ones.
+     * TRACKING contains 'chuyến' which is common — it goes last among operational intents.
+     *
+     * @var array<string, list<string>>
+     */
     private const INTENT_KEYWORDS = [
-        'TRACKING' => [
-            'chuyến', 'vị trí', 'đang ở đâu', 'lộ trình', 'giao hàng',
-            'hành trình', 'order', 'tracking', 'vận chuyển', 'phân công', 'lịch trình',
-        ],
-        'DRIVER' => [
-            'tài xế', 'driver', 'lái xe', 'nhân viên lái xe', 'danh sách tài xế',
-        ],
+        // High-specificity intents first
         'PAYROLL' => [
-            'lương', 'bảng lương', 'thu nhập cá nhân', 'thưởng', 'khấu trừ',
-            'payroll', 'phụ cấp', 'tổng lương', 'tiền công', 'net',
-        ],
-        'FUEL' => [
-            'nhiên liệu', 'xăng', 'dầu', 'fuel', 'định mức', 'tiêu hao', 'chi phí xe',
+            'lương tháng', 'bảng lương', 'lương cơ bản', 'thu nhập cá nhân',
+            'khấu trừ', 'thưởng chuyến', 'tổng lương', 'tiền công', 'phụ cấp',
+            'làm thêm giờ', 'ngày công', 'net salary', 'payroll', 'bảng công',
+            'lương', 'thưởng', 'net',
         ],
         'COMPLIANCE' => [
-            'chứng chỉ', 'bằng lái', 'hết hạn', 'license', 'bảo hiểm',
-            'chứng nhận', 'giấy phép', 'giấy tờ', 'expired',
+            'bằng lái', 'hết hạn', 'chứng chỉ', 'chứng nhận', 'giấy phép lái xe',
+            'bảo hiểm tài xế', 'giấy tờ', 'sức khỏe', 'kiểm tra giấy',
+            'kiểm tra chứng chỉ', 'còn hiệu lực', 'license', 'expired', 'gia hạn',
+        ],
+        'VIOLATION' => [
+            'vi phạm', 'phạt nguội', 'sai phạm', 'violation', 'xử phạt',
+            'khiếu nại vi phạm', 'tiền phạt', 'bị phạt', 'danh sách vi phạm',
+        ],
+        'FUEL' => [
+            'nhiên liệu', 'xăng dầu', 'vượt định mức', 'tiêu hao nhiên liệu',
+            'chi phí nhiên liệu', 'chi phí xăng', 'định mức xăng',
+            'xăng', 'dầu', 'fuel', 'định mức', 'tiêu hao',
         ],
         'REVENUE' => [
             'doanh thu', 'revenue', 'doanh số', 'thu tiền', 'tổng tiền',
-            'cao nhất', 'thấp nhất', 'giá trị chuyến', 'tiền chuyến',
+            'giá trị chuyến', 'tiền chuyến', 'doanh thu tháng',
         ],
         'PERFORMANCE' => [
             'hiệu suất', 'nhiều chuyến nhất', 'ít chuyến nhất', 'nhiều km nhất',
-            'top tài xế', 'xếp hạng', 'ranking', 'so sánh', 'thống kê tài xế',
+            'top tài xế', 'xếp hạng', 'ranking', 'thống kê tài xế',
+            'bảng xếp hạng', 'tài xế giỏi', 'kém nhất', 'tốt nhất',
         ],
         'VEHICLE' => [
-            'xe nào', 'đội xe', 'phương tiện', 'biển số', 'xe trống',
-            'xe rảnh', 'xe đang chạy', 'tình trạng xe',
+            'đội xe', 'phương tiện', 'biển số', 'xe trống',
+            'xe rảnh', 'xe đang chạy', 'tình trạng xe', 'xe nào',
         ],
-        'VIOLATION' => [
-            'vi phạm', 'phạt', 'sai phạm', 'violation', 'xử phạt', 'khiếu nại vi phạm',
+        'DRIVER' => [
+            'danh sách tài xế', 'nhân viên lái xe', 'tài xế văn phòng',
+            'thông tin tài xế', 'tài xế', 'driver', 'lái xe',
+        ],
+        // TRACKING last: 'chuyến' is generic and appears in many unrelated queries
+        'TRACKING' => [
+            'chuyến gần đây', 'chuyến hôm nay', 'lịch chuyến', 'lịch trình',
+            'vị trí', 'đang ở đâu', 'lộ trình', 'giao hàng', 'hành trình',
+            'order', 'tracking', 'vận chuyển', 'phân công chuyến',
+            'chuyến',
         ],
     ];
 
@@ -620,8 +638,12 @@ final class ChatDataService
             return $context;
         }
 
+        $fuelExcessDeduction = (float) $line->fuel_excess_deduction;
+        $leaveUnpaidDeduction = (float) $line->leave_unpaid_deduction;
         $khauTru = (float) $line->deduction
             + (float) $line->violation_deduction
+            + $fuelExcessDeduction
+            + $leaveUnpaidDeduction
             + (float) $line->tax;
 
         $context['payroll'] = [
@@ -633,19 +655,33 @@ final class ChatDataService
             'deductions'    => number_format($khauTru, 0, '.', ',').' VNĐ',
         ];
 
-        $context['data']['chi_tiết_lương'] = [
-            'tháng'            => $line->payroll->month.'/'.$line->payroll->year,
-            'lương_cơ_bản'    => number_format((float) $line->base_salary, 0, '.', ',').' VNĐ',
-            'thưởng_chuyến'   => number_format((float) $line->trip_bonus, 0, '.', ',').' VNĐ',
-            'làm_thêm_giờ'    => number_format((float) $line->overtime_pay, 0, '.', ',').' VNĐ',
-            'phụ_cấp'         => number_format((float) $line->allowance, 0, '.', ',').' VNĐ',
-            'khấu_trừ'        => number_format($khauTru, 0, '.', ',').' VNĐ',
-            'thực_lĩnh'       => number_format((float) $line->net_salary, 0, '.', ',').' VNĐ',
-            'ngày_công'       => $line->working_days,
-            'số_chuyến'       => $line->trips_completed_count,
-            'tổng_km'         => $line->total_distance_km.' km',
-            'trạng_thái'      => $line->payroll->status,
-        ];
+        $payroll = $line->payroll;
+        $context['data']['chi_tiết_lương'] = array_filter([
+            'tháng'                  => $payroll ? $payroll->month.'/'.$payroll->year : null,
+            'lương_cơ_bản'           => number_format((float) $line->base_salary, 0, '.', ',').' VNĐ',
+            'thưởng_chuyến'          => number_format((float) $line->trip_bonus, 0, '.', ',').' VNĐ',
+            'làm_thêm_giờ'           => (float) $line->overtime_pay > 0
+                ? number_format((float) $line->overtime_pay, 0, '.', ',').' VNĐ' : null,
+            'ca_đêm'                 => (float) $line->night_shift_allowance > 0
+                ? number_format((float) $line->night_shift_allowance, 0, '.', ',').' VNĐ' : null,
+            'phụ_cấp'                => number_format((float) $line->allowance, 0, '.', ',').' VNĐ',
+            'khấu_trừ_khác'          => (float) $line->deduction > 0
+                ? number_format((float) $line->deduction, 0, '.', ',').' VNĐ' : null,
+            'khấu_trừ_vi_phạm'       => (float) $line->violation_deduction > 0
+                ? number_format((float) $line->violation_deduction, 0, '.', ',').' VNĐ' : null,
+            'khấu_trừ_vượt_nhiên_liệu' => $fuelExcessDeduction > 0
+                ? number_format($fuelExcessDeduction, 0, '.', ',').' VNĐ' : null,
+            'khấu_trừ_nghỉ_không_lương' => $leaveUnpaidDeduction > 0
+                ? number_format($leaveUnpaidDeduction, 0, '.', ',').' VNĐ' : null,
+            'thuế'                   => (float) $line->tax > 0
+                ? number_format((float) $line->tax, 0, '.', ',').' VNĐ' : null,
+            'tổng_khấu_trừ'          => number_format($khauTru, 0, '.', ',').' VNĐ',
+            'thực_lĩnh'              => number_format((float) $line->net_salary, 0, '.', ',').' VNĐ',
+            'ngày_công'              => $line->working_days,
+            'số_chuyến'              => $line->trips_completed_count,
+            'tổng_km'                => $line->total_distance_km.' km',
+            'trạng_thái'             => $payroll?->status,
+        ], static fn ($v): bool => $v !== null && $v !== '');
 
         return $context;
     }
@@ -791,6 +827,7 @@ final class ChatDataService
 
     /**
      * Snapshot tổng quát của tài xế.
+     * Bao gồm: trạng thái, chuyến tháng này, chuyến gần nhất, cảnh báo chứng chỉ sắp hết hạn.
      *
      * @param array<string, mixed> $context
      * @return array<string, mixed>
@@ -798,6 +835,8 @@ final class ChatDataService
     private function enrichDriverGeneral(Driver $driver, array $context): array
     {
         $now = Carbon::now();
+        $today = Carbon::today();
+        $warningThreshold = $today->copy()->addDays(30);
 
         $tripsThisMonth = Trip::withoutGlobalScope('tenant')
             ->where('driver_id', $driver->id)
@@ -822,6 +861,30 @@ final class ChatDataService
             'xe'          => $latestTrip->vehicle?->plate_number,
             'ngày'        => $latestTrip->start_time?->format('d/m/Y'),
         ], static fn ($v): bool => $v !== null && $v !== '') : null;
+
+        // Cảnh báo chứng chỉ sắp hết hạn (trong vòng 30 ngày)
+        $expiryWarnings = [];
+        if ($driver->expired_date !== null && $driver->expired_date->lte($warningThreshold)) {
+            $daysLeft = max(0, $today->diffInDays($driver->expired_date, false));
+            $expiryWarnings[] = 'Bằng lái hết hạn '.($daysLeft === 0 ? 'hôm nay' : "sau {$daysLeft} ngày")
+                .' ('.$driver->expired_date->format('d/m/Y').')';
+        }
+
+        if ($driver->driver_insurance_expired_date !== null && $driver->driver_insurance_expired_date->lte($warningThreshold)) {
+            $daysLeft = max(0, $today->diffInDays($driver->driver_insurance_expired_date, false));
+            $expiryWarnings[] = 'Bảo hiểm hết hạn '.($daysLeft === 0 ? 'hôm nay' : "sau {$daysLeft} ngày")
+                .' ('.$driver->driver_insurance_expired_date->format('d/m/Y').')';
+        }
+
+        if ($driver->health_certificate_expired_date !== null && $driver->health_certificate_expired_date->lte($warningThreshold)) {
+            $daysLeft = max(0, $today->diffInDays($driver->health_certificate_expired_date, false));
+            $expiryWarnings[] = 'Chứng nhận sức khỏe hết hạn '.($daysLeft === 0 ? 'hôm nay' : "sau {$daysLeft} ngày")
+                .' ('.$driver->health_certificate_expired_date->format('d/m/Y').')';
+        }
+
+        if ($expiryWarnings !== []) {
+            $context['data']['cảnh_báo_giấy_tờ'] = $expiryWarnings;
+        }
 
         return $context;
     }

@@ -21,6 +21,7 @@ class ChatService
         private readonly ChatDataService $chatDataService,
         private readonly ChatRagService $chatRagService,
         private readonly TenantContext $tenantContext,
+        private readonly RagAgentService $ragAgentService,
     ) {}
 
     /**
@@ -80,6 +81,12 @@ class ChatService
                 'guarded' => false,
             ];
         }
+
+        // ── RAG Agent path (opt-in via RAG_AGENT_ENABLED=true) ───────────────
+        if ((bool) config('services.rag.agent_enabled', false) && $task === 'chat') {
+            return $this->handleWithRagAgent($user, $sessionId, $message, $context, $resolvedModel, $cacheKey);
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         $context = $this->chatDataService->resolve($user, $message, $task, $context);
 
@@ -236,6 +243,50 @@ class ChatService
             'response_text' => (string) $chat->response,
             'cached' => false,
             'guarded' => false,
+        ];
+    }
+
+    /**
+     * Execute the two-tool RAG agent and return the standard response shape.
+     *
+     * @param  array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    private function handleWithRagAgent(
+        User $user,
+        string $sessionId,
+        string $message,
+        array $context,
+        string $resolvedModel,
+        string $cacheKey,
+    ): array {
+        $companyId = $this->tenantContext->getCompanyId();
+
+        $agentResult = $this->ragAgentService->ask($message, $companyId);
+        $responseText = trim($agentResult['answer']);
+
+        if ($responseText === '') {
+            $responseText = 'Xin lỗi, không thể xử lý câu hỏi này.';
+        }
+
+        Cache::put($cacheKey, $responseText, now()->addMinutes(5));
+
+        $chat = ChatMessage::create([
+            'user_id'    => $user->id,
+            'session_id' => $sessionId,
+            'message'    => $message,
+            'response'   => $responseText,
+            'context'    => array_merge($context, ['_agent_trace' => $agentResult['trace']]),
+            'model'      => 'rag-agent/'.$resolvedModel,
+            'status'     => 'success',
+        ]);
+
+        return [
+            'session_id'    => $sessionId,
+            'message'       => $chat,
+            'response_text' => (string) $chat->response,
+            'cached'        => false,
+            'guarded'       => false,
         ];
     }
 

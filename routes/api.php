@@ -164,13 +164,21 @@ $registerAdminRoutes = static function (): void {
         ]);
     });
 
-    Route::get('employees', static function () {
-        $drivers = \App\Models\Driver::query()->paginate(20);
+    Route::get('employees', static function (\Illuminate\Http\Request $request) {
+        $companyId = app(\App\Tenancy\TenantContext::class)->getCompanyId();
+
+        if ($companyId === null) {
+            return response()->json(['success' => false, 'message' => 'Forbidden'], 403);
+        }
+
+        $drivers = \App\Models\Driver::withoutGlobalScope('tenant')
+            ->where('company_id', $companyId)
+            ->paginate(20);
 
         return response()->json([
             'success' => true,
             'message' => 'Legacy alias: employees mapped to drivers',
-            'data' => $drivers,
+            'data'    => $drivers,
         ]);
     });
 
@@ -203,9 +211,12 @@ Route::get('/health', $healthResponse);
 
 // Authentication routes (legacy public)
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/social/login', [AuthController::class, 'socialLogin']);
-    Route::post('/refresh-token', [AuthController::class, 'refreshByToken']);
+    Route::post('/login', [AuthController::class, 'login'])
+        ->middleware('throttle:5,1');
+    Route::post('/social/login', [AuthController::class, 'socialLogin'])
+        ->middleware('throttle:10,1');
+    Route::post('/refresh-token', [AuthController::class, 'refreshByToken'])
+        ->middleware('throttle:20,1');
 });
 
 $larkWebhookController = 'App\\Http\\Controllers\\Api\\LarkWebhookController';
@@ -217,10 +228,10 @@ if (class_exists($larkWebhookController)) {
 }
 
 // Protected routes: authenticated users (legacy)
-Route::middleware(['auth:sanctum', 'track.actions'])->group($registerAuthenticatedRoutes);
+Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group($registerAuthenticatedRoutes);
 
 // Protected routes: admin only (legacy)
-Route::middleware(['auth:sanctum', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
+Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
 
 // Versioned API routes
 Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes, $larkWebhookController, $larkAuthController): void {
@@ -240,15 +251,20 @@ Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthentica
     }
 
     Route::prefix('auth')->group(function (): void {
-        Route::post('/login', [AuthController::class, 'login']);
-        Route::post('/social/login', [AuthController::class, 'socialLogin']);
-        Route::post('/refresh-token', [AuthController::class, 'refreshByToken']);
-        Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
-        Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+        Route::post('/login', [AuthController::class, 'login'])
+            ->middleware('throttle:5,1');
+        Route::post('/social/login', [AuthController::class, 'socialLogin'])
+            ->middleware('throttle:10,1');
+        Route::post('/refresh-token', [AuthController::class, 'refreshByToken'])
+            ->middleware('throttle:20,1');
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+            ->middleware('throttle:3,1');
+        Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+            ->middleware('throttle:5,1');
     });
 
-    Route::middleware(['auth:sanctum', 'track.actions'])->group($registerAuthenticatedRoutes);
-    Route::middleware(['auth:sanctum', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
+    Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group($registerAuthenticatedRoutes);
+    Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
 });
 
 if (class_exists($larkAuthController)) {

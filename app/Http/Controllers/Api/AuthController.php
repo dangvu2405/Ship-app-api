@@ -191,7 +191,7 @@ class AuthController extends BaseController
         try {
             $validated = $request->validated();
             /** @var array{token: string, refreshToken: string} $tokens */
-            $tokens = call_user_func([$this->authService, 'refreshWithRefreshToken'], (string) $validated['refresh_token']);
+            $tokens = $this->authService->refreshWithRefreshToken((string) $validated['refresh_token']);
 
             return $this->successResponse($tokens, 'Token refreshed successfully');
         } catch (AuthenticationException $e) {

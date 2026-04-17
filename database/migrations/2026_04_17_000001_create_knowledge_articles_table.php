@@ -24,7 +24,10 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        DB::statement('ALTER TABLE knowledge_articles ADD FULLTEXT INDEX ft_knowledge (title, content)');
+        $driver = Schema::getConnection()->getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::statement('ALTER TABLE knowledge_articles ADD FULLTEXT INDEX ft_knowledge (title, content)');
+        }
     }
 
     public function down(): void

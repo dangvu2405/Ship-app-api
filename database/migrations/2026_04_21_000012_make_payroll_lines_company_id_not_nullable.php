@@ -31,18 +31,43 @@ return new class extends Migration
         }
 
         // Align company_id with parent payroll for every row (fixes NULL, stale, or invalid values).
-        DB::statement('
-            UPDATE payroll_lines pl
-            INNER JOIN payrolls p ON p.id = pl.payroll_id
-            SET pl.company_id = p.company_id
-        ');
-
-        // Remove orphan lines that no longer have a parent payroll (cannot satisfy NOT NULL + FK).
-        DB::statement('
-            DELETE pl FROM payroll_lines pl
-            LEFT JOIN payrolls p ON p.id = pl.payroll_id
-            WHERE p.id IS NULL
-        ');
+        $driver = Schema::getConnection()->getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::statement('
+                UPDATE payroll_lines pl
+                INNER JOIN payrolls p ON p.id = pl.payroll_id
+                SET pl.company_id = p.company_id
+            ');
+            DB::statement('
+                DELETE pl FROM payroll_lines pl
+                LEFT JOIN payrolls p ON p.id = pl.payroll_id
+                WHERE p.id IS NULL
+            ');
+        } elseif ($driver === 'pgsql') {
+            DB::statement('
+                UPDATE payroll_lines AS pl
+                SET company_id = p.company_id
+                FROM payrolls AS p
+                WHERE p.id = pl.payroll_id
+            ');
+            DB::statement('
+                DELETE FROM payroll_lines AS pl
+                WHERE NOT EXISTS (SELECT 1 FROM payrolls p WHERE p.id = pl.payroll_id)
+            ');
+        } else {
+            // SQLite and other drivers: subquery / NOT EXISTS forms.
+            DB::statement('
+                UPDATE payroll_lines
+                SET company_id = (
+                    SELECT p.company_id FROM payrolls p WHERE p.id = payroll_lines.payroll_id
+                )
+                WHERE EXISTS (SELECT 1 FROM payrolls p WHERE p.id = payroll_lines.payroll_id)
+            ');
+            DB::statement('
+                DELETE FROM payroll_lines
+                WHERE NOT EXISTS (SELECT 1 FROM payrolls p WHERE p.id = payroll_lines.payroll_id)
+            ');
+        }
 
         $this->dropForeignKeysOnCompanyId('payroll_lines', 'company_id');
 

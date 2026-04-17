@@ -57,4 +57,14 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'ollama' => [
+        'url'   => env('OLLAMA_URL', 'http://localhost:11434'),
+        'model' => env('OLLAMA_EMBEDDING_MODEL', 'bge-m3'),
+    ],
+
+    'rag' => [
+        'agent_enabled' => env('RAG_AGENT_ENABLED', false),
+        'sql_enabled'   => env('RAG_SQL_ENABLED', false),
+    ],
+
 ];

@@ -1,6 +1,8 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      target: fpm
     container_name: ship-app-api
     restart: unless-stopped
     volumes:

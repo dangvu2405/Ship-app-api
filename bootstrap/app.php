@@ -140,21 +140,24 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (\Throwable $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 $statusCode = method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500;
-                $message = $e->getMessage() ?: 'An error occurred';
-                
-                // Don't expose internal errors in production
-                if (!config('app.debug') && $statusCode === 500) {
+
+                // Never expose raw exception messages in production — always log and return generic
+                if (config('app.debug')) {
+                    $message = $e->getMessage() ?: 'An error occurred';
+                } elseif ($statusCode >= 500) {
                     $message = 'Internal server error. Please try again later.';
+                } else {
+                    // 4xx from HttpException subclasses are safe to forward as-is
+                    $message = $e->getMessage() ?: 'An error occurred';
                 }
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => $message,
-                    'error' => config('app.debug') ? [
+                    'error'   => config('app.debug') ? [
                         'message' => $e->getMessage(),
-                        'file' => $e->getFile(),
-                        'line' => $e->getLine(),
-                        'trace' => $e->getTraceAsString(),
+                        'file'    => $e->getFile(),
+                        'line'    => $e->getLine(),
                     ] : null,
                 ], $statusCode);
             }

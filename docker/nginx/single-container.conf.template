@@ -1,0 +1,54 @@
+# HTTP front cho một container (Render / Fly / Railway). __HTTP_PORT__ thay bằng $PORT tại entrypoint.
+server {
+    listen __HTTP_PORT__;
+    server_name _;
+    root /var/www/public;
+    index index.php index.html;
+
+    client_max_body_size 50M;
+    client_body_buffer_size 128k;
+    charset utf-8;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_connect_timeout 300;
+        fastcgi_send_timeout 300;
+        fastcgi_read_timeout 300;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ /\.(env|git|svn) {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location ~ ^/(bootstrap|config|database|resources|routes|storage|tests|vendor|app|artisan) {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    location /storage {
+        alias /var/www/storage/app/public;
+        try_files $uri =404;
+    }
+}

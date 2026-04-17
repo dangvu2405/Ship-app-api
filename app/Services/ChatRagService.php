@@ -26,8 +26,8 @@ final class ChatRagService
             return [];
         }
 
-        // Thử FULLTEXT trước (hiệu quả hơn cho câu dài ≥ 6 ký tự)
-        if (mb_strlen($query) >= 6) {
+        // Thử FULLTEXT trước (MySQL/MariaDB; SQLite dùng keywordSearch)
+        if (mb_strlen($query) >= 6 && $this->databaseSupportsFullText()) {
             $results = $this->fullTextSearch($query, $intent, $companyId);
             if ($results->count() >= 1) {
                 return $this->formatDocs($results);
@@ -38,6 +38,13 @@ final class ChatRagService
         $results = $this->keywordSearch($query, $intent, $companyId);
 
         return $this->formatDocs($results);
+    }
+
+    private function databaseSupportsFullText(): bool
+    {
+        $driver = Schema::getConnection()->getDriverName();
+
+        return in_array($driver, ['mysql', 'mariadb'], true);
     }
 
     private function fullTextSearch(string $query, string $intent, ?int $companyId): Collection

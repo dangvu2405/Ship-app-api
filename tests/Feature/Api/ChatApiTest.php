@@ -10,6 +10,9 @@ use Laravel\Sanctum\Sanctum;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
+/**
+ * Smoke tests nhanh cho chat. Bộ đầy đủ: {@see ChatBotComprehensiveTest}; enrich company/driver: `tests/Feature/Chat/ChatEnrichDatasetTest.php` (Pest).
+ */
 class ChatApiTest extends TestCase
 {
     use RefreshDatabase;

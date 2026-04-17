@@ -11,19 +11,16 @@ final class ChatPromptService
 {
     private const SYSTEM_PROMPT = <<<PROMPT
 Bạn là trợ lý nghiệp vụ của hệ thống quản trị vận tải Company Ship.
-Phạm vi: đơn hàng, chuyến xe, định mức nhiên liệu, bảng lương tài xế, tuân thủ chứng chỉ, nhân sự, chấm công.
-Trả lời ngắn gọn, rõ ràng, đúng nghiệp vụ. Không dùng markdown.
-BẮT BUỘC luôn trả lời bằng tiếng Việt, kể cả khi người dùng hỏi bằng tiếng Anh.
-Khi có dữ liệu thực tế từ hệ thống, LUÔN dựa vào đó để trả lời — không được bịa đặt hay suy đoán.
-Nếu thiếu dữ liệu, hỏi đúng 1 câu ngắn nhất có thể.
-Ưu tiên trình bày theo từng gạch đầu dòng để người dùng dễ đọc.
-Khi trả lời thông tin nghiệp vụ, dùng cấu trúc:
-- Kết quả chính: ...
-- Dữ liệu liên quan: ...
-- Đề xuất tiếp theo: ...
-Nếu thiếu dữ liệu, thay bằng:
-- Trạng thái dữ liệu: Chưa đủ dữ liệu.
-- Cần bổ sung: <1 thông tin cụ thể>.
+Phạm vi hỗ trợ: chuyến xe, lương tài xế, nhiên liệu, chứng chỉ/giấy tờ, vi phạm, doanh thu, đội xe.
+
+QUY TẮC PHẢN HỒI:
+1. Luôn trả lời bằng tiếng Việt, kể cả khi người dùng hỏi tiếng Anh.
+2. Dữ liệu thực tế từ hệ thống xuất hiện trong block "--- Dữ liệu thực tế từ hệ thống ---".
+   Khi block đó có dữ liệu, PHẢI dựa vào đó — không được bịa đặt hay suy đoán thêm.
+3. Không dùng markdown (không dùng **, ##, ```). Chỉ dùng gạch đầu dòng "- ".
+4. Mỗi câu trả lời tối đa 6 gạch đầu dòng, mỗi dòng tối đa 15 từ.
+5. Nếu block dữ liệu rỗng hoặc không có, trả lời: "Hiện chưa có dữ liệu. Bạn có thể cung cấp thêm không?"
+6. Khi có cảnh báo giấy tờ sắp hết hạn, luôn nêu rõ ngay ở dòng đầu tiên.
 PROMPT;
 
     private const TEMPLATES = [
@@ -49,22 +46,26 @@ T,
         'payroll_query' => <<<T
 Tài xế: {{driver_name}}.
 Lương cơ bản: {{base_salary}} VNĐ. Ngày công: {{working_days}} / {{standard_days}} ngày chuẩn.
-Thưởng km: {{bonus_km}} VNĐ. Khấu trừ: {{deductions}}.
-Giải thích cách tính lương, nêu rõ nếu có proration. Tối đa 4 câu.
+Thưởng chuyến: {{bonus_km}} VNĐ. Tổng khấu trừ: {{deductions}}.
+Dữ liệu chi tiết từ hệ thống đã có trong block bên trên.
+Dựa vào dữ liệu đó, giải thích cách tính lương: lương cơ bản, các khoản thưởng, từng khoản khấu trừ, và thực lĩnh.
+Nếu có proration (ngày công < ngày chuẩn), giải thích hệ số.
+Tối đa 6 gạch đầu dòng.
 T,
         'compliance' => <<<T
 Tài xế: {{driver_name}}. Chứng chỉ: {{cert_name}}. Hết hạn: {{expiry_date}}.
-Cảnh báo rủi ro và hành động cần làm ngay. Tài xế có bị hạn chế phân công không?
+Dữ liệu chi tiết tất cả chứng chỉ có trong block bên trên.
+Dựa vào đó: (1) liệt kê chứng chỉ nào sắp hết hạn hoặc đã hết hạn, (2) nêu rủi ro khi phân công, (3) hành động cần làm ngay.
+Tối đa 5 gạch đầu dòng.
 T,
         'chat' => <<<T
 Câu hỏi: "{{message}}"
-Dựa vào dữ liệu thực tế từ hệ thống ở trên (nếu có), trả lời chính xác, ngắn gọn.
-Không được suy đoán nếu dữ liệu không có trong context. Nếu thiếu dữ liệu, nói rõ.
-Bắt buộc xuất câu trả lời cuối cùng bằng tiếng Việt.
-Định dạng bắt buộc:
-- Mỗi ý là 1 dòng bắt đầu bằng "- ".
-- Tối đa 4 gạch đầu dòng.
-- Mỗi dòng tối đa 1 câu ngắn, dễ hành động.
+
+Hướng dẫn trả lời:
+- Ưu tiên sử dụng dữ liệu trong block "--- Dữ liệu thực tế từ hệ thống ---" (nếu có).
+- Nếu có cảnh báo giấy tờ sắp hết hạn, nêu ở dòng đầu tiên.
+- Không suy đoán nếu dữ liệu không có trong context; thay bằng câu ngắn gọn nói rõ.
+- Định dạng: mỗi ý 1 dòng bắt đầu "- ", tối đa 5 gạch đầu dòng, mỗi dòng ≤ 15 từ.
 T,
         'fallback' => 'Viết 1 câu xin lỗi lịch sự, cực ngắn, báo hệ thống đang bận và mời thử lại sau.',
     ];
