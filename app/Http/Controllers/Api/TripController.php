@@ -10,6 +10,7 @@ use App\Http\Traits\HasIndexQuery;
 use App\Models\Trip;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @OA\Tag(name="Trips", description="Quản lý chuyến xe")
@@ -158,5 +159,154 @@ class TripController extends BaseController
         $model->delete();
 
         return $this->successResponse(null, 'Trip deleted successfully');
+    }
+
+    public function assign(Request $request, string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+
+        $data = $request->validate(['driver_id' => 'required|exists:drivers,id']);
+        $fromStatus = $model->status;
+        $model->update(['driver_id' => $data['driver_id']]);
+        $this->recordStatusHistory($model->id, $fromStatus, $fromStatus, auth()->id(), 'Assigned driver');
+
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Driver assigned');
+    }
+
+    public function start(string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+        if (! in_array($model->status, ['pending', 'in_progress'], true)) {
+            return $this->errorResponse('Trip cannot be started from status: ' . $model->status, 422);
+        }
+
+        $fromStatus = $model->status;
+        $model->update(['status' => 'in_progress', 'start_time' => $model->start_time ?? now()]);
+        $this->recordStatusHistory($model->id, $fromStatus, 'in_progress', auth()->id());
+
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Trip started');
+    }
+
+    public function pickup(string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+
+        $this->recordStatusHistory($model->id, $model->status, 'pickup', auth()->id(), 'Cargo picked up');
+
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Pickup recorded');
+    }
+
+    public function transit(string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+
+        $this->recordStatusHistory($model->id, $model->status, 'transit', auth()->id(), 'In transit');
+
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Transit recorded');
+    }
+
+    public function arrive(string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+
+        $this->recordStatusHistory($model->id, $model->status, 'arrived', auth()->id(), 'Arrived at destination');
+
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Arrival recorded');
+    }
+
+    public function complete(string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+        if ($model->status === 'completed') {
+            return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Trip already completed');
+        }
+        if ($model->status === 'cancelled') {
+            return $this->errorResponse('Cannot complete a cancelled trip', 422);
+        }
+
+        $fromStatus = $model->status;
+        $model->update(['status' => 'completed', 'end_time' => $model->end_time ?? now()]);
+        $this->recordStatusHistory($model->id, $fromStatus, 'completed', auth()->id());
+
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Trip completed');
+    }
+
+    public function cancel(Request $request, string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+        if ($model->status === 'completed') {
+            return $this->errorResponse('Cannot cancel a completed trip', 422);
+        }
+
+        $fromStatus = $model->status;
+        $note = $request->input('reason', 'Cancelled');
+        $model->update(['status' => 'cancelled']);
+        $this->recordStatusHistory($model->id, $fromStatus, 'cancelled', auth()->id(), $note);
+
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Trip cancelled');
+    }
+
+    public function delay(Request $request, string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+
+        $note = $request->input('reason', 'Delayed');
+        $this->recordStatusHistory($model->id, $model->status, 'delayed', auth()->id(), $note);
+
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Delay recorded');
+    }
+
+    public function resume(string $id): JsonResponse
+    {
+        $model = Trip::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Trip not found');
+        }
+
+        $this->recordStatusHistory($model->id, $model->status, 'in_progress', auth()->id(), 'Resumed after delay');
+
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Trip resumed');
+    }
+
+    private function recordStatusHistory(int $tripId, ?string $from, string $to, ?int $userId, ?string $note = null): void
+    {
+        if (! DB::getSchemaBuilder()->hasTable('trip_status_histories')) {
+            return;
+        }
+
+        DB::table('trip_status_histories')->insert([
+            'trip_id'    => $tripId,
+            'from_status' => $from,
+            'to_status'  => $to,
+            'changed_by' => $userId,
+            'note'       => $note,
+            'changed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

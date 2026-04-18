@@ -19,7 +19,7 @@ class UpdateVehicleAssignmentRequest extends FormRequest
     {
         return [
             'vehicle_id' => 'sometimes|exists:vehicles,id',
-            'driver_id' => 'sometimes|exists:employees,id',
+            'driver_id' => 'sometimes|exists:drivers,id',
             'from_date' => 'sometimes|date',
             'to_date' => 'nullable|date',
         ];

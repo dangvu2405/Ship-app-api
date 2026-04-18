@@ -16,9 +16,22 @@ final class EnsureTenantContext
         private readonly TenantContext $tenantContext
     ) {}
 
+    /**
+     * Sentinel value used when an authenticated user has no resolvable tenant.
+     * BelongsToTenant will match WHERE company_id = -1 → zero rows returned.
+     */
+    private const NO_TENANT_SENTINEL = -1;
+
     public function handle(Request $request, Closure $next): Response
     {
-        $this->tenantContext->setCompanyId($this->resolveCompanyId($request));
+        $resolved = $this->resolveCompanyId($request);
+
+        // Authenticated but no tenant resolved → block data access with sentinel
+        if ($resolved === null && $request->user() !== null) {
+            $resolved = self::NO_TENANT_SENTINEL;
+        }
+
+        $this->tenantContext->setCompanyId($resolved);
 
         return $next($request);
     }
@@ -36,16 +49,37 @@ final class EnsureTenantContext
             return null;
         }
 
-        $header = $request->header('X-Company-Id');
+        // Accept X-Tenant-ID (frontend) or X-Company-Id (legacy) or query param
+        $header = $request->header('X-Tenant-ID')
+            ?? $request->header('X-Company-Id');
         $query = $request->query('company_id');
-        $raw = $header !== null && $header !== '' ? $header : $query;
+        $raw = ($header !== null && $header !== '') ? $header : $query;
 
         if ($raw !== null && $raw !== '' && ctype_digit((string) $raw)) {
             $candidate = (int) $raw;
 
-            if ($candidate > 0 && Company::query()->whereKey($candidate)->exists() && $user->hasRole('admin')) {
-                return $candidate;
+            if ($candidate > 0) {
+                if ($user->hasRole('admin')) {
+                    // Admins can access any existing company
+                    if (Company::query()->whereKey($candidate)->exists()) {
+                        return $candidate;
+                    }
+                } else {
+                    // Non-admins must have an explicit user_companies assignment
+                    $assigned = $user->companies()
+                        ->wherePivot('company_id', $candidate)
+                        ->exists();
+                    if ($assigned) {
+                        return $candidate;
+                    }
+                }
             }
+        }
+
+        // Fall back: first assigned company (highest is_default first), then driver's office company
+        $defaultCompany = $user->companies()->first();
+        if ($defaultCompany !== null) {
+            return $defaultCompany->id;
         }
 
         $user->loadMissing('driver.office');

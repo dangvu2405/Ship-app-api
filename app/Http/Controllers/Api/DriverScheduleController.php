@@ -134,12 +134,22 @@ class DriverScheduleController extends BaseController
 
     public function approve(Request $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
+        $validated = $request->validate([
+            'hos_override'    => ['boolean'],
+            'override_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
         try {
-            $schedule = $this->scheduleService->approve($driverWorkSchedule, $request->user());
+            $schedule = $this->scheduleService->approve(
+                $driverWorkSchedule,
+                $request->user(),
+                (bool) ($validated['hos_override'] ?? false),
+                (string) ($validated['override_reason'] ?? ''),
+            );
 
             return $this->successResponse($schedule, 'Schedule approved.');
         } catch (InvalidArgumentException $e) {
-            return $this->errorResponse($e->getMessage(), 422);
+            return $this->errorResponse($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 422);
         } catch (Throwable $e) {
             return $this->handleException($e);
         }

@@ -20,7 +20,7 @@ class StoreTripRequest extends FormRequest
         return [
             'code' => 'required|string|max:50|unique:trips,code',
             'customer_id' => 'required|exists:customers,id',
-            'driver_id' => 'required|exists:employees,id',
+            'driver_id' => 'required|exists:drivers,id',
             'vehicle_id' => 'required|exists:vehicles,id',
             'start_point' => 'required|string|max:255',
             'end_point' => 'required|string|max:255',

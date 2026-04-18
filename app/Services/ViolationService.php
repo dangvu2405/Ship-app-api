@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\AuditLog;
 use App\Models\Payroll;
+use App\Models\PayrollAdjustment;
 use App\Models\User;
 use App\Models\Violation;
 use App\Models\ViolationDispute;
@@ -146,9 +147,10 @@ class ViolationService
                 'dispute_status' => $disputeStatus,
             ]);
 
-            // When overturned the deduction must disappear from any open draft.
+            // When overturned: remove deduction from draft payrolls, or create a
+            // retroactive PayrollAdjustment if the payroll is already locked/paid.
             if ($resolution === 'overturned') {
-                $this->recalculateDraftForViolation($violation);
+                $this->handleViolationOverturn($violation, $actor);
             }
 
             return $dispute->fresh('violation');
@@ -189,6 +191,64 @@ class ViolationService
     }
 
     /**
+     * Handle the payroll impact of a violation being overturned.
+     *
+     * - If the period's payroll is still a draft/approved → recalculate immediately.
+     * - If it is locked/paid → create a PayrollAdjustment in the current open payroll
+     *   so the driver is compensated in the next pay cycle.
+     */
+    private function handleViolationOverturn(Violation $violation, User $actor): void
+    {
+        $occurredAt = Carbon::parse($violation->occurred_at);
+
+        $frozenPayroll = Payroll::query()
+            ->where('company_id', $violation->company_id)
+            ->where('month', $occurredAt->month)
+            ->where('year', $occurredAt->year)
+            ->whereIn('status', ['locked', 'paid'])
+            ->first();
+
+        if ($frozenPayroll !== null) {
+            // Can't touch the locked payroll — schedule a refund in the current period.
+            $currentPayroll = Payroll::query()
+                ->where('company_id', $violation->company_id)
+                ->whereIn('status', ['draft', 'approved'])
+                ->orderByDesc('year')
+                ->orderByDesc('month')
+                ->first();
+
+            if ($currentPayroll !== null && $violation->penalty_amount > 0) {
+                PayrollAdjustment::create([
+                    'company_id'          => $violation->company_id,
+                    'payroll_id'          => $currentPayroll->id,
+                    'original_payroll_id' => $frozenPayroll->id,
+                    'driver_id'           => $violation->driver_id,
+                    'type'                => 'addition',
+                    'category'            => 'violation_refund',
+                    'amount'              => $violation->penalty_amount,
+                    'reason'              => sprintf(
+                        'Violation #%d (occurred %s) overturned — refund of penalty VND %s deducted in payroll #%d (%d/%d).',
+                        $violation->id,
+                        $occurredAt->toDateString(),
+                        number_format($violation->penalty_amount),
+                        $frozenPayroll->id,
+                        $frozenPayroll->month,
+                        $frozenPayroll->year,
+                    ),
+                    'source_type' => 'violation',
+                    'source_id'   => $violation->id,
+                    'approved_by' => $actor->id,
+                ]);
+            }
+
+            return;
+        }
+
+        // Payroll is still open — recalculate so the deduction disappears immediately.
+        $this->recalculateDraftForViolation($violation);
+    }
+
+    /**
      * If there is an unlocked (draft/approved) payroll for the month of the
      * violation, recalculate it so the deduction change is reflected immediately.
      * Locked payrolls are intentionally left untouched.
@@ -201,7 +261,7 @@ class ViolationService
             ->where('company_id', $violation->company_id)
             ->where('month', $occurredAt->month)
             ->where('year', $occurredAt->year)
-            ->whereIn('status', ['draft', 'approved'])  // never touch locked or paid
+            ->whereIn('status', ['draft', 'approved'])
             ->first();
 
         if ($payroll === null) {

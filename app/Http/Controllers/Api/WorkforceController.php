@@ -8,13 +8,19 @@ use App\Http\Resources\DriverScheduleResource;
 use App\Http\Resources\LeaveRequestResource;
 use App\Models\DriverWorkSchedule;
 use App\Models\LeaveRequest;
+use App\Services\ScheduleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use InvalidArgumentException;
+use Throwable;
 
 final class WorkforceController extends BaseController
 {
+    public function __construct(
+        private readonly ScheduleService $scheduleService,
+    ) {}
     public function schedules(Request $request): \Illuminate\Http\Resources\Json\AnonymousResourceCollection
     {
         $validated = $request->validate([
@@ -56,6 +62,15 @@ final class WorkforceController extends BaseController
 
     public function approveSchedule(Request $request, int $id): JsonResponse
     {
+        if (! $request->user()?->hasPermission('schedule.approve')) {
+            return $this->errorResponse('Forbidden: you do not have permission to approve schedules.', 403);
+        }
+
+        $validated = $request->validate([
+            'hos_override'    => ['boolean'],
+            'override_reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
         $schedule = DriverWorkSchedule::query()
             ->when(
                 $this->resolveCompanyId($request) !== null && Schema::hasColumn('driver_work_schedules', 'company_id'),
@@ -63,21 +78,28 @@ final class WorkforceController extends BaseController
             )
             ->findOrFail($id);
 
-        if ($schedule->status === 'locked') {
-            return $this->errorResponse('Lịch đã khóa, không thể thay đổi', 422);
+        try {
+            $approved = $this->scheduleService->approve(
+                $schedule,
+                $request->user(),
+                (bool) ($validated['hos_override'] ?? false),
+                (string) ($validated['override_reason'] ?? ''),
+            );
+
+            return $this->successResponse(new DriverScheduleResource($approved->loadMissing('vehicle')));
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 422);
+        } catch (Throwable $e) {
+            return $this->handleException($e);
         }
-
-        $schedule->update([
-            'status'      => 'approved',
-            'approved_by' => $request->user()->id,
-            'approved_at' => now(),
-        ]);
-
-        return $this->successResponse(new DriverScheduleResource($schedule->loadMissing('vehicle')));
     }
 
     public function lockSchedule(Request $request, int $id): JsonResponse
     {
+        if (! $request->user()?->hasPermission('schedule.approve')) {
+            return $this->errorResponse('Forbidden: you do not have permission to lock schedules.', 403);
+        }
+
         $schedule = DriverWorkSchedule::query()
             ->when(
                 $this->resolveCompanyId($request) !== null && Schema::hasColumn('driver_work_schedules', 'company_id'),

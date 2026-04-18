@@ -90,6 +90,7 @@ class PhaseOneMinimalDataSeeder extends Seeder
             DB::table('driver_work_schedules')->updateOrInsert(
                 ['driver_id' => $driverId, 'work_date' => $workDate, 'shift_code' => 'day'],
                 [
+                    'company_id' => (int) DB::table('drivers')->where('id', $driverId)->value('company_id'),
                     'office_id' => (int) DB::table('drivers')->where('id', $driverId)->value('office_id'),
                     'start_time' => '07:00:00',
                     'end_time' => '17:00:00',

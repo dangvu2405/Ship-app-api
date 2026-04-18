@@ -15,8 +15,14 @@ class DriverWorkSchedule extends Model
     use BelongsToTenant;
     use SoftDeletes;
 
+    public static function getTenantThroughRelation(): ?string
+    {
+        return 'driver';
+    }
+
     protected $fillable = [
         'driver_id',
+        'company_id',
         'office_id',
         'work_date',
         'shift_code',
@@ -25,6 +31,7 @@ class DriverWorkSchedule extends Model
         'vehicle_id',
         'status',
         'notes',
+        'hos_override_reason',
         'submitted_by',
         'submitted_at',
         'approved_by',
@@ -37,11 +44,35 @@ class DriverWorkSchedule extends Model
     protected function casts(): array
     {
         return [
+            'company_id'   => 'integer',
             'work_date'    => 'date',
             'submitted_at' => 'datetime',
             'approved_at'  => 'datetime',
             'locked_at'    => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (DriverWorkSchedule $schedule): void {
+            if ($schedule->company_id !== null || $schedule->driver_id === null) {
+                return;
+            }
+
+            $schedule->company_id = Driver::withoutGlobalScopes()
+                ->whereKey($schedule->driver_id)
+                ->value('company_id');
+        });
+
+        static::updating(function (DriverWorkSchedule $schedule): void {
+            if (! $schedule->isDirty('driver_id')) {
+                return;
+            }
+
+            $schedule->company_id = Driver::withoutGlobalScopes()
+                ->whereKey($schedule->driver_id)
+                ->value('company_id');
+        });
     }
 
     public function driver(): BelongsTo

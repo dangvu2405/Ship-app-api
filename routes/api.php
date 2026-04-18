@@ -32,7 +32,8 @@ $currentUserResponse = static function (Request $request) {
         'success' => true,
         'message' => 'OK',
         'data' => [
-            'user' => $user,
+            'user'    => $user,
+            'tenants' => $user->resolveTenants(),
         ],
     ]);
 };
@@ -61,12 +62,26 @@ $registerAuthenticatedRoutes = static function () use ($currentUserResponse): vo
         Route::post('/messages/stream', [\App\Http\Controllers\Api\ChatController::class, 'stream']);
     });
 
+    // Database notifications (Laravel `notifications` table) — any authenticated user
+    Route::prefix('notifications')->group(function (): void {
+        Route::get('/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+        Route::post('/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
+        Route::post('/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead'])
+            ->where('id', '[0-9a-fA-F\\-]{36}');
+        Route::get('/', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+    });
+
     Route::prefix('workforce')->group(function (): void {
+        // View-only: mọi user đã xác thực
         Route::get('driver-schedules', [\App\Http\Controllers\Api\WorkforceController::class, 'schedules']);
-        Route::put('driver-schedules/{id}/approve', [\App\Http\Controllers\Api\WorkforceController::class, 'approveSchedule']);
-        Route::put('driver-schedules/{id}/lock', [\App\Http\Controllers\Api\WorkforceController::class, 'lockSchedule']);
         Route::get('leave-requests', [\App\Http\Controllers\Api\WorkforceController::class, 'leaveRequests']);
         Route::get('absences', [\App\Http\Controllers\Api\WorkforceController::class, 'absences']);
+
+        // Mutating actions: yêu cầu quyền duyệt lịch (admin hoặc manager)
+        Route::middleware('permission:schedule.approve')->group(function (): void {
+            Route::put('driver-schedules/{id}/approve', [\App\Http\Controllers\Api\WorkforceController::class, 'approveSchedule']);
+            Route::put('driver-schedules/{id}/lock', [\App\Http\Controllers\Api\WorkforceController::class, 'lockSchedule']);
+        });
     });
 
     Route::get('public-holidays', [\App\Http\Controllers\Api\PublicHolidayController::class, 'index']);
@@ -86,9 +101,36 @@ $registerAdminRoutes = static function (): void {
     Route::apiResource('vehicle_assignments', \App\Http\Controllers\Api\VehicleAssignmentController::class);
     Route::apiResource('vehicle_expenses', \App\Http\Controllers\Api\VehicleExpenseController::class);
     Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
+
+    // Trip lifecycle action endpoints
+    Route::post('trips/{id}/assign', [\App\Http\Controllers\Api\TripController::class, 'assign'])->name('trips.assign');
+    Route::post('trips/{id}/start', [\App\Http\Controllers\Api\TripController::class, 'start'])->name('trips.start');
+    Route::post('trips/{id}/pickup', [\App\Http\Controllers\Api\TripController::class, 'pickup'])->name('trips.pickup');
+    Route::post('trips/{id}/transit', [\App\Http\Controllers\Api\TripController::class, 'transit'])->name('trips.transit');
+    Route::post('trips/{id}/arrive', [\App\Http\Controllers\Api\TripController::class, 'arrive'])->name('trips.arrive');
+    Route::post('trips/{id}/complete', [\App\Http\Controllers\Api\TripController::class, 'complete'])->name('trips.complete');
+    Route::post('trips/{id}/cancel', [\App\Http\Controllers\Api\TripController::class, 'cancel'])->name('trips.cancel');
+    Route::post('trips/{id}/delay', [\App\Http\Controllers\Api\TripController::class, 'delay'])->name('trips.delay');
+    Route::post('trips/{id}/resume', [\App\Http\Controllers\Api\TripController::class, 'resume'])->name('trips.resume');
     Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
     Route::apiResource('trip_bonus_rules', \App\Http\Controllers\Api\TripBonusRuleController::class);
+
+    // Invoice lifecycle action endpoints
+    Route::post('invoices/{id}/issue', [\App\Http\Controllers\Api\InvoiceController::class, 'issue'])->name('invoices.issue');
+    Route::post('invoices/{id}/mark-paid', [\App\Http\Controllers\Api\InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
+    Route::post('invoices/{id}/send-cqt', [\App\Http\Controllers\Api\InvoiceController::class, 'sendCqt'])->name('invoices.send-cqt');
+    Route::post('invoices/{id}/cancel', [\App\Http\Controllers\Api\InvoiceController::class, 'cancel'])->name('invoices.cancel');
     Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
+
+    // Payroll Adjustments (with hyphen to match frontend endpoint /payroll-adjustments)
+    Route::post('payroll-adjustments/{id}/approve', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'approve'])->name('payroll-adjustments.approve');
+    Route::post('payroll-adjustments/{id}/reject', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'reject'])->name('payroll-adjustments.reject');
+    Route::get('payroll-adjustments', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'index'])->name('payroll-adjustments.index');
+    Route::post('payroll-adjustments', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'store'])->name('payroll-adjustments.store');
+    Route::get('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'show'])->name('payroll-adjustments.show');
+    Route::put('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'update'])->name('payroll-adjustments.update');
+    Route::patch('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'update'])->name('payroll-adjustments.patch');
+    Route::delete('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'destroy'])->name('payroll-adjustments.destroy');
 
     // Payroll
     Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');

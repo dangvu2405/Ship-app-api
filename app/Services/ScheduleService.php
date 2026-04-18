@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\AuditLog;
 use App\Models\Driver;
 use App\Models\DriverWorkSchedule;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -76,19 +78,115 @@ class ScheduleService
         return $schedule->fresh();
     }
 
-    public function approve(DriverWorkSchedule $schedule, User $actor): DriverWorkSchedule
-    {
+    /**
+     * Approve a submitted schedule.
+     *
+     * @param bool   $hosOverride    When true, bypass HOS violation and log the override reason.
+     * @param string $overrideReason Required when $hosOverride is true (e.g. "Emergency coverage approved by director").
+     */
+    public function approve(
+        DriverWorkSchedule $schedule,
+        User $actor,
+        bool $hosOverride = false,
+        string $overrideReason = '',
+    ): DriverWorkSchedule {
         if ($schedule->status !== 'submitted') {
             throw new InvalidArgumentException('Only submitted schedules can be approved.');
         }
 
+        // HOS check is mandatory per Nghị định 10/2020 (max 10h/day, min 8h rest).
+        $hosViolation = $this->checkHos($schedule);
+        if ($hosViolation !== null) {
+            if (! $hosOverride) {
+                throw new InvalidArgumentException(
+                    "HOS violation: {$hosViolation}. To override, re-submit with hos_override=true and override_reason.",
+                    422,
+                );
+            }
+
+            if (trim($overrideReason) === '') {
+                throw new InvalidArgumentException('override_reason is required when overriding an HOS violation.', 422);
+            }
+
+            // Log the override — mandatory audit trail for regulatory compliance.
+            $this->auditLog($actor, 'schedule.hos_override', $schedule->id, [
+                'hos_violation'   => $hosViolation,
+                'override_reason' => $overrideReason,
+            ]);
+        }
+
         $schedule->update([
-            'status'      => 'approved',
-            'approved_by' => $actor->id,
-            'approved_at' => now(),
+            'status'              => 'approved',
+            'approved_by'         => $actor->id,
+            'approved_at'         => now(),
+            'hos_override_reason' => $hosOverride && $hosViolation ? $overrideReason : null,
         ]);
 
         return $schedule->fresh();
+    }
+
+    /**
+     * Check Hours-of-Service constraints per Nghị định 10/2020/NĐ-CP:
+     *   - Max 10 hours driving per day
+     *   - Minimum 8 hours rest between consecutive shifts
+     *
+     * Returns a human-readable violation string, or null if compliant.
+     */
+    public function checkHos(DriverWorkSchedule $schedule): ?string
+    {
+        if ($schedule->start_time === null || $schedule->end_time === null) {
+            return null; // Cannot validate without times
+        }
+
+        $dateStr   = $schedule->work_date instanceof Carbon
+            ? $schedule->work_date->toDateString()
+            : (string) $schedule->work_date;
+
+        $shiftStart = Carbon::parse("{$dateStr} {$schedule->start_time}");
+        $shiftEnd   = Carbon::parse("{$dateStr} {$schedule->end_time}");
+
+        if ($shiftEnd->lte($shiftStart)) {
+            $shiftEnd->addDay(); // overnight shift
+        }
+
+        $shiftHours = $shiftStart->floatDiffInHours($shiftEnd);
+
+        // Rule 1: max 10 hours per shift (Điều 65 NĐ 10/2020)
+        if ($shiftHours > 10.0) {
+            return sprintf('Shift duration %.1fh exceeds 10h maximum (Điều 65 NĐ 10/2020)', $shiftHours);
+        }
+
+        // Rule 2: minimum 8 hours rest between consecutive approved/locked shifts
+        $prevSchedule = DriverWorkSchedule::query()
+            ->where('driver_id', $schedule->driver_id)
+            ->where('work_date', '<=', $dateStr)
+            ->where('id', '!=', $schedule->id)
+            ->whereIn('status', ['approved', 'locked'])
+            ->whereNotNull('end_time')
+            ->orderByDesc('work_date')
+            ->orderByDesc('end_time')
+            ->first();
+
+        if ($prevSchedule !== null) {
+            $prevDateStr = $prevSchedule->work_date instanceof Carbon
+                ? $prevSchedule->work_date->toDateString()
+                : (string) $prevSchedule->work_date;
+
+            $prevEnd = Carbon::parse("{$prevDateStr} {$prevSchedule->end_time}");
+
+            // If previous shift's end appears to be before its start, it was overnight
+            $prevStart = Carbon::parse("{$prevDateStr} {$prevSchedule->start_time}");
+            if ($prevSchedule->start_time !== null && $prevEnd->lte($prevStart)) {
+                $prevEnd->addDay();
+            }
+
+            $restHours = $prevEnd->floatDiffInHours($shiftStart);
+            if ($restHours < 8.0) {
+                return sprintf('Only %.1fh rest between shifts (minimum 8h required, NĐ 10/2020)', $restHours);
+            }
+        }
+
+        return null;
     }
 
     public function reject(DriverWorkSchedule $schedule, User $actor): DriverWorkSchedule
@@ -159,6 +257,23 @@ class ScheduleService
                     409,
                 );
             }
+        }
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function auditLog(User $actor, string $action, int $recordId, array $metadata): void
+    {
+        try {
+            AuditLog::create([
+                'user_id'    => $actor->id,
+                'action'     => $action,
+                'table_name' => 'driver_work_schedules',
+                'record_id'  => $recordId,
+                'new_data'   => $metadata,
+                'ip_address' => request()->ip(),
+            ]);
+        } catch (\Throwable) {
+            // Non-fatal
         }
     }
 

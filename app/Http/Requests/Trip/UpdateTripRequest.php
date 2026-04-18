@@ -22,7 +22,7 @@ class UpdateTripRequest extends FormRequest
         return [
             'code' => 'sometimes|string|max:50|unique:trips,code,' . $id,
             'customer_id' => 'sometimes|exists:customers,id',
-            'driver_id' => 'sometimes|exists:employees,id',
+            'driver_id' => 'sometimes|exists:drivers,id',
             'vehicle_id' => 'sometimes|exists:vehicles,id',
             'start_point' => 'sometimes|string|max:255',
             'end_point' => 'sometimes|string|max:255',

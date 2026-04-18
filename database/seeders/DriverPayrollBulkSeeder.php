@@ -135,7 +135,7 @@ final class DriverPayrollBulkSeeder extends Seeder
                                 'trip_bonus' => $tripBonus,
                                 'allowance' => $defaultAllowance,
                                 'deduction' => $deduction,
-                                'fuel_cost' => $fuel,
+                                'fuel_excess_deduction' => $fuel,
                                 'tax' => $tax,
                                 'net_salary' => $net,
                                 'working_days' => $defaultWorkingDays,

@@ -60,7 +60,7 @@ class ChatService
             ];
         }
 
-        $cacheKey = $this->buildCacheKey($user->id, $message, $task, $context, $resolvedModel);
+        $cacheKey = $this->buildCacheKey($user->id, (int) $this->tenantContext->getCompanyId(), $message, $task, $context, $resolvedModel);
         $cachedText = Cache::get($cacheKey);
         if (is_string($cachedText) && $cachedText !== '') {
             $chat = ChatMessage::create([
@@ -516,7 +516,7 @@ class ChatService
     /**
      * @param array<string, mixed> $context
      */
-    private function buildCacheKey(int $userId, string $message, string $task, array $context, string $model): string
+    private function buildCacheKey(int $userId, int $companyId, string $message, string $task, array $context, string $model): string
     {
         ksort($context);
         $fingerprint = json_encode([
@@ -526,6 +526,7 @@ class ChatService
             'model' => $model,
         ], JSON_UNESCAPED_UNICODE);
 
-        return sprintf('chat:%d:%s', $userId, sha1((string) $fingerprint));
+        // Include both userId and companyId to prevent cross-user and cross-tenant cache hits.
+        return sprintf('chat:%d:%d:%s', $userId, $companyId, sha1((string) $fingerprint));
     }
 }

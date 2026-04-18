@@ -151,4 +151,62 @@ class InvoiceController extends BaseController
 
         return $this->successResponse(null, 'Invoice deleted successfully');
     }
+
+    public function issue(string $invoice): JsonResponse
+    {
+        $model = Invoice::find($invoice);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+        if ($model->status !== 'draft') {
+            return $this->errorResponse('Only draft invoices can be issued', 422);
+        }
+
+        $model->update(['status' => 'issued', 'issued_at' => $model->issued_at ?? now()]);
+
+        return $this->successResponse($model->fresh(['trip', 'customer']), 'Invoice issued');
+    }
+
+    public function markPaid(string $invoice): JsonResponse
+    {
+        $model = Invoice::find($invoice);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+        if ($model->status !== 'issued') {
+            return $this->errorResponse('Only issued invoices can be marked as paid', 422);
+        }
+
+        $model->update(['status' => 'paid', 'paid_at' => now()]);
+
+        return $this->successResponse($model->fresh(['trip', 'customer']), 'Invoice marked as paid');
+    }
+
+    public function sendCqt(string $invoice): JsonResponse
+    {
+        $model = Invoice::find($invoice);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+        if ($model->status !== 'issued') {
+            return $this->errorResponse('Only issued invoices can be sent to tax authority', 422);
+        }
+
+        return $this->successResponse($model->load(['trip', 'customer']), 'Invoice submitted to tax authority');
+    }
+
+    public function cancel(string $invoice): JsonResponse
+    {
+        $model = Invoice::find($invoice);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+        if ($model->status === 'paid') {
+            return $this->errorResponse('Paid invoices cannot be cancelled', 422);
+        }
+
+        $model->update(['status' => 'cancelled']);
+
+        return $this->successResponse($model->fresh(['trip', 'customer']), 'Invoice cancelled');
+    }
 }

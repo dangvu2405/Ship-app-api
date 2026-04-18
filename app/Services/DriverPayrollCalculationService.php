@@ -26,6 +26,10 @@ class DriverPayrollCalculationService
      */
     private const STANDARD_HOURS_PER_DAY = 8.0;
 
+    public function __construct(
+        private readonly TaxCalculatorService $taxCalculator,
+    ) {}
+
     /**
      * @return array{payroll: Payroll, lines_created: int}
      */
@@ -39,10 +43,20 @@ class DriverPayrollCalculationService
         $end   = (clone $start)->endOfMonth()->endOfDay();
 
         return DB::transaction(function () use ($companyId, $month, $year, $start, $end): array {
-            $payroll = Payroll::query()->firstOrCreate(
+            // Create the payroll row if it doesn't exist yet (safe: unique constraint prevents duplicates).
+            Payroll::query()->firstOrCreate(
                 ['company_id' => $companyId, 'month' => $month, 'year' => $year],
                 ['status' => 'draft', 'notes' => null],
             );
+
+            // Pessimistic lock: any concurrent recalculation request will block here until
+            // this transaction commits, preventing duplicate PayrollLine inserts.
+            $payroll = Payroll::query()
+                ->where('company_id', $companyId)
+                ->where('month', $month)
+                ->where('year', $year)
+                ->lockForUpdate()
+                ->firstOrFail();
 
             if ($payroll->isFrozen()) {
                 throw new InvalidArgumentException('Payroll is locked or paid and cannot be recalculated.');
@@ -60,9 +74,7 @@ class DriverPayrollCalculationService
                 })
                 ->orderBy('min_km')
                 ->get();
-            $workingDays     = (int) config('payroll.default_working_days', 22);
-            $insurancePct    = (float) config('payroll.insurance_percent_of_base', 0.105);
-            $taxPct          = (float) config('payroll.tax_percent_of_base', 0.0);
+            $workingDays      = (int) config('payroll.default_working_days', 22);
             $defaultAllowance = (float) config('payroll.default_allowance_per_driver', 0.0);
 
             $holidayDates   = PublicHoliday::datesForMonth($year, $month);
@@ -74,9 +86,20 @@ class DriverPayrollCalculationService
                 ->effectiveOn($start->toDateString())
                 ->first();
 
-            $drivers = Driver::query()
-                ->where('status', 'active')
+            // Include drivers who were soft-deleted mid-period so they still receive
+            // pay for the days they actually worked before their deletion date.
+            $drivers = Driver::withTrashed()
                 ->where('company_id', $companyId)
+                ->where(function ($q) use ($start): void {
+                    $q->where(function ($inner): void {
+                        // Currently active, non-deleted drivers
+                        $inner->whereNull('deleted_at')->where('status', 'active');
+                    })->orWhere(function ($inner) use ($start): void {
+                        // Drivers deleted after the period started (partial-month terminations)
+                        $inner->whereNotNull('deleted_at')
+                            ->where('deleted_at', '>', $start->toDateString());
+                    });
+                })
                 ->with('position')
                 ->get();
 
@@ -184,12 +207,24 @@ class DriverPayrollCalculationService
                     })
                     ->sum('penalty_amount');
 
-                // --- Insurance & tax deduction on prorated base ---
-                // Using proratedBaseSalary ensures drivers on unpaid leave are not
-                // over-deducted for BHXH on days they did not receive pay.
+                // --- Insurance & TNCN tax via VN progressive calculator ---
+                // Gross for tax purposes includes all income components.
+                // Insurance uses prorated base (capped at ceiling) per VN law.
+                $grossForTax = $proratedBaseSalary
+                    + $tripBonus
+                    + $otPay
+                    + $nightShiftAllowance
+                    + $publicHolidayPay
+                    + $defaultAllowance;
+
+                $taxCalc = $this->taxCalculator->calculate(
+                    $grossForTax,
+                    (int) ($driver->tax_dependents ?? 0),
+                );
+
                 $allowance = $defaultAllowance;
-                $deduction = round($proratedBaseSalary * $insurancePct, 2);
-                $tax       = round($proratedBaseSalary * $taxPct, 2);
+                $deduction = $taxCalc['insurance'];  // BHXH + BHYT + BHTN (employee share)
+                $tax       = $taxCalc['tncn_tax'];   // progressive personal income tax
 
                 $fuelQuota = (float) config('payroll.fuel_monthly_quota', 0.0);
                 $fuelSavingBonusRate = (float) config('payroll.fuel_saving_bonus_rate', 0.0);
@@ -253,9 +288,21 @@ class DriverPayrollCalculationService
                         ],
                         'trip_inclusion' => 'Trips with status=completed where COALESCE(end_time, updated_at) is within period.',
                         'trips'          => $tripMeta,
+                        'tax_breakdown' => [
+                            'gross_for_tax'        => $grossForTax,
+                            'insurance_base'       => $taxCalc['insurance_base'],
+                            'bhxh'                 => $taxCalc['bhxh'],
+                            'bhyt'                 => $taxCalc['bhyt'],
+                            'bhtn'                 => $taxCalc['bhtn'],
+                            'insurance_total'      => $taxCalc['insurance'],
+                            'personal_deduction'   => TaxCalculatorService::PERSONAL_DEDUCTION,
+                            'dependent_deduction'  => ($driver->tax_dependents ?? 0) * TaxCalculatorService::DEPENDENT_DEDUCTION,
+                            'taxable_income'       => $taxCalc['taxable_income'],
+                            'tncn_tax'             => $taxCalc['tncn_tax'],
+                            'dependents'           => $taxCalc['dependents'],
+                        ],
                         'config_snapshot' => [
-                            'insurance_percent_of_base'    => $insurancePct,
-                            'tax_percent_of_base'          => $taxPct,
+                            'insurance_ceiling'            => TaxCalculatorService::INSURANCE_CEILING,
                             'default_allowance_per_driver' => $defaultAllowance,
                             'default_working_days'         => $workingDays,
                         ],
@@ -379,6 +426,8 @@ class DriverPayrollCalculationService
 
     private function unpaidLeaveDaysForPeriod(int $driverId, Carbon $start, Carbon $end): float
     {
+        // Clip overlapping leave requests to the payroll period so cross-month leaves
+        // (e.g. Oct 28 – Nov 3) are only counted once in each respective period.
         return (float) DB::table('leave_requests')
             ->join('leave_types', 'leave_types.id', '=', 'leave_requests.leave_type_id')
             ->where('leave_requests.driver_id', $driverId)
@@ -387,7 +436,11 @@ class DriverPayrollCalculationService
             ->where('leave_requests.from_date', '<=', $end->toDateString())
             ->where('leave_requests.to_date', '>=', $start->toDateString())
             ->whereNull('leave_requests.deleted_at')
-            ->sum('leave_requests.total_days');
+            ->selectRaw(
+                'SUM(DATEDIFF(LEAST(leave_requests.to_date, ?), GREATEST(leave_requests.from_date, ?)) + 1) AS clipped_days',
+                [$end->toDateString(), $start->toDateString()],
+            )
+            ->value('clipped_days') ?? 0.0;
     }
 
     private function paidLeaveDaysForPeriod(int $driverId, Carbon $start, Carbon $end): float
@@ -400,7 +453,11 @@ class DriverPayrollCalculationService
             ->where('leave_requests.from_date', '<=', $end->toDateString())
             ->where('leave_requests.to_date', '>=', $start->toDateString())
             ->whereNull('leave_requests.deleted_at')
-            ->sum('leave_requests.total_days');
+            ->selectRaw(
+                'SUM(DATEDIFF(LEAST(leave_requests.to_date, ?), GREATEST(leave_requests.from_date, ?)) + 1) AS clipped_days',
+                [$end->toDateString(), $start->toDateString()],
+            )
+            ->value('clipped_days') ?? 0.0;
     }
 
     /**

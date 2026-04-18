@@ -35,6 +35,21 @@ class SqlAgentService
         'CALL', 'LOAD', 'HANDLER', 'LOCK', 'UNLOCK', 'SET',
     ];
 
+    /**
+     * Whitelist of tables the SQL agent is allowed to query.
+     * Any generated SQL referencing tables outside this list is rejected.
+     *
+     * @var string[]
+     */
+    private const ALLOWED_TABLES = [
+        'drivers', 'trips', 'vehicles', 'invoices',
+        'payrolls', 'payroll_lines', 'violations',
+        'offices', 'customers', 'vehicle_expenses',
+        'leave_requests', 'overtime_requests',
+        'driver_work_schedules', 'trip_bonus_rules',
+        'positions', 'departments', 'companies',
+    ];
+
     public function __construct(
         private readonly GeminiService $geminiService,
     ) {}
@@ -62,10 +77,24 @@ class SqlAgentService
             $sql = $this->generateSql($question, $companyId);
 
             if (! $this->isSafeSql($sql)) {
-                Log::warning('SqlAgentService: unsafe SQL rejected', ['sql' => $sql]);
+                Log::warning('SqlAgentService: unsafe SQL rejected', ['sql' => $sql, 'company_id' => $companyId]);
 
                 return 'Query không an toàn, đã bị từ chối.';
             }
+
+            if (! $this->isAllowedTables($sql)) {
+                Log::warning('SqlAgentService: disallowed table reference rejected', ['sql' => $sql, 'company_id' => $companyId]);
+
+                return 'Query tham chiếu bảng không được phép, đã bị từ chối.';
+            }
+
+            if ($companyId !== null && ! $this->hasTenantFilter($sql, $companyId)) {
+                Log::error('SqlAgentService: generated SQL missing tenant filter — rejecting', ['sql' => $sql, 'company_id' => $companyId]);
+
+                return 'Query thiếu điều kiện tenant, đã bị từ chối.';
+            }
+
+            Log::info('SqlAgentService: executing query', ['sql' => $sql, 'company_id' => $companyId]);
 
             // Wrap in a subquery so LIMIT 100 can never be comment-stripped by the LLM
             $safeQuery = sprintf('SELECT * FROM (%s) AS __safe_wrap LIMIT %d', $sql, self::ROW_LIMIT);
@@ -138,6 +167,35 @@ class SqlAgentService
         $sql = (string) preg_replace('/\s*```$/m', '', $sql);
 
         return trim($sql, " \n\t;");
+    }
+
+    /**
+     * Verify that all table references in the SQL are in the allowed whitelist.
+     * Prevents the LLM from querying sensitive tables (users, audit_logs, etc.).
+     */
+    private function isAllowedTables(string $sql): bool
+    {
+        preg_match_all('/\b(?:FROM|JOIN)\s+`?(\w+)`?/i', $sql, $matches);
+        foreach ($matches[1] as $table) {
+            $table = strtolower(trim($table, '`'));
+            if ($table === '__safe_wrap') {
+                continue;
+            }
+            if (! in_array($table, self::ALLOWED_TABLES, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Post-generation check: the SQL must contain a company_id = X filter.
+     * This is a hard guard against prompt injection bypassing the system prompt instruction.
+     */
+    private function hasTenantFilter(string $sql, int $companyId): bool
+    {
+        return preg_match('/\bcompany_id\s*=\s*' . $companyId . '\b/i', $sql) === 1;
     }
 
     private function isSafeSql(string $sql): bool

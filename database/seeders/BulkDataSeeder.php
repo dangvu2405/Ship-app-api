@@ -343,7 +343,7 @@ class BulkDataSeeder extends Seeder
                 'bonus' => fake()->numberBetween(0, 2000000),
                 'allowance' => fake()->numberBetween(0, 1500000),
                 'deduction' => fake()->numberBetween(0, 1000000),
-                'fuel_cost' => fake()->numberBetween(0, 500000),
+                'fuel_excess_deduction' => fake()->numberBetween(0, 500000),
                 'tax' => fake()->numberBetween(0, 1500000),
                 'net_salary' => fake()->numberBetween(5000000, 25000000),
                 'meta_json' => ['bulk_seeded' => true],

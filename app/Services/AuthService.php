@@ -49,8 +49,9 @@ class AuthService
         $user->load(['driver', 'roles.permissions']);
 
         return [
-            'user' => $user,
-            'token' => $tokenPair['token'],
+            'user'         => $user,
+            'tenants'      => $user->resolveTenants(),
+            'token'        => $tokenPair['token'],
             'refreshToken' => $tokenPair['refreshToken'],
         ];
     }
@@ -122,8 +123,9 @@ class AuthService
         $user->load(['driver', 'roles.permissions']);
 
         return [
-            'user' => $user,
-            'token' => $tokenPair['token'],
+            'user'         => $user,
+            'tenants'      => $user->resolveTenants(),
+            'token'        => $tokenPair['token'],
             'refreshToken' => $tokenPair['refreshToken'],
         ];
     }

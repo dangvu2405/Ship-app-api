@@ -65,7 +65,11 @@ class BusinessLogicFullSeeder extends Seeder
 
     private function ensureAdminUser(): User
     {
-        $admin = User::query()->where('email', 'admin@example.com')->first();
+        $admin = User::query()
+            ->where('email', 'admin@example.com')
+            ->orWhere('email', 'admin@abctransport.com')
+            ->orWhere('username', 'admin')
+            ->first();
 
         if (! $admin) {
             $driverId = Driver::query()->value('id');
@@ -338,7 +342,7 @@ class BusinessLogicFullSeeder extends Seeder
                     'deduction' => $deduction,
                     'leave_unpaid_deduction' => 0,
                     'violation_deduction' => 0,
-                    'fuel_cost' => $fuel,
+                    'fuel_excess_deduction' => $fuel,
                     'tax' => $tax,
                     'net_salary' => $net,
                     'working_days' => 22,

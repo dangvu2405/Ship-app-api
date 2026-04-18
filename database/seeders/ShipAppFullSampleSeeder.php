@@ -390,7 +390,7 @@ class ShipAppFullSampleSeeder extends Seeder
                         'trip_bonus' => $bonus,
                         'allowance' => $allowance,
                         'deduction' => $deduction,
-                        'fuel_cost' => 0,
+                        'fuel_excess_deduction' => 0,
                         'tax' => $tax,
                         'net_salary' => $net,
                         'working_days' => 22,

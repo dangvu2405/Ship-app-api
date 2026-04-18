@@ -31,6 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'permissions' => 'Permissions',
             'reports' => 'Reports',
             'payrolls' => 'Payrolls (driver MVP)',
+            'schedule.approve' => 'Approve & lock driver schedules',
         ];
 
         $permissions = [];
@@ -64,6 +65,7 @@ class RolesAndPermissionsSeeder extends Seeder
             $permissions['vehicle_expenses']->id,
             $permissions['customers']->id,
             $permissions['invoices']->id,
+            $permissions['schedule.approve']->id,
         ]);
 
         $staffRole->permissions()->sync([]);

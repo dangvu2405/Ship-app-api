@@ -39,7 +39,7 @@ class LeaveService
             );
         }
 
-        // Check leave balance
+        // Check leave balance (including already-pending requests to prevent over-allocation)
         $leaveType = LeaveType::findOrFail($leaveTypeId);
         if ($leaveType->is_paid) {
             $year    = (int) substr($from, 0, 4);
@@ -49,14 +49,28 @@ class LeaveService
                 ->where('year', $year)
                 ->first();
 
-            if ($balance && $balance->remainingDays() < $totalDays) {
-                throw new InvalidArgumentException(
-                    sprintf(
-                        'Insufficient leave balance. Remaining: %.1f days, Requested: %.1f days.',
-                        $balance->remainingDays(),
-                        $totalDays,
-                    ),
-                );
+            if ($balance) {
+                // Count pending requests that have not yet been approved/deducted.
+                // Without this, concurrent submissions can each pass the balance check
+                // individually but together exceed the remaining quota.
+                $pendingDays = (float) LeaveRequest::query()
+                    ->where('driver_id', $driverId)
+                    ->where('leave_type_id', $leaveTypeId)
+                    ->whereYear('from_date', $year)
+                    ->where('status', 'pending')
+                    ->sum('total_days');
+
+                $effectiveRemaining = $balance->remainingDays() - $pendingDays;
+
+                if ($effectiveRemaining < $totalDays) {
+                    throw new InvalidArgumentException(
+                        sprintf(
+                            'Insufficient leave balance. Available (after pending requests): %.1f days, Requested: %.1f days.',
+                            max(0.0, $effectiveRemaining),
+                            $totalDays,
+                        ),
+                    );
+                }
             }
         }
 

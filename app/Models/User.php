@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Company;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -94,6 +95,48 @@ class User extends Authenticatable
     public function chatMessages(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ChatMessage::class);
+    }
+
+    /**
+     * Companies explicitly assigned to this user (multi-tenant support).
+     * Returns an empty collection for legacy single-tenant users.
+     */
+    public function companies(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Company::class, 'user_companies')
+            ->withPivot('is_default')
+            ->withTimestamps()
+            ->orderByPivot('is_default', 'desc')
+            ->orderBy('name');
+    }
+
+    /**
+     * Return all companies this user can access, formatted as tenant objects
+     * for the frontend tenant-selection flow.
+     *
+     * Returns [] for legacy users (no user_companies rows) so the frontend
+     * skips the selector and goes straight to /dashboard.
+     *
+     * @return array<int, array{id: int, name: string, code: string, logo_url: string|null, status: string}>
+     */
+    public function resolveTenants(): array
+    {
+        // Admin sees all active companies (no need for explicit user_companies rows)
+        $companies = $this->hasRole('admin')
+            ? Company::query()->where('status', 'active')->orderBy('name')->get()
+            : $this->companies()->get();
+
+        if ($companies->isEmpty()) {
+            return [];
+        }
+
+        return $companies->map(fn (Company $c): array => [
+            'id'       => $c->id,
+            'name'     => $c->name,
+            'code'     => $c->code,
+            'logo_url' => $c->logo_url ?? null,
+            'status'   => $c->status,
+        ])->values()->all();
     }
 
     // Helper methods
