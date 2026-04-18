@@ -111,7 +111,19 @@ class BaseController extends Controller
      */
     protected function handleException(Throwable $e, ?string $customMessage = null): JsonResponse
     {
-        Log::error('API Exception', [
+        $level = match(true) {
+            $e instanceof \Illuminate\Database\QueryException,
+            $e instanceof \PDOException => 'critical',
+            $e instanceof \Illuminate\Auth\AuthenticationException => 'info',
+            $e instanceof \Illuminate\Auth\Access\AuthorizationException,
+            $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException,
+            $e instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException,
+            $e instanceof ApiException => 'warning',
+            $e instanceof \Illuminate\Validation\ValidationException => 'notice',
+            default => 'error',
+        };
+
+        Log::log($level, 'API Exception', [
             'message' => $e->getMessage(),
             'file'    => $e->getFile(),
             'line'    => $e->getLine(),

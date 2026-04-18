@@ -22,6 +22,7 @@ class VehicleAssignmentsApiTest extends TestCase
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $user = User::factory()->create(['status' => 'active']);
         $user->roles()->attach($adminRole->id);
+
         return $user;
     }
 
@@ -50,7 +51,7 @@ class VehicleAssignmentsApiTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'driver_id' => $driver->id,
             'from_date' => '2026-01-01',
-        ]);
+        ], $this->tenant_headers($company));
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('vehicle_assignments', ['vehicle_id' => $vehicle->id]);
@@ -71,7 +72,7 @@ class VehicleAssignmentsApiTest extends TestCase
             'driver_id' => $driver->id,
         ]);
 
-        $response = $this->deleteJson('/api/v1/vehicle_assignments/' . $va->id);
+        $response = $this->deleteJson('/api/v1/vehicle_assignments/'.$va->id, [], $this->tenant_headers($company));
 
         $response->assertStatus(200);
     }

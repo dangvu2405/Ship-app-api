@@ -4,18 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\PublicHoliday\IndexPublicHolidayRequest;
 use App\Models\PublicHoliday;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 final class PublicHolidayController extends BaseController
 {
-    public function index(Request $request): JsonResponse
+    public function index(IndexPublicHolidayRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
-            'country_code' => ['nullable', 'string', 'max:5'],
-        ]);
+        $validated = $request->validated();
 
         $countryCode = $validated['country_code'] ?? 'VN';
 

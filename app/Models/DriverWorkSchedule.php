@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class DriverWorkSchedule extends Model
+final class DriverWorkSchedule extends Model
 {
     use BelongsToTenant;
     use SoftDeletes;
@@ -44,17 +44,17 @@ class DriverWorkSchedule extends Model
     protected function casts(): array
     {
         return [
-            'company_id'   => 'integer',
-            'work_date'    => 'date',
+            'company_id' => 'integer',
+            'work_date' => 'date',
             'submitted_at' => 'datetime',
-            'approved_at'  => 'datetime',
-            'locked_at'    => 'datetime',
+            'approved_at' => 'datetime',
+            'locked_at' => 'datetime',
         ];
     }
 
     protected static function booted(): void
     {
-        static::creating(function (DriverWorkSchedule $schedule): void {
+        self::creating(function (DriverWorkSchedule $schedule): void {
             if ($schedule->company_id !== null || $schedule->driver_id === null) {
                 return;
             }
@@ -64,7 +64,7 @@ class DriverWorkSchedule extends Model
                 ->value('company_id');
         });
 
-        static::updating(function (DriverWorkSchedule $schedule): void {
+        self::updating(function (DriverWorkSchedule $schedule): void {
             if (! $schedule->isDirty('driver_id')) {
                 return;
             }
@@ -113,6 +113,21 @@ class DriverWorkSchedule extends Model
     public function scopeApproved(Builder $query): Builder
     {
         return $query->where('status', 'approved');
+    }
+
+    public function scopeForDriverId(Builder $query, int $driver_id): Builder
+    {
+        return $query->where('driver_id', $driver_id);
+    }
+
+    public function scopeForOfficeId(Builder $query, int $office_id): Builder
+    {
+        return $query->where('office_id', $office_id);
+    }
+
+    public function scopeForStatusFilter(Builder $query, string $status): Builder
+    {
+        return $query->where('status', $status);
     }
 
     public function isLocked(): bool

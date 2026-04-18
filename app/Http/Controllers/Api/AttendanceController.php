@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Attendance\AdjustAttendanceRequest;
 use App\Http\Requests\Attendance\CheckInRequest;
+use App\Http\Requests\Attendance\CheckOutAttendanceRequest;
+use App\Http\Requests\Attendance\NotifyLateAttendanceRequest;
 use App\Services\AttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,10 +29,12 @@ class AttendanceController extends BaseController
      *     tags={"Attendance"},
      *     summary="Danh sách chấm công",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Parameter(name="driver_id", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="date", in="query", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="from", in="query", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="to", in="query", @OA\Schema(type="string", format="date")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -79,11 +83,14 @@ class AttendanceController extends BaseController
      *     tags={"Attendance"},
      *     summary="Ghi nhận check-in",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\RequestBody(required=true, @OA\JsonContent(
      *         required={"driver_id","check_in_time"},
+     *
      *         @OA\Property(property="driver_id", type="integer"),
      *         @OA\Property(property="check_in_time", type="string", example="2026-05-01 07:05:00")
      *     )),
+     *
      *     @OA\Response(response=201, description="Ghi nhận thành công")
      * )
      */
@@ -104,17 +111,14 @@ class AttendanceController extends BaseController
         }
     }
 
-    public function checkOut(Request $request): JsonResponse
+    public function checkOut(CheckOutAttendanceRequest $request): JsonResponse
     {
-        $request->validate([
-            'driver_id'      => ['required', 'integer', 'exists:drivers,id'],
-            'check_out_time' => ['required', 'date_format:Y-m-d H:i:s'],
-        ]);
+        $validated = $request->validated();
 
         try {
             $record = $this->attendanceService->checkOut(
-                $request->integer('driver_id'),
-                $request->input('check_out_time'),
+                (int) $validated['driver_id'],
+                (string) $validated['check_out_time'],
                 $request->user(),
             );
 
@@ -177,16 +181,8 @@ class AttendanceController extends BaseController
     /**
      * Legacy endpoint: notify late attendance summary.
      */
-    public function notifyLate(Request $request): JsonResponse
+    public function notifyLate(NotifyLateAttendanceRequest $request): JsonResponse
     {
-        $request->validate([
-            'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date', 'after_or_equal:from'],
-            'driver_ids' => ['nullable', 'array'],
-            'driver_ids.*' => ['integer'],
-            'message' => ['nullable', 'string', 'max:500'],
-        ]);
-
         return $this->successResponse([
             'queued' => true,
             'scope' => [

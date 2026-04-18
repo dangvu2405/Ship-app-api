@@ -65,4 +65,22 @@ return [
     */
     'encrypt_pii_fields' => (bool) env('SHIP_ENCRYPT_PII', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Áp lịch hàng loạt theo văn phòng (work_schedule_templates → driver_work_schedules)
+    |--------------------------------------------------------------------------
+    |
+    | - max_date_range_days: giới hạn độ dài khoảng [start_date, end_date] (API apply).
+    | - sync_max_rows: nếu drivers × ngày > ngưỡng này → chạy ApplyOfficeScheduleJob (queue), tránh timeout HTTP.
+    | - insert_chunk_size: kích thước chunk INSERT (một câu lệnh nhiều dòng).
+    |
+    | Gợi ý: sync_max_rows ≈ 5k–15k tùy DB; production nên QUEUE_CONNECTION=redis/database.
+    |
+    */
+    'office_schedule_apply' => [
+        'max_date_range_days' => max(1, min(366, (int) env('OFFICE_SCHEDULE_MAX_RANGE_DAYS', 120))),
+        'sync_max_rows' => max(500, min(100000, (int) env('OFFICE_SCHEDULE_SYNC_MAX_ROWS', 8000))),
+        'insert_chunk_size' => max(100, min(2000, (int) env('OFFICE_SCHEDULE_INSERT_CHUNK', 400))),
+    ],
+
 ];

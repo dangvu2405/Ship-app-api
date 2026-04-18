@@ -12,8 +12,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Trip extends Model
 {
+    use \App\Traits\HasAuditLogs, HasFactory, SoftDeletes;
     use BelongsToTenant;
-    use HasFactory, SoftDeletes, \App\Traits\HasAuditLogs;
 
     protected $fillable = [
         'company_id',
@@ -42,18 +42,22 @@ class Trip extends Model
     {
         static::saving(function (Trip $trip): void {
             if ($trip->driver_id !== null) {
-                $companyId = Driver::query()->whereKey($trip->driver_id)->value('company_id');
-                if ($companyId !== null) {
-                    $trip->company_id = (int) $companyId;
+                $company_id = Driver::withoutGlobalScopes()
+                    ->whereKey($trip->driver_id)
+                    ->value('company_id');
+                if ($company_id !== null) {
+                    $trip->company_id = (int) $company_id;
 
                     return;
                 }
             }
 
             if ($trip->vehicle_id !== null) {
-                $companyId = Vehicle::query()->whereKey($trip->vehicle_id)->value('company_id');
-                if ($companyId !== null) {
-                    $trip->company_id = (int) $companyId;
+                $company_id = Vehicle::withoutGlobalScopes()
+                    ->whereKey($trip->vehicle_id)
+                    ->value('company_id');
+                if ($company_id !== null) {
+                    $trip->company_id = (int) $company_id;
                 }
             }
         });

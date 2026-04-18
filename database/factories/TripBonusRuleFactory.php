@@ -13,12 +13,11 @@ class TripBonusRuleFactory extends Factory
     {
         $minKm = fake()->numberBetween(0, 5000);
         $maxKm = fake()->optional(0.8)->numberBetween($minKm + 1, 10000);
-        $companyId = \App\Models\Company::query()->inRandomOrder()->value('id') ?? 1;
         $effectiveFrom = fake()->dateTimeBetween('-1 year', 'now')->format('Y-m-d');
         $effectiveTo = fake()->optional()->boolean(70) ? fake()->dateTimeBetween($effectiveFrom, '+2 years')->format('Y-m-d') : null;
-        
+
         return [
-            'company_id' => $companyId,
+            'company_id' => \App\Models\Company::factory(),
             'effective_from' => $effectiveFrom,
             'effective_to' => $effectiveTo,
             'min_km' => $minKm,

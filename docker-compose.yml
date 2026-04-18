@@ -7,6 +7,11 @@ services:
     restart: unless-stopped
     volumes:
       - .:/var/www
+    # DB_* dưới đây được Docker inject vào PHP-FPM trước khi Laravel đọc .env.
+    # Laravel (dotenv immutable): biến môi trường ĐÃ CÓ sẽ không bị ghi đè bởi file .env.
+    # → Nếu chạy `php artisan migrate` TRÊN MÁY HOST với .env (vd. DB_CONNECTION=sqlite), migration
+    #   có thể chạy vào SQLite, trong khi request qua container vẫn dùng MySQL ship_db → thiếu bảng.
+    # Luôn migrate trong cùng môi trường với HTTP: docker compose exec app php artisan migrate
     environment:
       DB_CONNECTION: mysql
       DB_HOST: db

@@ -7,6 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "cloudinary-labs/cloudinary-laravel": "*",
         "darkaonline/l5-swagger": "^10.1",
         "doctrine/annotations": "^2.0",
         "laravel/framework": "^12.0",

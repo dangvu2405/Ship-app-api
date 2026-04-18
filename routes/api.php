@@ -32,7 +32,7 @@ $currentUserResponse = static function (Request $request) {
         'success' => true,
         'message' => 'OK',
         'data' => [
-            'user'    => $user,
+            'user' => $user,
             'tenants' => $user->resolveTenants(),
         ],
     ]);
@@ -52,6 +52,7 @@ $registerAuthenticatedRoutes = static function () use ($currentUserResponse): vo
     });
 
     Route::get('/user', $currentUserResponse);
+    Route::post('/upload', [\App\Http\Controllers\Api\UploadController::class, 'store']);
     Route::get('payrolls/my-salary', [\App\Http\Controllers\Api\PayrollController::class, 'mySalary']);
 
     Route::prefix('chat')->group(function (): void {
@@ -93,6 +94,9 @@ $registerAdminRoutes = static function (): void {
     });
 
     Route::apiResource('companies', \App\Http\Controllers\Api\CompanyController::class);
+    Route::apiResource('work-schedule-templates', \App\Http\Controllers\Api\WorkScheduleTemplateController::class)
+        ->except(['create', 'edit']);
+    Route::post('offices/{office}/apply-schedule', [\App\Http\Controllers\Api\OfficeApplyScheduleController::class, 'store']);
     Route::apiResource('offices', \App\Http\Controllers\Api\OfficeController::class);
     Route::apiResource('departments', \App\Http\Controllers\Api\DepartmentController::class);
     Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
@@ -220,7 +224,7 @@ $registerAdminRoutes = static function (): void {
         return response()->json([
             'success' => true,
             'message' => 'Legacy alias: employees mapped to drivers',
-            'data'    => $drivers,
+            'data' => $drivers,
         ]);
     });
 

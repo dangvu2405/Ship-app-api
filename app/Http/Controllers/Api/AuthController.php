@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\AuthActionsRequest;
+use App\Http\Requests\Auth\AuthLogsRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
-use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\SocialLoginRequest;
 use App\Services\AuthService;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Throwable;
@@ -30,14 +32,18 @@ class AuthController extends BaseController
      *     tags={"Auth"},
      *     summary="Đăng nhập",
      *     security={},
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"email","password"},
+     *
      *             @OA\Property(property="email", type="string", format="email", example="admin@example.com"),
      *             @OA\Property(property="password", type="string", format="password", example="password")
      *         )
      *     ),
+     *
      *     @OA\Response(response=200, description="Thành công - trả về user và token"),
      *     @OA\Response(response=401, description="Sai email hoặc mật khẩu"),
      *     @OA\Response(response=422, description="Validation lỗi")
@@ -116,6 +122,7 @@ class AuthController extends BaseController
      *     tags={"Auth"},
      *     summary="Đăng xuất",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Response(response=200, description="Đăng xuất thành công"),
      *     @OA\Response(response=401, description="Chưa đăng nhập")
      * )
@@ -137,16 +144,20 @@ class AuthController extends BaseController
      *     tags={"Auth"},
      *     summary="Đăng ký tài khoản (chỉ admin)",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"username","email","password","password_confirmation"},
+     *
      *             @OA\Property(property="username", type="string", example="newuser"),
      *             @OA\Property(property="email", type="string", format="email", example="newuser@example.com"),
      *             @OA\Property(property="password", type="string", format="password", example="password123"),
      *             @OA\Property(property="password_confirmation", type="string", format="password", example="password123")
      *         )
      *     ),
+     *
      *     @OA\Response(response=201, description="Đăng ký thành công"),
      *     @OA\Response(response=403, description="Chỉ admin được phép"),
      *     @OA\Response(response=422, description="Validation lỗi")
@@ -171,6 +182,7 @@ class AuthController extends BaseController
      *     tags={"Auth"},
      *     summary="Làm mới token",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Response(response=200, description="Token mới"),
      *     @OA\Response(response=401, description="Chưa đăng nhập")
      * )
@@ -234,17 +246,13 @@ class AuthController extends BaseController
         }
     }
 
-    public function logs(Request $request): JsonResponse
+    public function logs(AuthLogsRequest $request): JsonResponse
     {
         try {
             $user = $request->user();
             if (! $user) {
                 return $this->unauthorizedResponse('Unauthenticated.');
             }
-
-            $request->validate([
-                'date' => ['nullable', 'date'],
-            ]);
 
             $date = $request->input('date');
             $result = $this->authService->logs($user, is_string($date) ? $date : null);
@@ -255,7 +263,7 @@ class AuthController extends BaseController
         }
     }
 
-    public function actions(Request $request): JsonResponse
+    public function actions(AuthActionsRequest $request): JsonResponse
     {
         try {
             $user = $request->user();
@@ -263,15 +271,7 @@ class AuthController extends BaseController
                 return $this->unauthorizedResponse('Unauthenticated.');
             }
 
-            $validated = $request->validate([
-                'username' => ['nullable', 'string', 'max:100'],
-                'action' => ['nullable', 'string', 'max:150'],
-                'from' => ['nullable', 'date'],
-                'to' => ['nullable', 'date', 'after_or_equal:from'],
-                'status_code' => ['nullable', 'integer', 'between:100,599'],
-            ]);
-
-            $result = $this->authService->actions($user, $validated);
+            $result = $this->authService->actions($user, $request->validated());
 
             return $this->successResponse($result, 'Auth actions retrieved');
         } catch (Throwable $e) {

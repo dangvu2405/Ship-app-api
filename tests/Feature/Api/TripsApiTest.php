@@ -55,7 +55,7 @@ class TripsApiTest extends TestCase
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
         $driver = Driver::factory()->create(['office_id' => $office->id]);
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['company_id' => $company->id]);
 
         $response = $this->postJson('/api/v1/trips', [
             'customer_id' => $customer->id,
@@ -68,7 +68,7 @@ class TripsApiTest extends TestCase
             'start_time' => '2026-05-01 08:00:00',
             'distance_km' => 1500,
             'price' => 20000000,
-        ]);
+        ], $this->tenant_headers($company));
 
         $response->assertStatus(201)
             ->assertJsonFragment(['code' => 'TRP-001']);
@@ -85,7 +85,7 @@ class TripsApiTest extends TestCase
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
         $driver = Driver::factory()->create(['office_id' => $office->id]);
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['company_id' => $company->id]);
 
         $trip = Trip::factory()->create([
             'vehicle_id' => $vehicle->id,
@@ -96,7 +96,8 @@ class TripsApiTest extends TestCase
 
         $response = $this->putJson('/api/v1/trips/'.$trip->id, [
             'status' => 'in_progress',
-        ]);
+            'start_time' => '2026-05-01 08:00:00',
+        ], $this->tenant_headers($company));
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('trips', ['id' => $trip->id, 'status' => 'in_progress']);
@@ -111,7 +112,7 @@ class TripsApiTest extends TestCase
         $office = Office::factory()->create(['company_id' => $company->id]);
         $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
         $driver = Driver::factory()->create(['office_id' => $office->id]);
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['company_id' => $company->id]);
 
         $trip = Trip::factory()->create([
             'vehicle_id' => $vehicle->id,
@@ -120,7 +121,7 @@ class TripsApiTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $response = $this->deleteJson('/api/v1/trips/'.$trip->id);
+        $response = $this->deleteJson('/api/v1/trips/'.$trip->id, [], $this->tenant_headers($company));
 
         $response->assertStatus(200);
         $this->assertSoftDeleted('trips', ['id' => $trip->id]);
@@ -141,7 +142,7 @@ class TripsApiTest extends TestCase
 
         $driverA = Driver::factory()->create(['office_id' => $officeA->id]);
         $driverB = Driver::factory()->create(['office_id' => $officeB->id]);
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['company_id' => $companyA->id]);
 
         $tripA = Trip::factory()->create([
             'vehicle_id' => $vehicleA->id,
@@ -154,13 +155,13 @@ class TripsApiTest extends TestCase
             'customer_id' => $customer->id,
         ]);
 
-        $byCompany = $this->getJson('/api/v1/trips?company_id='.$companyA->id.'&per_page=100');
+        $byCompany = $this->getJson('/api/v1/trips?company_id='.$companyA->id.'&per_page=100', $this->tenant_headers($companyA));
         $byCompany->assertStatus(200);
         $ids = collect($byCompany->json('data.data'))->pluck('id')->all();
         $this->assertContains($tripA->id, $ids);
         $this->assertNotContains($tripB->id, $ids);
 
-        $byOffice = $this->getJson('/api/v1/trips?office_id='.$officeA->id.'&per_page=100');
+        $byOffice = $this->getJson('/api/v1/trips?office_id='.$officeA->id.'&per_page=100', $this->tenant_headers($companyA));
         $byOffice->assertStatus(200);
         $idsOffice = collect($byOffice->json('data.data'))->pluck('id')->all();
         $this->assertContains($tripA->id, $idsOffice);

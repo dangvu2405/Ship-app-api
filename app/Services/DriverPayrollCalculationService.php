@@ -40,7 +40,7 @@ class DriverPayrollCalculationService
         }
 
         $start = Carbon::createFromDate($year, $month, 1)->startOfDay();
-        $end   = (clone $start)->endOfMonth()->endOfDay();
+        $end = (clone $start)->endOfMonth()->endOfDay();
 
         return DB::transaction(function () use ($companyId, $month, $year, $start, $end): array {
             // Create the payroll row if it doesn't exist yet (safe: unique constraint prevents duplicates).
@@ -74,11 +74,11 @@ class DriverPayrollCalculationService
                 })
                 ->orderBy('min_km')
                 ->get();
-            $workingDays      = (int) config('payroll.default_working_days', 22);
+            $workingDays = (int) config('payroll.default_working_days', 22);
             $defaultAllowance = (float) config('payroll.default_allowance_per_driver', 0.0);
 
-            $holidayDates   = PublicHoliday::datesForMonth($year, $month);
-            $holidayCount   = count($holidayDates);
+            $holidayDates = PublicHoliday::datesForMonth($year, $month);
+            $holidayCount = count($holidayDates);
             $effectiveStdDays = max(1, $workingDays - $holidayCount);
 
             $nightPolicy = NightShiftPolicy::query()
@@ -109,26 +109,26 @@ class DriverPayrollCalculationService
                 $baseSalary = (float) ($driver->position?->base_salary ?? 0);
 
                 // --- Trip bonuses ---
-                $trips    = $this->completedTripsInPeriod($driver->id, $start, $end);
+                $trips = $this->completedTripsInPeriod($driver->id, $start, $end);
                 $tripMeta = [];
                 $tripBonus = 0.0;
-                $totalKm  = 0.0;
+                $totalKm = 0.0;
 
                 foreach ($trips as $trip) {
-                    $km    = (float) $trip->distance_km;
+                    $km = (float) $trip->distance_km;
                     $totalKm += $km;
-                    $rule  = $this->matchBonusRule($rules, $km);
+                    $rule = $this->matchBonusRule($rules, $km);
                     $perKm = $rule ? (float) $rule->bonus_per_km : 0.0;
                     $bonus = $km * $perKm;
                     $tripBonus += $bonus;
                     $tripMeta[] = [
-                        'trip_id'      => $trip->id,
-                        'code'         => $trip->code,
-                        'distance_km'  => $km,
+                        'trip_id' => $trip->id,
+                        'code' => $trip->code,
+                        'distance_km' => $km,
                         'bonus_per_km' => $perKm,
-                        'trip_bonus'   => round($bonus, 2),
-                        'rule'         => $rule ? [
-                            'id'     => $rule->id,
+                        'trip_bonus' => round($bonus, 2),
+                        'rule' => $rule ? [
+                            'id' => $rule->id,
                             'min_km' => (float) $rule->min_km,
                             'max_km' => $rule->max_km !== null ? (float) $rule->max_km : null,
                         ] : null,
@@ -151,7 +151,7 @@ class DriverPayrollCalculationService
                     : 0.0;
 
                 // Paid leave counts towards working days (no deduction needed)
-                $paidLeaveDays     = $this->paidLeaveDaysForPeriod($driver->id, $start, $end);
+                $paidLeaveDays = $this->paidLeaveDaysForPeriod($driver->id, $start, $end);
                 $actualWorkingDays = max(0, $effectiveStdDays - (int) $unpaidLeaveDays);
                 $proratedBaseSalary = round($baseSalary * ($actualWorkingDays / max(1, $effectiveStdDays)), 2);
 
@@ -224,7 +224,7 @@ class DriverPayrollCalculationService
 
                 $allowance = $defaultAllowance;
                 $deduction = $taxCalc['insurance'];  // BHXH + BHYT + BHTN (employee share)
-                $tax       = $taxCalc['tncn_tax'];   // progressive personal income tax
+                $tax = $taxCalc['tncn_tax'];   // progressive personal income tax
 
                 $fuelQuota = (float) config('payroll.fuel_monthly_quota', 0.0);
                 $fuelSavingBonusRate = (float) config('payroll.fuel_saving_bonus_rate', 0.0);
@@ -247,35 +247,35 @@ class DriverPayrollCalculationService
                 );
 
                 PayrollLine::query()->create([
-                    'payroll_id'            => $payroll->id,
-                    'company_id'            => $companyId,
-                    'driver_id'             => $driver->id,
-                    'base_salary'           => $proratedBaseSalary,
-                    'trip_bonus'            => round($tripBonus, 2),
-                    'overtime_pay'          => round($otPay, 2),
+                    'payroll_id' => $payroll->id,
+                    'company_id' => $companyId,
+                    'driver_id' => $driver->id,
+                    'base_salary' => $proratedBaseSalary,
+                    'trip_bonus' => round($tripBonus, 2),
+                    'overtime_pay' => round($otPay, 2),
                     'night_shift_allowance' => round($nightShiftAllowance, 2),
-                    'public_holiday_pay'    => round($publicHolidayPay, 2),
-                    'allowance'             => $allowance,
-                    'deduction'             => $deduction,
+                    'public_holiday_pay' => round($publicHolidayPay, 2),
+                    'allowance' => $allowance,
+                    'deduction' => $deduction,
                     'leave_unpaid_deduction' => round($leaveUnpaidDeduction, 2),
-                    'violation_deduction'   => round($violationDeduction, 2),
+                    'violation_deduction' => round($violationDeduction, 2),
                     'fuel_excess_deduction' => round($fuelDeduction, 2),
-                    'tax'                   => $tax,
-                    'net_salary'            => $net,
-                    'working_days'          => $actualWorkingDays,
-                    'leave_days_paid'       => (int) $paidLeaveDays,
-                    'leave_days_unpaid'     => (int) $unpaidLeaveDays,
-                    'overtime_hours'        => $this->totalApprovedOtHours($driver->id, $start, $end),
+                    'tax' => $tax,
+                    'net_salary' => $net,
+                    'working_days' => $actualWorkingDays,
+                    'leave_days_paid' => (int) $paidLeaveDays,
+                    'leave_days_unpaid' => (int) $unpaidLeaveDays,
+                    'overtime_hours' => $this->totalApprovedOtHours($driver->id, $start, $end),
                     'trips_completed_count' => $trips->count(),
-                    'total_distance_km'     => round($totalKm, 2),
-                    'meta_json'             => [
-                        'period'         => ['month' => $month, 'year' => $year],
+                    'total_distance_km' => round($totalKm, 2),
+                    'meta_json' => [
+                        'period' => ['month' => $month, 'year' => $year],
                         'effective_std_days' => $effectiveStdDays,
                         'working_days_standard' => $workingDays,
                         'working_days_actual' => $actualWorkingDays,
                         'prorated_base_salary' => $proratedBaseSalary,
-                        'holiday_count'  => $holidayCount,
-                        'holiday_dates'  => $holidayDates,
+                        'holiday_count' => $holidayCount,
+                        'holiday_dates' => $holidayDates,
                         'fuel' => [
                             'actual_fuel_cost' => round($fuelCost, 2),
                             'fuel_quota' => round($fuelQuota, 2),
@@ -287,28 +287,28 @@ class DriverPayrollCalculationService
                             'deduction_only_confirmed_and_not_disputed' => true,
                         ],
                         'trip_inclusion' => 'Trips with status=completed where COALESCE(end_time, updated_at) is within period.',
-                        'trips'          => $tripMeta,
+                        'trips' => $tripMeta,
                         'tax_breakdown' => [
-                            'gross_for_tax'        => $grossForTax,
-                            'insurance_base'       => $taxCalc['insurance_base'],
-                            'bhxh'                 => $taxCalc['bhxh'],
-                            'bhyt'                 => $taxCalc['bhyt'],
-                            'bhtn'                 => $taxCalc['bhtn'],
-                            'insurance_total'      => $taxCalc['insurance'],
-                            'personal_deduction'   => TaxCalculatorService::PERSONAL_DEDUCTION,
-                            'dependent_deduction'  => ($driver->tax_dependents ?? 0) * TaxCalculatorService::DEPENDENT_DEDUCTION,
-                            'taxable_income'       => $taxCalc['taxable_income'],
-                            'tncn_tax'             => $taxCalc['tncn_tax'],
-                            'dependents'           => $taxCalc['dependents'],
+                            'gross_for_tax' => $grossForTax,
+                            'insurance_base' => $taxCalc['insurance_base'],
+                            'bhxh' => $taxCalc['bhxh'],
+                            'bhyt' => $taxCalc['bhyt'],
+                            'bhtn' => $taxCalc['bhtn'],
+                            'insurance_total' => $taxCalc['insurance'],
+                            'personal_deduction' => TaxCalculatorService::PERSONAL_DEDUCTION,
+                            'dependent_deduction' => ($driver->tax_dependents ?? 0) * TaxCalculatorService::DEPENDENT_DEDUCTION,
+                            'taxable_income' => $taxCalc['taxable_income'],
+                            'tncn_tax' => $taxCalc['tncn_tax'],
+                            'dependents' => $taxCalc['dependents'],
                         ],
                         'config_snapshot' => [
-                            'insurance_ceiling'            => TaxCalculatorService::INSURANCE_CEILING,
+                            'insurance_ceiling' => TaxCalculatorService::INSURANCE_CEILING,
                             'default_allowance_per_driver' => $defaultAllowance,
-                            'default_working_days'         => $workingDays,
+                            'default_working_days' => $workingDays,
                         ],
                     ],
                 ]);
-                ++$linesCreated;
+                $linesCreated++;
             }
 
             return ['payroll' => $payroll->fresh(['lines.driver']), 'lines_created' => $linesCreated];
@@ -330,19 +330,19 @@ class DriverPayrollCalculationService
                 foreach ($payroll->lines as $line) {
                     $meta = $line->meta_json ?? [];
                     $meta['lock_snapshot'] = [
-                        'locked_at'           => now()->toIso8601String(),
-                        'payroll_config'      => $snapshot['payroll_config'] ?? null,
-                        'trip_bonus_rules'    => $snapshot['trip_bonus_rules'] ?? null,
-                        'driver_base_salary'  => $snapshot['drivers'][(string) $line->driver_id]['base_salary'] ?? null,
-                        'driver_position_id'  => $snapshot['drivers'][(string) $line->driver_id]['position_id'] ?? null,
+                        'locked_at' => now()->toIso8601String(),
+                        'payroll_config' => $snapshot['payroll_config'] ?? null,
+                        'trip_bonus_rules' => $snapshot['trip_bonus_rules'] ?? null,
+                        'driver_base_salary' => $snapshot['drivers'][(string) $line->driver_id]['base_salary'] ?? null,
+                        'driver_position_id' => $snapshot['drivers'][(string) $line->driver_id]['position_id'] ?? null,
                     ];
                     $line->update(['meta_json' => $meta]);
                 }
             });
 
             $payroll->update([
-                'status'        => 'locked',
-                'locked_at'     => now(),
+                'status' => 'locked',
+                'locked_at' => now(),
                 'snapshot_json' => $snapshot,
             ]);
 
@@ -380,14 +380,14 @@ class DriverPayrollCalculationService
         }
 
         return [
-            'locked_at'        => now()->toIso8601String(),
-            'payroll_id'       => $payroll->id,
-            'company_id'       => $payroll->company_id,
-            'month'            => $payroll->month,
-            'year'             => $payroll->year,
+            'locked_at' => now()->toIso8601String(),
+            'payroll_id' => $payroll->id,
+            'company_id' => $payroll->company_id,
+            'month' => $payroll->month,
+            'year' => $payroll->year,
             'trip_bonus_rules' => $rules,
-            'payroll_config'   => config('payroll'),
-            'drivers'          => $drivers,
+            'payroll_config' => config('payroll'),
+            'drivers' => $drivers,
         ];
     }
 
@@ -426,38 +426,52 @@ class DriverPayrollCalculationService
 
     private function unpaidLeaveDaysForPeriod(int $driverId, Carbon $start, Carbon $end): float
     {
-        // Clip overlapping leave requests to the payroll period so cross-month leaves
-        // (e.g. Oct 28 – Nov 3) are only counted once in each respective period.
-        return (float) DB::table('leave_requests')
-            ->join('leave_types', 'leave_types.id', '=', 'leave_requests.leave_type_id')
-            ->where('leave_requests.driver_id', $driverId)
-            ->where('leave_requests.status', 'approved')
-            ->where('leave_types.is_paid', false)
-            ->where('leave_requests.from_date', '<=', $end->toDateString())
-            ->where('leave_requests.to_date', '>=', $start->toDateString())
-            ->whereNull('leave_requests.deleted_at')
-            ->selectRaw(
-                'SUM(DATEDIFF(LEAST(leave_requests.to_date, ?), GREATEST(leave_requests.from_date, ?)) + 1) AS clipped_days',
-                [$end->toDateString(), $start->toDateString()],
-            )
-            ->value('clipped_days') ?? 0.0;
+        return $this->approvedLeaveDaysOverlappingPeriod($driverId, $start, $end, false);
     }
 
     private function paidLeaveDaysForPeriod(int $driverId, Carbon $start, Carbon $end): float
     {
-        return (float) DB::table('leave_requests')
+        return $this->approvedLeaveDaysOverlappingPeriod($driverId, $start, $end, true);
+    }
+
+    /**
+     * Approved leave days overlapping a calendar period (inclusive), clipped to the month.
+     * Implemented in PHP so payroll runs on SQLite (tests) and MySQL (production) without DATEDIFF/GREATEST/LEAST.
+     */
+    private function approvedLeaveDaysOverlappingPeriod(
+        int $driverId,
+        Carbon $start,
+        Carbon $end,
+        bool $isPaidLeave,
+    ): float {
+        $periodStart = $start->copy()->startOfDay();
+        $periodEnd = $end->copy()->startOfDay();
+
+        $rows = DB::table('leave_requests')
             ->join('leave_types', 'leave_types.id', '=', 'leave_requests.leave_type_id')
             ->where('leave_requests.driver_id', $driverId)
             ->where('leave_requests.status', 'approved')
-            ->where('leave_types.is_paid', true)
+            ->where('leave_types.is_paid', $isPaidLeave)
             ->where('leave_requests.from_date', '<=', $end->toDateString())
             ->where('leave_requests.to_date', '>=', $start->toDateString())
             ->whereNull('leave_requests.deleted_at')
-            ->selectRaw(
-                'SUM(DATEDIFF(LEAST(leave_requests.to_date, ?), GREATEST(leave_requests.from_date, ?)) + 1) AS clipped_days',
-                [$end->toDateString(), $start->toDateString()],
-            )
-            ->value('clipped_days') ?? 0.0;
+            ->select(['leave_requests.from_date', 'leave_requests.to_date'])
+            ->get();
+
+        $total = 0.0;
+
+        foreach ($rows as $row) {
+            $leaveFrom = Carbon::parse($row->from_date)->startOfDay();
+            $leaveTo = Carbon::parse($row->to_date)->startOfDay();
+            $clipFrom = $leaveFrom->max($periodStart);
+            $clipTo = $leaveTo->min($periodEnd);
+            if ($clipFrom->greaterThan($clipTo)) {
+                continue;
+            }
+            $total += $clipFrom->diffInDays($clipTo) + 1;
+        }
+
+        return (float) $total;
     }
 
     /**
@@ -467,7 +481,7 @@ class DriverPayrollCalculationService
      * Uses the same $stdDays denominator as night-shift allowance so all
      * per-hour rates are consistent within a single payroll period.
      *
-     * @param array<string> $holidayDates
+     * @param  array<string>  $holidayDates
      */
     private function calculateOtPay(
         int $driverId,
@@ -487,8 +501,8 @@ class DriverPayrollCalculationService
             ->orderBy('work_date')
             ->get();
 
-        $total        = 0.0;
-        $usedOtHours  = 0.0;
+        $total = 0.0;
+        $usedOtHours = 0.0;
 
         foreach ($otRequests as $ot) {
             $remaining = $maxOtHours - $usedOtHours;
@@ -500,7 +514,7 @@ class DriverPayrollCalculationService
             $hours = min((float) $ot->ot_hours, $remaining);
             $usedOtHours += $hours;
 
-            $dateStr   = $ot->work_date->toDateString();
+            $dateStr = $ot->work_date->toDateString();
             $dayOfWeek = $ot->work_date->dayOfWeek;
             $isHoliday = in_array($dateStr, $holidayDates);
             $isWeekend = in_array($dayOfWeek, [0, 6]);
@@ -508,7 +522,7 @@ class DriverPayrollCalculationService
             $multiplier = match (true) {
                 $isHoliday => 3.0,
                 $isWeekend => 2.0,
-                default    => 1.5,
+                default => 1.5,
             };
 
             $total += $hours * $hourlyRate * $multiplier;
@@ -553,7 +567,7 @@ class DriverPayrollCalculationService
         $totalNightHours = 0.0;
 
         foreach ($records as $record) {
-            $checkIn  = Carbon::parse($record->date.' '.$record->check_in);
+            $checkIn = Carbon::parse($record->date.' '.$record->check_in);
             $checkOut = Carbon::parse($record->date.' '.$record->check_out);
 
             if ($checkOut->lt($checkIn)) {
@@ -569,14 +583,14 @@ class DriverPayrollCalculationService
     private function nightHoursInWindow(Carbon $checkIn, Carbon $checkOut, int $startH, int $endH): float
     {
         $nightStartToday = (clone $checkIn)->setTime($startH, 0, 0);
-        $nightEndToday   = (clone $checkIn)->setTime($endH, 0, 0);
+        $nightEndToday = (clone $checkIn)->setTime($endH, 0, 0);
 
         if ($endH <= $startH) {
             $nightEndToday->addDay();
         }
 
         $overlapStart = max($checkIn->timestamp, $nightStartToday->timestamp);
-        $overlapEnd   = min($checkOut->timestamp, $nightEndToday->timestamp);
+        $overlapEnd = min($checkOut->timestamp, $nightEndToday->timestamp);
 
         if ($overlapEnd <= $overlapStart) {
             return 0.0;
@@ -589,7 +603,7 @@ class DriverPayrollCalculationService
      * Public holiday pay: when a driver works on a holiday they receive 300% of daily rate.
      * We detect "worked on holiday" via attendance records.
      *
-     * @param array<string> $holidayDates
+     * @param  array<string>  $holidayDates
      */
     private function calculatePublicHolidayPay(
         int $driverId,

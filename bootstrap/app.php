@@ -30,11 +30,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Logging levels mapping
+        $exceptions->level(\PDOException::class, \Psr\Log\LogLevel::CRITICAL);
+        $exceptions->level(\Illuminate\Database\QueryException::class, \Psr\Log\LogLevel::CRITICAL);
+        $exceptions->level(\Illuminate\Auth\AuthenticationException::class, \Psr\Log\LogLevel::INFO);
+        $exceptions->level(\Illuminate\Auth\Access\AuthorizationException::class, \Psr\Log\LogLevel::WARNING);
+        $exceptions->level(\Symfony\Component\HttpKernel\Exception\NotFoundHttpException::class, \Psr\Log\LogLevel::WARNING);
+        $exceptions->level(\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException::class, \Psr\Log\LogLevel::WARNING);
+        $exceptions->level(\Illuminate\Database\Eloquent\ModelNotFoundException::class, \Psr\Log\LogLevel::WARNING);
+        $exceptions->level(\Illuminate\Validation\ValidationException::class, \Psr\Log\LogLevel::NOTICE);
+
         // Always return JSON for API routes
         $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {
             return $request->is('api/*') || $request->expectsJson();
         });
-        
+
         // Validation Exception
         $exceptions->render(function (\Illuminate\Validation\ValidationException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {

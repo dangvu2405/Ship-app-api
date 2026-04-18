@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Leave\RejectLeaveRequest;
 use App\Http\Requests\Leave\StoreLeaveRequest;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
@@ -26,6 +27,7 @@ class LeaveController extends BaseController
      *     tags={"Leave"},
      *     summary="Danh sách loại nghỉ phép",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -42,10 +44,12 @@ class LeaveController extends BaseController
      *     tags={"Leave"},
      *     summary="Danh sách đơn nghỉ phép",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Parameter(name="driver_id", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="status", in="query", @OA\Schema(type="string", enum={"pending","approved","rejected","cancelled"})),
      *     @OA\Parameter(name="from", in="query", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="to", in="query", @OA\Schema(type="string", format="date")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -77,8 +81,10 @@ class LeaveController extends BaseController
      *     tags={"Leave"},
      *     summary="Tạo đơn nghỉ phép",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\RequestBody(required=true, @OA\JsonContent(
      *         required={"driver_id","leave_type_id","from_date","to_date","total_days"},
+     *
      *         @OA\Property(property="driver_id", type="integer"),
      *         @OA\Property(property="leave_type_id", type="integer"),
      *         @OA\Property(property="from_date", type="string", format="date"),
@@ -86,6 +92,7 @@ class LeaveController extends BaseController
      *         @OA\Property(property="total_days", type="number"),
      *         @OA\Property(property="reason", type="string", nullable=true)
      *     )),
+     *
      *     @OA\Response(response=201, description="Tạo thành công"),
      *     @OA\Response(response=422, description="Không đủ số ngày phép hoặc trùng lịch")
      * )
@@ -129,12 +136,14 @@ class LeaveController extends BaseController
         }
     }
 
-    public function reject(Request $request, LeaveRequest $leaveRequest): JsonResponse
+    public function reject(RejectLeaveRequest $request, LeaveRequest $leaveRequest): JsonResponse
     {
-        $request->validate(['rejection_reason' => ['required', 'string', 'max:1000']]);
-
         try {
-            $leave = $this->leaveService->reject($leaveRequest, $request->input('rejection_reason'), $request->user());
+            $leave = $this->leaveService->reject(
+                $leaveRequest,
+                (string) $request->validated('rejection_reason'),
+                $request->user(),
+            );
 
             return $this->successResponse($leave, 'Leave request rejected.');
         } catch (InvalidArgumentException $e) {

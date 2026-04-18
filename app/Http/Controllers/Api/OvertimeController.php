@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Overtime\RejectOvertimeRequest;
 use App\Http\Requests\Overtime\StoreOvertimeRequest;
 use App\Models\OvertimeRequest;
 use App\Services\OvertimeService;
@@ -25,9 +26,11 @@ class OvertimeController extends BaseController
      *     tags={"Overtime"},
      *     summary="Danh sách yêu cầu làm thêm giờ",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Parameter(name="driver_id", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="company_id", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="status", in="query", @OA\Schema(type="string", enum={"pending","approved","rejected"})),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -59,8 +62,10 @@ class OvertimeController extends BaseController
      *     tags={"Overtime"},
      *     summary="Tạo yêu cầu làm thêm giờ",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\RequestBody(required=true, @OA\JsonContent(
      *         required={"driver_id","company_id","work_date","start_time","end_time","ot_hours"},
+     *
      *         @OA\Property(property="driver_id", type="integer"),
      *         @OA\Property(property="company_id", type="integer"),
      *         @OA\Property(property="work_date", type="string", format="date"),
@@ -69,6 +74,7 @@ class OvertimeController extends BaseController
      *         @OA\Property(property="ot_hours", type="number", example=3),
      *         @OA\Property(property="reason", type="string", nullable=true)
      *     )),
+     *
      *     @OA\Response(response=201, description="Tạo thành công"),
      *     @OA\Response(response=422, description="Vượt giới hạn 40h/tháng")
      * )
@@ -112,12 +118,14 @@ class OvertimeController extends BaseController
         }
     }
 
-    public function reject(Request $request, OvertimeRequest $overtimeRequest): JsonResponse
+    public function reject(RejectOvertimeRequest $request, OvertimeRequest $overtimeRequest): JsonResponse
     {
-        $request->validate(['rejection_reason' => ['required', 'string', 'max:500']]);
-
         try {
-            $ot = $this->overtimeService->reject($overtimeRequest, $request->input('rejection_reason'), $request->user());
+            $ot = $this->overtimeService->reject(
+                $overtimeRequest,
+                (string) $request->validated('rejection_reason'),
+                $request->user(),
+            );
 
             return $this->successResponse($ot, 'Overtime request rejected.');
         } catch (InvalidArgumentException $e) {

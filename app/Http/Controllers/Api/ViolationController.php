@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Violation\DisputeViolationRequest;
+use App\Http\Requests\Violation\ResolveViolationDisputeRequest;
 use App\Http\Requests\Violation\StoreViolationRequest;
+use App\Http\Requests\Violation\WaiveViolationRequest;
 use App\Models\Violation;
 use App\Services\ViolationService;
 use Illuminate\Http\JsonResponse;
@@ -26,11 +28,13 @@ class ViolationController extends BaseController
      *     tags={"Violations"},
      *     summary="Danh sách vi phạm",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\Parameter(name="driver_id", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="company_id", in="query", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="status", in="query", @OA\Schema(type="string", enum={"pending","confirmed","disputed","waived"})),
      *     @OA\Parameter(name="from", in="query", @OA\Schema(type="string", format="date")),
      *     @OA\Parameter(name="to", in="query", @OA\Schema(type="string", format="date")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -65,8 +69,10 @@ class ViolationController extends BaseController
      *     tags={"Violations"},
      *     summary="Ghi nhận vi phạm mới",
      *     security={{"sanctum":{}}},
+     *
      *     @OA\RequestBody(required=true, @OA\JsonContent(
      *         required={"driver_id","company_id","type","occurred_at","description","penalty_amount"},
+     *
      *         @OA\Property(property="driver_id", type="integer"),
      *         @OA\Property(property="company_id", type="integer"),
      *         @OA\Property(property="trip_id", type="integer", nullable=true),
@@ -76,6 +82,7 @@ class ViolationController extends BaseController
      *         @OA\Property(property="penalty_amount", type="number"),
      *         @OA\Property(property="evidence_urls", type="array", @OA\Items(type="string", format="uri"))
      *     )),
+     *
      *     @OA\Response(response=201, description="Tạo thành công")
      * )
      */
@@ -135,13 +142,8 @@ class ViolationController extends BaseController
     /**
      * Resolve a dispute (upheld or overturned).
      */
-    public function resolveDispute(Request $request, Violation $violation): JsonResponse
+    public function resolveDispute(ResolveViolationDisputeRequest $request, Violation $violation): JsonResponse
     {
-        $request->validate([
-            'resolution'      => ['required', 'string', 'in:upheld,overturned'],
-            'resolution_note' => ['nullable', 'string', 'max:1000'],
-        ]);
-
         try {
             $dispute = $violation->dispute;
             if (! $dispute) {
@@ -160,12 +162,14 @@ class ViolationController extends BaseController
     /**
      * Waive a violation without a formal dispute. SoD enforced.
      */
-    public function waive(Request $request, Violation $violation): JsonResponse
+    public function waive(WaiveViolationRequest $request, Violation $violation): JsonResponse
     {
-        $request->validate(['waive_reason' => ['required', 'string', 'max:1000']]);
-
         try {
-            $v = $this->violationService->waive($violation, $request->input('waive_reason'), $request->user());
+            $v = $this->violationService->waive(
+                $violation,
+                (string) $request->validated('waive_reason'),
+                $request->user(),
+            );
 
             return $this->successResponse($v, 'Violation waived.');
         } catch (InvalidArgumentException $e) {

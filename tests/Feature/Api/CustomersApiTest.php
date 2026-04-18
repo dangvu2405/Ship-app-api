@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Role;
 use App\Models\User;
@@ -18,17 +19,19 @@ class CustomersApiTest extends TestCase
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $user = User::factory()->create(['status' => 'active']);
         $user->roles()->attach($adminRole->id);
+
         return $user;
     }
 
     public function test_customers_index_returns_paginated_list(): void
     {
+        $company = Company::factory()->create();
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        Customer::factory()->count(2)->create();
+        Customer::factory()->count(2)->create(['company_id' => $company->id]);
 
-        $response = $this->getJson('/api/v1/customers');
+        $response = $this->getJson('/api/v1/customers', $this->tenant_headers($company));
 
         $response->assertStatus(200)
             ->assertJsonStructure(['success', 'data' => ['data', 'meta']]);
@@ -36,6 +39,7 @@ class CustomersApiTest extends TestCase
 
     public function test_admin_can_create_customer(): void
     {
+        $company = Company::factory()->create();
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
@@ -45,7 +49,7 @@ class CustomersApiTest extends TestCase
             'phone' => '0912345678',
             'email' => 'acme@example.com',
             'address' => '456 Business Ave',
-        ]);
+        ], $this->tenant_headers($company));
 
         $response->assertStatus(201);
         $this->assertDatabaseHas('customers', ['name' => 'Acme Corp']);
@@ -53,12 +57,13 @@ class CustomersApiTest extends TestCase
 
     public function test_admin_can_show_customer(): void
     {
+        $company = Company::factory()->create();
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['company_id' => $company->id]);
 
-        $response = $this->getJson('/api/v1/customers/' . $customer->id);
+        $response = $this->getJson('/api/v1/customers/'.$customer->id, $this->tenant_headers($company));
 
         $response->assertStatus(200)
             ->assertJsonFragment(['id' => $customer->id]);
@@ -66,14 +71,15 @@ class CustomersApiTest extends TestCase
 
     public function test_admin_can_update_customer(): void
     {
+        $company = Company::factory()->create();
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['company_id' => $company->id]);
 
-        $response = $this->putJson('/api/v1/customers/' . $customer->id, [
+        $response = $this->putJson('/api/v1/customers/'.$customer->id, [
             'name' => 'Updated Customer',
-        ]);
+        ], $this->tenant_headers($company));
 
         $response->assertStatus(200);
         $this->assertDatabaseHas('customers', ['id' => $customer->id, 'name' => 'Updated Customer']);
@@ -81,12 +87,13 @@ class CustomersApiTest extends TestCase
 
     public function test_admin_can_delete_customer(): void
     {
+        $company = Company::factory()->create();
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
 
-        $customer = Customer::factory()->create();
+        $customer = Customer::factory()->create(['company_id' => $company->id]);
 
-        $response = $this->deleteJson('/api/v1/customers/' . $customer->id);
+        $response = $this->deleteJson('/api/v1/customers/'.$customer->id, [], $this->tenant_headers($company));
 
         $response->assertStatus(200);
     }

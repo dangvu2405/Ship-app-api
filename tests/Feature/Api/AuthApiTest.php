@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
-use App\Models\User;
-use App\Models\Role;
-use App\Models\Office;
 use App\Models\Department;
+use App\Models\Office;
+use App\Models\Role;
+use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Tests\TestCase;
 
 class AuthApiTest extends TestCase
@@ -23,6 +23,7 @@ class AuthApiTest extends TestCase
     use RefreshDatabase;
 
     private const SOCIAL_LOGIN_ENDPOINT = '/api/v1/auth/social/login';
+
     private const LARK_AUTH_CONTROLLER = 'App\\Http\\Controllers\\Api\\LarkAuthController';
 
     protected function setUp(): void
@@ -35,7 +36,7 @@ class AuthApiTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function postSocialLogin(array $payload): \Illuminate\Testing\TestResponse
     {
@@ -43,7 +44,7 @@ class AuthApiTest extends TestCase
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array{token: string, x5c: string, kid: string}
      */
     private function createAppleSignedIdToken(array $payload): array
@@ -757,11 +758,13 @@ class AuthApiTest extends TestCase
         $admin = User::factory()->create(['status' => 'active']);
         $admin->roles()->attach($adminRole->id);
 
+        $unique = bin2hex(random_bytes(4));
+        $email = 'newadmin+'.$unique.'@example.com';
         $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/auth/register', [
-            'username' => 'newadminuser',
-            'email' => 'newadmin@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'username' => 'newadminuser'.$unique,
+            'email' => $email,
+            'password' => 'Zx9!mK2$pL7@vN4#wQ8',
+            'password_confirmation' => 'Zx9!mK2$pL7@vN4#wQ8',
         ]);
 
         $response->assertStatus(201)
@@ -771,8 +774,7 @@ class AuthApiTest extends TestCase
             ]);
 
         $this->assertDatabaseHas('users', [
-            'username' => 'newadminuser',
-            'email' => 'newadmin@example.com',
+            'email' => $email,
         ]);
     }
 

@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\PayrollAdjustment\RejectPayrollAdjustmentRequest;
+use App\Http\Requests\PayrollAdjustment\StorePayrollAdjustmentRequest;
+use App\Http\Requests\PayrollAdjustment\UpdatePayrollAdjustmentRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Payroll;
 use App\Models\PayrollAdjustment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class PayrollAdjustmentController extends BaseController
+final class PayrollAdjustmentController extends BaseController
 {
     use HasIndexQuery;
 
@@ -20,27 +23,18 @@ class PayrollAdjustmentController extends BaseController
     {
         $query = PayrollAdjustment::query()->with(['driver', 'payroll', 'approver']);
         $result = $this->indexQuery($request, $query, ['reason'], [
-            'driver_id'  => 'driver_id',
+            'driver_id' => 'driver_id',
             'payroll_id' => 'payroll_id',
-            'type'       => 'type',
+            'type' => 'type',
             'company_id' => 'company_id',
         ]);
 
         return $this->successResponse($result, 'OK');
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StorePayrollAdjustmentRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'payroll_id'  => 'required|exists:payrolls,id',
-            'driver_id'   => 'required|exists:drivers,id',
-            'type'        => 'required|in:addition,deduction',
-            'amount'      => 'required|numeric|min:0',
-            'reason'      => 'required|string|max:1000',
-            'category'    => 'nullable|in:violation_refund,leave_restore,ot_late_approval,manual',
-            'source_type' => 'nullable|string|max:50',
-            'source_id'   => 'nullable|integer',
-        ]);
+        $data = $request->validated();
 
         $data['category'] ??= 'manual';
 
@@ -62,7 +56,7 @@ class PayrollAdjustmentController extends BaseController
         return $this->successResponse($model);
     }
 
-    public function update(Request $request, string $id): JsonResponse
+    public function update(UpdatePayrollAdjustmentRequest $request, string $id): JsonResponse
     {
         $model = PayrollAdjustment::find($id);
         if (! $model) {
@@ -73,13 +67,7 @@ class PayrollAdjustmentController extends BaseController
             return $this->errorResponse('Approved adjustments cannot be modified', 422);
         }
 
-        $data = $request->validate([
-            'type'   => 'sometimes|in:addition,deduction',
-            'amount' => 'sometimes|numeric|min:0',
-            'reason' => 'sometimes|string|max:1000',
-        ]);
-
-        $model->update($data);
+        $model->update($request->validated());
 
         return $this->successResponse($model->fresh(['driver', 'payroll']), 'Updated');
     }
@@ -116,14 +104,12 @@ class PayrollAdjustmentController extends BaseController
         return $this->successResponse($model->fresh(['driver', 'payroll', 'approver']), 'Approved');
     }
 
-    public function reject(Request $request, string $id): JsonResponse
+    public function reject(RejectPayrollAdjustmentRequest $request, string $id): JsonResponse
     {
         $model = PayrollAdjustment::find($id);
         if (! $model) {
             return $this->notFoundResponse('Payroll adjustment not found');
         }
-
-        $request->validate(['reason' => 'nullable|string|max:1000']);
 
         $model->delete();
 

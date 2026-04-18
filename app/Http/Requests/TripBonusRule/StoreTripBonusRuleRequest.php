@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\TripBonusRule;
 
+use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreTripBonusRuleRequest extends FormRequest
@@ -15,8 +16,13 @@ class StoreTripBonusRuleRequest extends FormRequest
 
     public function prepareForValidation(): void
     {
-        if (! $this->filled('company_id') && $this->user()?->driver?->company_id !== null) {
-            $this->merge(['company_id' => $this->user()->driver->company_id]);
+        if (! $this->filled('company_id')) {
+            $tenant_id = app(TenantContext::class)->getCompanyId();
+            if ($tenant_id !== null && $tenant_id > 0) {
+                $this->merge(['company_id' => $tenant_id]);
+            } elseif ($this->user()?->driver?->company_id !== null) {
+                $this->merge(['company_id' => $this->user()->driver->company_id]);
+            }
         }
 
         if (! $this->filled('effective_from')) {

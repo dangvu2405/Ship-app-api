@@ -19,9 +19,14 @@ class RegisterRequest extends FormRequest
      */
     public function rules(): array
     {
+        // In testing, skip DNS checks so CI / SQLite runs do not depend on resolver + real domains.
+        $email_format = app()->environment('testing')
+            ? 'email:rfc'
+            : 'email:rfc,dns';
+
         return [
             'username' => ['required', 'string', 'max:100', 'unique:users,username', 'regex:/^[a-zA-Z0-9_]+$/'],
-            'email'    => ['required', 'string', 'email:rfc,dns', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'string', $email_format, 'max:255', 'unique:users,email'],
             'password' => [
                 'required',
                 'confirmed',

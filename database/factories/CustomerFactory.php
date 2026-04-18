@@ -11,14 +11,12 @@ class CustomerFactory extends Factory
 {
     public function definition(): array
     {
-        $companyId = \App\Models\Company::query()->inRandomOrder()->value('id') ?? 1;
-
         return [
-            'company_id' => $companyId,
+            'company_id' => \App\Models\Company::factory(),
             'type' => fake()->randomElement(['individual', 'company']),
             'name' => fake()->company(),
             'tax_code' => fake()->optional(0.7)->numerify('##########'),
-            'phone' => '0' . fake()->numerify('#########'),
+            'phone' => '0'.fake()->numerify('#########'),
             'email' => fake()->optional(0.8)->safeEmail(),
             'address' => fake()->address(),
         ];
