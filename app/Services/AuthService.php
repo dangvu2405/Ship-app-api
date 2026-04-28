@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Mail\PasswordResetMail;
 use App\Models\Role;
 use App\Models\AuditLog;
 use App\Models\LoginLog;
@@ -13,9 +14,11 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -26,26 +29,40 @@ class AuthService
      */
     public function login(string $email, string $password): array
     {
-        $user = User::where('email', $email)
-            ->where('status', 'active')
-            ->first();
+        $user = User::where('email', $email)->first();
 
-        if (! $user || ! Hash::check($password, $user->password)) {
-            throw new AuthenticationException('Invalid credentials');
+        if (! $user) {
+            throw new AuthenticationException('ACCOUNT_NOT_FOUND');
+        }
+
+        if (! Hash::check($password, $user->password)) {
+            throw new AuthenticationException('INVALID_PASSWORD');
+        }
+        if ($user->status !== 'active') {
+            throw new AuthenticationException('ACCOUNT_INACTIVE');
         }
 
         $tokenPair = $this->issueTokenPair($user);
         $user->update(['last_login_at' => now()]);
-        LoginLog::query()->create([
-            'user_id' => $user->id,
-            'ip' => request()->ip(),
-            'device' => (string) request()->userAgent(),
-            'login_at' => now(),
-            'logout_at' => null,
-            'status' => 'active',
-            'action' => 'login',
-            'performed_by' => $user->username,
-        ]);
+
+        try {
+            LoginLog::query()->create([
+                'user_id' => $user->id,
+                'ip' => request()->ip(),
+                'device' => (string) request()->userAgent(),
+                'login_at' => now(),
+                'logout_at' => null,
+                'status' => 'active',
+                'action' => 'login',
+                'performed_by' => $user->username,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to write login log', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         $user->load(['driver', 'roles.permissions']);
 
         return [
@@ -139,8 +156,9 @@ class AuthService
             'status' => 'active',
         ]);
 
-        $adminRole = Role::firstOrCreate(['name' => 'admin']);
-        $user->roles()->syncWithoutDetaching([$adminRole->id]);
+        $defaultRole = config('ship.default_register_role', 'admin');
+        $role = Role::firstOrCreate(['name' => $defaultRole]);
+        $user->roles()->syncWithoutDetaching([$role->id]);
         $user->load(['driver', 'roles.permissions']);
 
         return $user;
@@ -431,33 +449,89 @@ class AuthService
 
     public function sendPasswordResetLink(string $email): void
     {
-        $status = Password::broker()->sendResetLink(['email' => $email]);
-
-        if (! in_array($status, [Password::RESET_LINK_SENT, Password::INVALID_USER], true)) {
-            throw new AuthenticationException('Unable to send password reset link');
+        $throttleKey = $this->passwordResetOtpThrottleCacheKey($email);
+        if (Cache::has($throttleKey)) {
+            throw new TooManyRequestsHttpException(60, 'Too many password reset requests. Please wait before trying again.');
         }
+
+        $user = User::query()->where('email', $email)->first();
+        if (! $user) {
+            Cache::put($throttleKey, true, now()->addSeconds(60));
+            return;
+        }
+
+        $otp = (string) random_int(100000, 999999);
+        $cacheKey = $this->passwordResetOtpCacheKey($email);
+        $verifiedKey = $this->passwordResetOtpVerifiedCacheKey($email);
+
+        Cache::put($cacheKey, Hash::make($otp), now()->addMinutes(2));
+        Cache::forget($verifiedKey);
+        Cache::put($throttleKey, true, now()->addSeconds(60));
+
+        Mail::to($user->getEmailForPasswordReset())->send(
+            new PasswordResetMail($user, $otp)
+        );
     }
 
     /**
-     * @param array{email: string, token: string, password: string, password_confirmation: string} $payload
+     * @param array{email: string, otp: string} $payload
+     * @return array{otp_token: string}
+     */
+    public function checkPasswordResetOtp(array $payload): array
+    {
+        $cacheKey = $this->passwordResetOtpCacheKey($payload['email']);
+        $otpHash = Cache::get($cacheKey);
+        if (! is_string($otpHash) || ! Hash::check($payload['otp'], $otpHash)) {
+            throw new AuthenticationException('Invalid or expired OTP');
+        }
+
+        $otpToken = Str::uuid()->toString();
+        Cache::put($this->passwordResetOtpVerifiedCacheKey($payload['email']), $otpToken, now()->addMinutes(2));
+
+        return [
+            'otp_token' => $otpToken,
+        ];
+    }
+
+    /**
+     * @param array{email: string, password: string, password_confirmation: string, otp_token: string} $payload
      */
     public function resetPassword(array $payload): void
     {
-        $status = Password::broker()->reset(
-            $payload,
-            function (User $user, string $password): void {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
-
-                event(new PasswordReset($user));
-            }
-        );
-
-        if ($status !== Password::PASSWORD_RESET) {
-            throw new AuthenticationException(__($status));
+        $verifiedKey = $this->passwordResetOtpVerifiedCacheKey($payload['email']);
+        $verifiedToken = Cache::get($verifiedKey);
+        if (! is_string($verifiedToken) || ! hash_equals($verifiedToken, (string) $payload['otp_token'])) {
+            throw new AuthenticationException('OTP verification required');
         }
+
+        $user = User::query()->where('email', $payload['email'])->first();
+        if (! $user) {
+            throw new AuthenticationException('Unable to reset password');
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($payload['password']),
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        Cache::forget($this->passwordResetOtpCacheKey($payload['email']));
+        Cache::forget($verifiedKey);
+        event(new PasswordReset($user));
+    }
+
+    private function passwordResetOtpCacheKey(string $email): string
+    {
+        return 'auth:password_reset_otp:'.mb_strtolower(trim($email));
+    }
+
+    private function passwordResetOtpThrottleCacheKey(string $email): string
+    {
+        return 'auth:password_reset_otp_throttle:'.mb_strtolower(trim($email));
+    }
+
+    private function passwordResetOtpVerifiedCacheKey(string $email): string
+    {
+        return 'auth:password_reset_otp_verified:'.mb_strtolower(trim($email));
     }
 
     /**

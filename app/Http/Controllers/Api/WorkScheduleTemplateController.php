@@ -19,13 +19,13 @@ final class WorkScheduleTemplateController extends BaseController
     ) {}
 
     /**
-     * GET /api/v1/work-schedule-templates?company_id=&include_inactive=
+     * GET /api/work-schedule-templates?company_id=&include_inactive=
      */
     public function index(Request $request): JsonResponse
     {
         $companyId = $this->resolveCompanyIdForWrite($request);
         if ($companyId === null) {
-            return $this->errorResponse('Thiếu ngữ cảnh công ty (company_id hoặc X-Tenant-ID).', 422);
+            return $this->errorResponse('api.work_schedule_template.company_context_missing', 422);
         }
 
         $query = WorkScheduleTemplate::query()
@@ -40,11 +40,11 @@ final class WorkScheduleTemplateController extends BaseController
             'id', 'company_id', 'name', 'shift_code', 'start_time', 'end_time', 'description', 'is_active', 'created_at', 'updated_at',
         ]);
 
-        return $this->successResponse(['templates' => $templates], 'OK');
+        return $this->successResponse(['templates' => $templates], 'api.common.ok');
     }
 
     /**
-     * POST /api/v1/work-schedule-templates
+     * POST /api/work-schedule-templates
      */
     public function store(StoreWorkScheduleTemplateRequest $request): JsonResponse
     {
@@ -52,7 +52,7 @@ final class WorkScheduleTemplateController extends BaseController
             $validated = $request->validated();
             $companyId = $validated['company_id'] ?? $this->tenantContext->getCompanyId();
             if ($companyId === null || $companyId < 1) {
-                return $this->errorResponse('Thiếu company_id hoặc X-Tenant-ID.', 422);
+                return $this->errorResponse('api.work_schedule_template.company_context_missing_short', 422);
             }
 
             unset($validated['company_id']);
@@ -63,55 +63,55 @@ final class WorkScheduleTemplateController extends BaseController
                 'is_active' => (bool) ($validated['is_active'] ?? true),
             ]);
 
-            return $this->successResponse($template->fresh(), 'Đã tạo khung giờ.', 201);
+            return $this->successResponse($template->fresh(), 'api.work_schedule_template.created', 201);
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
     }
 
     /**
-     * GET /api/v1/work-schedule-templates/{work_schedule_template}
+     * GET /api/work-schedule-templates/{work_schedule_template}
      */
     public function show(Request $request, WorkScheduleTemplate $work_schedule_template): JsonResponse
     {
         if (! $this->templateBelongsToTenant($request, $work_schedule_template)) {
-            return $this->errorResponse('Không tìm thấy khung giờ.', 404);
+            return $this->errorResponse('api.work_schedule_template.not_found', 404);
         }
 
-        return $this->successResponse($work_schedule_template, 'OK');
+        return $this->successResponse($work_schedule_template, 'api.common.ok');
     }
 
     /**
-     * PUT/PATCH /api/v1/work-schedule-templates/{work_schedule_template}
+     * PUT/PATCH /api/work-schedule-templates/{work_schedule_template}
      */
     public function update(UpdateWorkScheduleTemplateRequest $request, WorkScheduleTemplate $work_schedule_template): JsonResponse
     {
         try {
             if (! $this->templateBelongsToTenant($request, $work_schedule_template)) {
-                return $this->errorResponse('Không tìm thấy khung giờ.', 404);
+                return $this->errorResponse('api.work_schedule_template.not_found', 404);
             }
 
             $work_schedule_template->update($request->validated());
 
-            return $this->successResponse($work_schedule_template->fresh(), 'Đã cập nhật khung giờ.');
+            return $this->successResponse($work_schedule_template->fresh(), 'api.work_schedule_template.updated');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
     }
 
     /**
-     * DELETE /api/v1/work-schedule-templates/{work_schedule_template}
+     * DELETE /api/work-schedule-templates/{work_schedule_template}
      */
     public function destroy(Request $request, WorkScheduleTemplate $work_schedule_template): JsonResponse
     {
         try {
             if (! $this->templateBelongsToTenant($request, $work_schedule_template)) {
-                return $this->errorResponse('Không tìm thấy khung giờ.', 404);
+                return $this->errorResponse('api.work_schedule_template.not_found', 404);
             }
 
             $work_schedule_template->delete();
 
-            return $this->successResponse(null, 'Đã xóa khung giờ.');
+            return $this->successResponse(null, 'api.work_schedule_template.deleted');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }

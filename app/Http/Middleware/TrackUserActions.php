@@ -32,7 +32,7 @@ class TrackUserActions
             }
 
             // Avoid recursively logging auth log retrieval endpoints.
-            if ($request->is('api/v1/auth/logs*')) {
+            if ($request->is('api/auth/logs*')) {
                 return $response;
             }
 
@@ -108,10 +108,6 @@ class TrackUserActions
         if (($segments[0] ?? '') === 'api') {
             array_shift($segments);
         }
-        if (($segments[0] ?? '') === 'v1') {
-            array_shift($segments);
-        }
-
         $tableName = $segments[0] ?? 'api_requests';
         $recordId = null;
         foreach ($segments as $segment) {

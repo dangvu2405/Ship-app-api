@@ -47,7 +47,7 @@ class UpdateTripBonusRuleRequest extends FormRequest
 
                 $effectiveTo = $this->input('effective_to');
                 if ($effectiveFrom !== null && $effectiveTo !== null && $effectiveTo !== '' && $effectiveFrom !== '' && $effectiveTo < $effectiveFrom) {
-                    $validator->errors()->add('effective_to', 'effective_to must be >= effective_from.');
+                    $validator->errors()->add('effective_to', __('api.validation.trip_bonus_effective_to_invalid'));
                 }
             }
 
@@ -59,7 +59,7 @@ class UpdateTripBonusRuleRequest extends FormRequest
             $maxKm = $this->input('max_km');
 
             if ($maxKm !== null && $maxKm !== '' && (float) $maxKm <= $minKm) {
-                $validator->errors()->add('max_km', 'The max km field must be greater than min km.');
+                $validator->errors()->add('max_km', __('api.validation.trip_bonus_max_km_invalid'));
             }
         });
     }

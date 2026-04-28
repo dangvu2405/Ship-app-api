@@ -21,8 +21,8 @@ class UpdatePositionRequest extends FormRequest
             'company_id' => 'sometimes|integer|exists:companies,id',
             'code' => 'sometimes|string|max:50|unique:positions,code,' . $id,
             'name' => 'sometimes|string|max:255',
-            'base_salary' => 'sometimes|numeric|min:0',
-            'level' => 'nullable|integer|min:0',
+            'base_salary' => 'sometimes|numeric|min:0|max:999999999',
+            'level' => 'nullable|integer|min:0|max:10',
         ];
     }
 }

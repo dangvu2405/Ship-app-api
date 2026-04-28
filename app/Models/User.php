@@ -6,9 +6,11 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\Company;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -29,7 +31,6 @@ class User extends Authenticatable
         'social_provider_id',
         'avatar_url',
         'password',
-        'driver_id',
         'status',
         'last_login_at',
         'emergency_contact_name',
@@ -61,15 +62,66 @@ class User extends Authenticatable
         ];
     }
 
-    // Relationships
-    public function driver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    // Accessors
+
+    /**
+     * Returns the stored avatar URL, or a DiceBear generated avatar when none is set.
+     *
+     * DiceBear is a free, open-source API — no key required.
+     * Style "initials" renders the user's initials (e.g. "JD" for "john_doe").
+     * The seed is the username so the same user always gets the same avatar.
+     *
+     * Frontend can override by uploading a real photo (stored in avatar_url column).
+     */
+    protected function avatarUrl(): Attribute
     {
-        return $this->belongsTo(Driver::class);
+        return Attribute::make(
+            get: function (?string $value): string {
+                if ($value !== null && $value !== '') {
+                    return $value;
+                }
+
+                $seed = urlencode($this->username ?? $this->email ?? 'user');
+
+                return "https://api.dicebear.com/7.x/initials/svg?seed={$seed}&backgroundColor=3b82f6,8b5cf6,ec4899,f97316,10b981&backgroundType=gradientLinear&fontSize=40&bold=true";
+            },
+        );
     }
 
+    // Relationships
+
+    /**
+     * The driver profile linked to this account (FK lives on drivers.user_id).
+     */
+    public function driver(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Driver::class);
+    }
+
+    /**
+     * All roles across all companies.
+     * Use rolesForCompany() when you need tenant-scoped access checks.
+     */
     public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->belongsToMany(Role::class, 'user_roles');
+        return $this->belongsToMany(Role::class, 'user_roles')
+            ->withPivot('company_id', 'office_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Roles for a specific company, plus any global roles (company_id IS NULL).
+     * This is the correct method to use during a tenant session.
+     */
+    public function rolesForCompany(int $companyId): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'user_roles')
+            ->withPivot('company_id', 'office_id')
+            ->withTimestamps()
+            ->where(function ($q) use ($companyId) {
+                $q->where('user_roles.company_id', $companyId)
+                    ->orWhereNull('user_roles.company_id');
+            });
     }
 
     public function loginLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -140,21 +192,55 @@ class User extends Authenticatable
     }
 
     // Helper methods
-    public function hasRole($roleName)
+
+    /**
+     * Check if the user has a role globally or within a specific company.
+     * Pass $companyId to restrict the check to that tenant context.
+     */
+    public function hasRole(string $roleName, ?int $companyId = null): bool
     {
-        return $this->roles()->where('name', $roleName)->exists();
+        $query = $this->roles()->where('roles.name', $roleName);
+
+        if ($companyId !== null) {
+            if ($roleName === 'admin') {
+                // 'admin' is a global role stored with company_id=NULL.
+                // Passing companyId here just means "is this user admin in the context
+                // of this company?" — the answer is yes if they have the global admin role.
+                $query->whereNull('user_roles.company_id');
+            } else {
+                // company_admin, office_admin, and custom roles are always scoped
+                // to an exact company. Never fall back to NULL to prevent escalation.
+                $query->where('user_roles.company_id', $companyId);
+            }
+        }
+
+        return $query->exists();
     }
 
-    public function hasPermission($permissionCode)
+    /**
+     * Check if the user has a permission globally or within a specific company.
+     * Admin with a global role always passes regardless of company.
+     */
+    public function hasPermission(string $permissionCode, ?int $companyId = null): bool
     {
-        if ($this->hasRole('admin')) {
+        if ($this->hasRole('admin', $companyId)) {
             return true;
         }
 
-        return $this->roles()
-            ->whereHas('permissions', function ($query) use ($permissionCode) {
-                $query->where('code', $permissionCode);
-            })
+        $rolesQuery = $companyId !== null
+            ? $this->rolesForCompany($companyId)
+            : $this->roles();
+
+        return $rolesQuery
+            ->whereHas('permissions', fn ($q) => $q->where('code', $permissionCode))
             ->exists();
+    }
+
+    /**
+     * Send password reset email through dedicated Mailable in app/Mail.
+     */
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new ResetPassword((string) $token));
     }
 }

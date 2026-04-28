@@ -4,20 +4,22 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOffice;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Driver extends Model
 {
+    use BelongsToOffice;
     use BelongsToTenant;
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'user_id',
         // Personal info
         'code',
         'name',
@@ -122,9 +124,12 @@ class Driver extends Model
         return $this->belongsTo(Position::class);
     }
 
-    public function user(): HasOne
+    /**
+     * The user account linked to this driver profile (FK: drivers.user_id → users.id).
+     */
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->hasOne(User::class);
+        return $this->belongsTo(User::class);
     }
 
     public function trips(): HasMany

@@ -8,16 +8,20 @@ use App\Http\Requests\PayrollAdjustment\RejectPayrollAdjustmentRequest;
 use App\Http\Requests\PayrollAdjustment\StorePayrollAdjustmentRequest;
 use App\Http\Requests\PayrollAdjustment\UpdatePayrollAdjustmentRequest;
 use App\Http\Traits\HasIndexQuery;
-use App\Models\Payroll;
 use App\Models\PayrollAdjustment;
+use App\Services\Payroll\PayrollAdjustmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
+use Throwable;
 
 final class PayrollAdjustmentController extends BaseController
 {
     use HasIndexQuery;
 
     protected array $allowedSortColumns = ['id', 'company_id', 'driver_id', 'type', 'amount', 'created_at'];
+
+    public function __construct(private readonly PayrollAdjustmentService $service) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -29,90 +33,99 @@ final class PayrollAdjustmentController extends BaseController
             'company_id' => 'company_id',
         ]);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     public function store(StorePayrollAdjustmentRequest $request): JsonResponse
     {
-        $data = $request->validated();
+        try {
+            $adjustment = $this->service->create($request->validated());
 
-        $data['category'] ??= 'manual';
-
-        $payroll = Payroll::find($data['payroll_id']);
-        $data['company_id'] = $payroll->company_id;
-
-        $adjustment = PayrollAdjustment::create($data);
-
-        return $this->successResponse($adjustment->load(['driver', 'payroll']), 'Payroll adjustment created', 201);
+            return $this->successResponse($adjustment, 'api.payroll_adjustment.created', 201);
+        } catch (Throwable $e) {
+            return $this->handleException($e);
+        }
     }
 
     public function show(string $id): JsonResponse
     {
         $model = PayrollAdjustment::with(['driver', 'payroll', 'approver'])->find($id);
         if (! $model) {
-            return $this->notFoundResponse('Payroll adjustment not found');
+            return $this->notFoundResponse('api.payroll_adjustment.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 
     public function update(UpdatePayrollAdjustmentRequest $request, string $id): JsonResponse
     {
         $model = PayrollAdjustment::find($id);
         if (! $model) {
-            return $this->notFoundResponse('Payroll adjustment not found');
+            return $this->notFoundResponse('api.payroll_adjustment.not_found');
         }
 
-        if ($model->approved_by !== null) {
-            return $this->errorResponse('Approved adjustments cannot be modified', 422);
+        try {
+            $updated = $this->service->update($model, $request->validated());
+
+            return $this->successResponse($updated, 'api.payroll_adjustment.updated');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->handleException($e);
         }
-
-        $model->update($request->validated());
-
-        return $this->successResponse($model->fresh(['driver', 'payroll']), 'Updated');
     }
 
     public function destroy(string $id): JsonResponse
     {
         $model = PayrollAdjustment::find($id);
         if (! $model) {
-            return $this->notFoundResponse('Payroll adjustment not found');
+            return $this->notFoundResponse('api.payroll_adjustment.not_found');
         }
 
-        if ($model->approved_by !== null) {
-            return $this->errorResponse('Approved adjustments cannot be deleted', 422);
+        try {
+            $this->service->delete($model);
+
+            return $this->successResponse(null, 'api.payroll_adjustment.deleted');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->handleException($e);
         }
-
-        $model->delete();
-
-        return $this->successResponse(null, 'Payroll adjustment deleted');
     }
 
-    public function approve(string $id): JsonResponse
+    public function approve(Request $request, string $id): JsonResponse
     {
         $model = PayrollAdjustment::find($id);
         if (! $model) {
-            return $this->notFoundResponse('Payroll adjustment not found');
+            return $this->notFoundResponse('api.payroll_adjustment.not_found');
         }
 
-        if ($model->approved_by !== null) {
-            return $this->errorResponse('Adjustment already approved', 422);
+        try {
+            $approved = $this->service->approve($model, $request->user());
+
+            return $this->successResponse($approved, 'api.payroll_adjustment.approved');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->handleException($e);
         }
-
-        $model->update(['approved_by' => auth()->id()]);
-
-        return $this->successResponse($model->fresh(['driver', 'payroll', 'approver']), 'Approved');
     }
 
     public function reject(RejectPayrollAdjustmentRequest $request, string $id): JsonResponse
     {
         $model = PayrollAdjustment::find($id);
         if (! $model) {
-            return $this->notFoundResponse('Payroll adjustment not found');
+            return $this->notFoundResponse('api.payroll_adjustment.not_found');
         }
 
-        $model->delete();
+        try {
+            $this->service->delete($model);
 
-        return $this->successResponse(null, 'Adjustment rejected and removed');
+            return $this->successResponse(null, 'api.payroll_adjustment.rejected_removed');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (Throwable $e) {
+            return $this->handleException($e);
+        }
     }
 }

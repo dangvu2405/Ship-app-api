@@ -22,6 +22,6 @@ final class PublicHolidayController extends BaseController
             ->orderBy('date')
             ->get();
 
-        return $this->successResponse($data, 'Public holidays retrieved.');
+        return $this->successResponse($data, 'api.public_holiday.retrieved');
     }
 }

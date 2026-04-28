@@ -38,6 +38,7 @@ $currentUserResponse = static function (Request $request) {
     ]);
 };
 
+
 $registerAuthenticatedRoutes = static function () use ($currentUserResponse): void {
     Route::prefix('auth')->group(function () use ($currentUserResponse): void {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -89,11 +90,17 @@ $registerAuthenticatedRoutes = static function () use ($currentUserResponse): vo
 };
 
 $registerAdminRoutes = static function (): void {
+    // =========================
+    // Authentication
+    // =========================
     Route::prefix('auth')->group(function (): void {
         Route::post('/register', [AuthController::class, 'register']);
     });
 
-    Route::apiResource('companies', \App\Http\Controllers\Api\CompanyController::class);
+    // =========================
+    // Master Data
+    // =========================
+    Route::apiResource('companies', \App\Http\Controllers\Api\Company\CompanyController::class);
     Route::apiResource('work-schedule-templates', \App\Http\Controllers\Api\WorkScheduleTemplateController::class)
         ->except(['create', 'edit']);
     Route::post('offices/{office}/apply-schedule', [\App\Http\Controllers\Api\OfficeApplyScheduleController::class, 'store']);
@@ -106,98 +113,153 @@ $registerAdminRoutes = static function (): void {
     Route::apiResource('vehicle_expenses', \App\Http\Controllers\Api\VehicleExpenseController::class);
     Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
 
-    // Trip lifecycle action endpoints
-    Route::post('trips/{id}/assign', [\App\Http\Controllers\Api\TripController::class, 'assign'])->name('trips.assign');
-    Route::post('trips/{id}/start', [\App\Http\Controllers\Api\TripController::class, 'start'])->name('trips.start');
-    Route::post('trips/{id}/pickup', [\App\Http\Controllers\Api\TripController::class, 'pickup'])->name('trips.pickup');
-    Route::post('trips/{id}/transit', [\App\Http\Controllers\Api\TripController::class, 'transit'])->name('trips.transit');
-    Route::post('trips/{id}/arrive', [\App\Http\Controllers\Api\TripController::class, 'arrive'])->name('trips.arrive');
-    Route::post('trips/{id}/complete', [\App\Http\Controllers\Api\TripController::class, 'complete'])->name('trips.complete');
-    Route::post('trips/{id}/cancel', [\App\Http\Controllers\Api\TripController::class, 'cancel'])->name('trips.cancel');
-    Route::post('trips/{id}/delay', [\App\Http\Controllers\Api\TripController::class, 'delay'])->name('trips.delay');
-    Route::post('trips/{id}/resume', [\App\Http\Controllers\Api\TripController::class, 'resume'])->name('trips.resume');
+    // =========================
+    // Trips
+    // =========================
+    Route::prefix('trips')->group(function (): void {
+        Route::post('{id}/assign', [\App\Http\Controllers\Api\TripController::class, 'assign'])->name('trips.assign');
+        Route::post('{id}/start', [\App\Http\Controllers\Api\TripController::class, 'start'])->name('trips.start');
+        Route::post('{id}/pickup', [\App\Http\Controllers\Api\TripController::class, 'pickup'])->name('trips.pickup');
+        Route::post('{id}/transit', [\App\Http\Controllers\Api\TripController::class, 'transit'])->name('trips.transit');
+        Route::post('{id}/arrive', [\App\Http\Controllers\Api\TripController::class, 'arrive'])->name('trips.arrive');
+        Route::post('{id}/complete', [\App\Http\Controllers\Api\TripController::class, 'complete'])->name('trips.complete');
+        Route::post('{id}/cancel', [\App\Http\Controllers\Api\TripController::class, 'cancel'])->name('trips.cancel');
+        Route::post('{id}/delay', [\App\Http\Controllers\Api\TripController::class, 'delay'])->name('trips.delay');
+        Route::post('{id}/resume', [\App\Http\Controllers\Api\TripController::class, 'resume'])->name('trips.resume');
+    });
     Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
     Route::apiResource('trip_bonus_rules', \App\Http\Controllers\Api\TripBonusRuleController::class);
 
-    // Invoice lifecycle action endpoints
-    Route::post('invoices/{id}/issue', [\App\Http\Controllers\Api\InvoiceController::class, 'issue'])->name('invoices.issue');
-    Route::post('invoices/{id}/mark-paid', [\App\Http\Controllers\Api\InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
-    Route::post('invoices/{id}/send-cqt', [\App\Http\Controllers\Api\InvoiceController::class, 'sendCqt'])->name('invoices.send-cqt');
-    Route::post('invoices/{id}/cancel', [\App\Http\Controllers\Api\InvoiceController::class, 'cancel'])->name('invoices.cancel');
+    // =========================
+    // Invoices
+    // =========================
+    Route::prefix('invoices')->group(function (): void {
+        Route::post('{id}/issue', [\App\Http\Controllers\Api\InvoiceController::class, 'issue'])->name('invoices.issue');
+        Route::post('{id}/mark-paid', [\App\Http\Controllers\Api\InvoiceController::class, 'markPaid'])->name('invoices.mark-paid');
+        Route::post('{id}/send-cqt', [\App\Http\Controllers\Api\InvoiceController::class, 'sendCqt'])->name('invoices.send-cqt');
+        Route::post('{id}/cancel', [\App\Http\Controllers\Api\InvoiceController::class, 'cancel'])->name('invoices.cancel');
+    });
     Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
 
-    // Payroll Adjustments (with hyphen to match frontend endpoint /payroll-adjustments)
-    Route::post('payroll-adjustments/{id}/approve', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'approve'])->name('payroll-adjustments.approve');
-    Route::post('payroll-adjustments/{id}/reject', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'reject'])->name('payroll-adjustments.reject');
-    Route::get('payroll-adjustments', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'index'])->name('payroll-adjustments.index');
-    Route::post('payroll-adjustments', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'store'])->name('payroll-adjustments.store');
-    Route::get('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'show'])->name('payroll-adjustments.show');
-    Route::put('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'update'])->name('payroll-adjustments.update');
-    Route::patch('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'update'])->name('payroll-adjustments.patch');
-    Route::delete('payroll-adjustments/{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'destroy'])->name('payroll-adjustments.destroy');
+    // =========================
+    // Payroll Adjustments
+    // =========================
+    Route::prefix('payroll-adjustments')->group(function (): void {
+        Route::post('{id}/approve', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'approve'])->name('payroll-adjustments.approve');
+        Route::post('{id}/reject', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'reject'])->name('payroll-adjustments.reject');
+        Route::get('/', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'index'])->name('payroll-adjustments.index');
+        Route::post('/', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'store'])->name('payroll-adjustments.store');
+        Route::get('{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'show'])->name('payroll-adjustments.show');
+        Route::put('{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'update'])->name('payroll-adjustments.update');
+        Route::patch('{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'update'])->name('payroll-adjustments.patch');
+        Route::delete('{id}', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'destroy'])->name('payroll-adjustments.destroy');
+    });
 
-    // Payroll
-    Route::post('payrolls/{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
-    Route::post('payrolls/{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
-    Route::post('payrolls/{id}/mark-paid', [\App\Http\Controllers\Api\PayrollController::class, 'markPaid'])->name('payrolls.mark-paid');
-    Route::get('payrolls/{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
-    Route::get('payrolls/driver/{driverId}', [\App\Http\Controllers\Api\PayrollController::class, 'driverMonthlySalary'])->name('payrolls.driver-monthly');
+    // =========================
+    // Payrolls
+    // =========================
+    Route::prefix('payrolls')->group(function (): void {
+        Route::post('{id}/approve', [\App\Http\Controllers\Api\PayrollController::class, 'approve'])->name('payrolls.approve');
+        Route::post('{id}/lock', [\App\Http\Controllers\Api\PayrollController::class, 'lock'])->name('payrolls.lock');
+        Route::post('{id}/mark-paid', [\App\Http\Controllers\Api\PayrollController::class, 'markPaid'])->name('payrolls.mark-paid');
+        Route::get('{id}/export', [\App\Http\Controllers\Api\PayrollController::class, 'export'])->name('payrolls.export');
+        Route::get('driver/{driverId}', [\App\Http\Controllers\Api\PayrollController::class, 'driverMonthlySalary'])->name('payrolls.driver-monthly');
+    });
     Route::apiResource('payrolls', \App\Http\Controllers\Api\PayrollController::class);
 
-    // Driver Work Schedules
-    Route::post('driver-schedules/{driverWorkSchedule}/submit', [\App\Http\Controllers\Api\DriverScheduleController::class, 'submit'])->name('driver-schedules.submit');
-    Route::post('driver-schedules/{driverWorkSchedule}/approve', [\App\Http\Controllers\Api\DriverScheduleController::class, 'approve'])->name('driver-schedules.approve');
-    Route::post('driver-schedules/{driverWorkSchedule}/reject', [\App\Http\Controllers\Api\DriverScheduleController::class, 'reject'])->name('driver-schedules.reject');
-    Route::post('driver-schedules/{driverWorkSchedule}/lock', [\App\Http\Controllers\Api\DriverScheduleController::class, 'lock'])->name('driver-schedules.lock');
-    Route::post('driver-schedules/{driverWorkSchedule}/override', [\App\Http\Controllers\Api\DriverScheduleController::class, 'override'])->name('driver-schedules.override');
-    Route::get('driver-schedules/{driverWorkSchedule}/hos-check', [\App\Http\Controllers\Api\DriverScheduleController::class, 'hosCheck'])->name('driver-schedules.hos-check');
-    Route::post('driver-schedules/{driverWorkSchedule}/hos-check', [\App\Http\Controllers\Api\DriverScheduleController::class, 'hosCheck'])->name('driver-schedules.hos-check.post');
+    // =========================
+    // Driver Schedules
+    // =========================
+    Route::prefix('driver-schedules')->group(function (): void {
+        Route::post('{driverWorkSchedule}/submit', [\App\Http\Controllers\Api\DriverScheduleController::class, 'submit'])->name('driver-schedules.submit');
+        Route::post('{driverWorkSchedule}/approve', [\App\Http\Controllers\Api\DriverScheduleController::class, 'approve'])->name('driver-schedules.approve');
+        Route::post('{driverWorkSchedule}/reject', [\App\Http\Controllers\Api\DriverScheduleController::class, 'reject'])->name('driver-schedules.reject');
+        Route::post('{driverWorkSchedule}/lock', [\App\Http\Controllers\Api\DriverScheduleController::class, 'lock'])->name('driver-schedules.lock');
+        Route::post('{driverWorkSchedule}/override', [\App\Http\Controllers\Api\DriverScheduleController::class, 'override'])->name('driver-schedules.override');
+        Route::get('{driverWorkSchedule}/hos-check', [\App\Http\Controllers\Api\DriverScheduleController::class, 'hosCheck'])->name('driver-schedules.hos-check');
+        Route::post('{driverWorkSchedule}/hos-check', [\App\Http\Controllers\Api\DriverScheduleController::class, 'hosCheck'])->name('driver-schedules.hos-check.post');
+    });
     Route::apiResource('driver-schedules', \App\Http\Controllers\Api\DriverScheduleController::class);
 
+    // =========================
     // Attendance
-    Route::post('attendance/check-in', [\App\Http\Controllers\Api\AttendanceController::class, 'checkIn'])->name('attendance.check-in');
-    Route::post('attendance/check-out', [\App\Http\Controllers\Api\AttendanceController::class, 'checkOut'])->name('attendance.check-out');
-    Route::patch('attendance/{id}/adjust', [\App\Http\Controllers\Api\AttendanceController::class, 'adjust'])->name('attendance.adjust');
-    Route::get('attendance', [\App\Http\Controllers\Api\AttendanceController::class, 'index'])->name('attendance.index');
-    // Legacy aliases for FE compatibility
-    Route::get('attendances', [\App\Http\Controllers\Api\AttendanceController::class, 'index'])->name('attendances.index');
-    Route::post('attendances/check-in', [\App\Http\Controllers\Api\AttendanceController::class, 'checkIn'])->name('attendances.check-in');
-    Route::post('attendances/check-out', [\App\Http\Controllers\Api\AttendanceController::class, 'checkOut'])->name('attendances.check-out');
-    Route::patch('attendances/{id}/adjust', [\App\Http\Controllers\Api\AttendanceController::class, 'adjust'])->name('attendances.adjust');
-    Route::get('attendances/late', [\App\Http\Controllers\Api\AttendanceController::class, 'late'])->name('attendances.late');
-    Route::get('attendances/late/list', [\App\Http\Controllers\Api\AttendanceController::class, 'late'])->name('attendances.late.list');
-    Route::post('attendances/late/notify', [\App\Http\Controllers\Api\AttendanceController::class, 'notifyLate'])->name('attendances.late.notify');
+    // =========================
+    Route::prefix('attendance')->group(function (): void {
+        Route::post('check-in', [\App\Http\Controllers\Api\AttendanceController::class, 'checkIn'])->name('attendance.check-in');
+        Route::post('check-out', [\App\Http\Controllers\Api\AttendanceController::class, 'checkOut'])->name('attendance.check-out');
+        Route::patch('{id}/adjust', [\App\Http\Controllers\Api\AttendanceController::class, 'adjust'])->name('attendance.adjust');
+        Route::get('/', [\App\Http\Controllers\Api\AttendanceController::class, 'index'])->name('attendance.index');
+    });
 
+    // Legacy aliases for FE compatibility
+    Route::prefix('attendances')->group(function (): void {
+        Route::get('/', [\App\Http\Controllers\Api\AttendanceController::class, 'index'])->name('attendances.index');
+        Route::post('check-in', [\App\Http\Controllers\Api\AttendanceController::class, 'checkIn'])->name('attendances.check-in');
+        Route::post('check-out', [\App\Http\Controllers\Api\AttendanceController::class, 'checkOut'])->name('attendances.check-out');
+        Route::patch('{id}/adjust', [\App\Http\Controllers\Api\AttendanceController::class, 'adjust'])->name('attendances.adjust');
+        Route::get('late', [\App\Http\Controllers\Api\AttendanceController::class, 'late'])->name('attendances.late');
+        Route::get('late/list', [\App\Http\Controllers\Api\AttendanceController::class, 'late'])->name('attendances.late.list');
+        Route::post('late/notify', [\App\Http\Controllers\Api\AttendanceController::class, 'notifyLate'])->name('attendances.late.notify');
+    });
+
+    // =========================
     // Leave
-    Route::get('leave/types', [\App\Http\Controllers\Api\LeaveController::class, 'types'])->name('leave.types');
-    Route::post('leave/{leaveRequest}/approve', [\App\Http\Controllers\Api\LeaveController::class, 'approve'])->name('leave.approve');
-    Route::post('leave/{leaveRequest}/reject', [\App\Http\Controllers\Api\LeaveController::class, 'reject'])->name('leave.reject');
-    Route::post('leave/{leaveRequest}/cancel', [\App\Http\Controllers\Api\LeaveController::class, 'cancel'])->name('leave.cancel');
+    // =========================
+    Route::prefix('leave')->group(function (): void {
+        Route::get('types', [\App\Http\Controllers\Api\LeaveController::class, 'types'])->name('leave.types');
+        Route::post('{leaveRequest}/approve', [\App\Http\Controllers\Api\LeaveController::class, 'approve'])->name('leave.approve');
+        Route::post('{leaveRequest}/reject', [\App\Http\Controllers\Api\LeaveController::class, 'reject'])->name('leave.reject');
+        Route::post('{leaveRequest}/cancel', [\App\Http\Controllers\Api\LeaveController::class, 'cancel'])->name('leave.cancel');
+    });
     Route::apiResource('leave', \App\Http\Controllers\Api\LeaveController::class)->only(['index', 'store', 'show']);
 
+    // =========================
     // Overtime
-    Route::post('overtime/{overtimeRequest}/approve', [\App\Http\Controllers\Api\OvertimeController::class, 'approve'])->name('overtime.approve');
-    Route::post('overtime/{overtimeRequest}/reject', [\App\Http\Controllers\Api\OvertimeController::class, 'reject'])->name('overtime.reject');
+    // =========================
+    Route::prefix('overtime')->group(function (): void {
+        Route::post('{overtimeRequest}/approve', [\App\Http\Controllers\Api\OvertimeController::class, 'approve'])->name('overtime.approve');
+        Route::post('{overtimeRequest}/reject', [\App\Http\Controllers\Api\OvertimeController::class, 'reject'])->name('overtime.reject');
+    });
     Route::apiResource('overtime', \App\Http\Controllers\Api\OvertimeController::class)->only(['index', 'store', 'show']);
 
+    // =========================
     // Violations
-    Route::post('violations/{violation}/confirm', [\App\Http\Controllers\Api\ViolationController::class, 'confirm'])->name('violations.confirm');
-    Route::post('violations/{violation}/dispute', [\App\Http\Controllers\Api\ViolationController::class, 'dispute'])->name('violations.dispute');
-    Route::post('violations/{violation}/resolve-dispute', [\App\Http\Controllers\Api\ViolationController::class, 'resolveDispute'])->name('violations.resolve-dispute');
-    Route::post('violations/{violation}/waive', [\App\Http\Controllers\Api\ViolationController::class, 'waive'])->name('violations.waive');
+    // =========================
+    Route::prefix('violations')->group(function (): void {
+        Route::post('{violation}/confirm', [\App\Http\Controllers\Api\ViolationController::class, 'confirm'])->name('violations.confirm');
+        Route::post('{violation}/dispute', [\App\Http\Controllers\Api\ViolationController::class, 'dispute'])->name('violations.dispute');
+        Route::post('{violation}/resolve-dispute', [\App\Http\Controllers\Api\ViolationController::class, 'resolveDispute'])->name('violations.resolve-dispute');
+        Route::post('{violation}/waive', [\App\Http\Controllers\Api\ViolationController::class, 'waive'])->name('violations.waive');
+    });
     Route::apiResource('violations', \App\Http\Controllers\Api\ViolationController::class)->only(['index', 'store', 'show']);
 
-    Route::apiResource('users', \App\Http\Controllers\Api\UserController::class);
+    // =========================
+    // RBAC
+    // =========================
+    Route::apiResource('users', \App\Http\Controllers\Api\User\UserController::class);
     Route::post('roles/{role}/permissions', [\App\Http\Controllers\Api\RoleController::class, 'syncPermissions'])->name('roles.permissions');
     Route::apiResource('roles', \App\Http\Controllers\Api\RoleController::class);
     Route::get('permissions', [\App\Http\Controllers\Api\PermissionController::class, 'index']);
     Route::get('permissions/{permission}', [\App\Http\Controllers\Api\PermissionController::class, 'show']);
 
-    Route::get('reports/dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
-    Route::get('reports/payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
-    Route::get('reports/revenue-summary', [\App\Http\Controllers\Api\ReportsController::class, 'revenueSummary']);
+    // =========================
+    // Dashboard & Reports
+    // =========================
+    Route::prefix('reports')->group(function (): void {
+        Route::get('dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
+        Route::get('payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
+        Route::get('revenue-summary', [\App\Http\Controllers\Api\ReportsController::class, 'revenueSummary']);
+        // ... continue 
+    });
+
+    // =========================
+    // AI Assistant
+    // =========================
     Route::post('ai/business-assist', [\App\Http\Controllers\Api\AiAdvisorController::class, 'businessAssist']);
 
+    // =========================
+    // Legacy Compatibility
+    // =========================
     // Legacy compatibility routes
     Route::get('documentation', static function () {
         return response()->json([
@@ -250,7 +312,7 @@ Route::get('/', function () {
     return response()->json([
         'success' => true,
         'message' => 'Company Ship API',
-        'version' => 'v1',
+        'version' => 'api',
     ]);
 });
 Route::get('/health', $healthResponse);
@@ -263,15 +325,15 @@ Route::prefix('auth')->group(function () {
         ->middleware('throttle:10,1');
     Route::post('/refresh-token', [AuthController::class, 'refreshByToken'])
         ->middleware('throttle:20,1');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
+        ->middleware('throttle:3,1');
+    Route::post('/check-otp', [AuthController::class, 'checkOtp'])
+        ->middleware('throttle:10,1');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+        ->middleware('throttle:5,1');
 });
 
-$larkWebhookController = 'App\\Http\\Controllers\\Api\\LarkWebhookController';
-$larkAuthController = 'App\\Http\\Controllers\\Api\\LarkAuthController';
 
-if (class_exists($larkWebhookController)) {
-    // Lark webhook/event entrypoint
-    Route::post('/lark/webhook', [$larkWebhookController, 'handle']);
-}
 
 // Protected routes: authenticated users (legacy)
 Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group($registerAuthenticatedRoutes);
@@ -279,41 +341,3 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group($r
 // Protected routes: admin only (legacy)
 Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
 
-// Versioned API routes
-Route::prefix('v1')->group(function () use ($healthResponse, $registerAuthenticatedRoutes, $registerAdminRoutes, $larkWebhookController, $larkAuthController): void {
-    Route::get('/health', $healthResponse);
-
-    if (class_exists($larkWebhookController)) {
-        // Versioned alias for Lark webhook/event entrypoint.
-        Route::post('/lark/webhook', [$larkWebhookController, 'handle']);
-    }
-
-    if (class_exists($larkAuthController)) {
-        // Lark OAuth login flow (API-first)
-        Route::prefix('lark/oauth')->group(function () use ($larkAuthController): void {
-            Route::get('/redirect', [$larkAuthController, 'redirect']);
-            Route::match(['get', 'post'], '/callback', [$larkAuthController, 'callback']);
-        });
-    }
-
-    Route::prefix('auth')->group(function (): void {
-        Route::post('/login', [AuthController::class, 'login'])
-            ->middleware('throttle:5,1');
-        Route::post('/social/login', [AuthController::class, 'socialLogin'])
-            ->middleware('throttle:10,1');
-        Route::post('/refresh-token', [AuthController::class, 'refreshByToken'])
-            ->middleware('throttle:20,1');
-        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])
-            ->middleware('throttle:3,1');
-        Route::post('/reset-password', [AuthController::class, 'resetPassword'])
-            ->middleware('throttle:5,1');
-    });
-
-    Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group($registerAuthenticatedRoutes);
-    Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
-});
-
-if (class_exists($larkAuthController)) {
-    // Backward-compatible OAuth callback alias
-    Route::match(['get', 'post'], '/callback/lark', [$larkAuthController, 'callback']);
-}

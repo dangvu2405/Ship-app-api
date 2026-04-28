@@ -14,6 +14,7 @@ use App\Observers\PayrollObserver;
 use App\Observers\TripObserver;
 use App\Observers\TripRagObserver;
 use App\Tenancy\TenantContext;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,7 +24,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->scoped(TenantContext::class, static fn (): TenantContext => new TenantContext);
+        $this->app->scoped(TenantContext::class, static fn(): TenantContext => new TenantContext);
     }
 
     /**
@@ -31,16 +32,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        ResetPassword::createUrlUsing(function (mixed $notifiable, string $token): string {
+            $frontend = rtrim((string) config('app.frontend_url', config('app.url')), '/');
+            return $frontend . '/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
+        });
+
         Trip::observe(TripObserver::class);
         Trip::observe(TripRagObserver::class);
         Driver::observe(DriverRagObserver::class);
         Payroll::observe(PayrollObserver::class);
         PayrollLine::observe(PayrollLineObserver::class);
 
-        // Ghi lại Log Login
-        \Illuminate\Support\Facades\Event::listen(
-            \Illuminate\Auth\Events\Login::class,
-            \App\Listeners\LogSuccessfulLogin::class
-        );
+        // Ghi lại Log Login (listener optional in some deployments).
+        if (class_exists(\App\Listeners\LogSuccessfulLogin::class)) {
+            \Illuminate\Support\Facades\Event::listen(
+                \Illuminate\Auth\Events\Login::class,
+                \App\Listeners\LogSuccessfulLogin::class
+            );
+        }
     }
 }

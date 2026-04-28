@@ -20,7 +20,7 @@ final class ApplyOfficeScheduleService
      */
     public function estimateBulkRows(Office $office, string $startDate, string $endDate): array
     {
-        $driverCount = (int) Driver::query()->where('office_id', $office->id)->count();
+        $driverCount = (int) Driver::query()->where('office_id', $office->id)->where('status', 'active')->count();
         $start = Carbon::parse($startDate)->startOfDay();
         $end = Carbon::parse($endDate)->startOfDay();
         $dayCount = (int) $start->diffInDays($end) + 1;
@@ -61,6 +61,7 @@ final class ApplyOfficeScheduleService
 
         $driver_ids = Driver::query()
             ->where('office_id', $office->id)
+            ->where('status', 'active')
             ->pluck('id')
             ->all();
 
@@ -150,10 +151,10 @@ final class ApplyOfficeScheduleService
                 }
                 $inserted = count($rows);
             } else {
+                $inserted = 0;
                 foreach (array_chunk($rows, $chunkSize) as $chunk) {
-                    DB::table('driver_work_schedules')->insertOrIgnore($chunk);
+                    $inserted += DB::table('driver_work_schedules')->insertOrIgnore($chunk);
                 }
-                $inserted = count($rows);
             }
 
             $application = OfficeScheduleApplication::query()->create([

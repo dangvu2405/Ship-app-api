@@ -7,11 +7,83 @@ namespace App\Services;
 use App\Models\AuditLog;
 use App\Models\Driver;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 
 class AttendanceService
 {
+    /**
+     * @param array<string, mixed> $filters
+     */
+    public function getList(array $filters): LengthAwarePaginator
+    {
+        $useLegacy  = Schema::hasTable('attendances');
+        $dateColumn = $useLegacy ? 'date' : 'work_date';
+
+        $query = $useLegacy
+            ? DB::table('attendances')
+            : DB::table('driver_work_schedules')->select([
+                'id',
+                'driver_id',
+                DB::raw('work_date as date'),
+                DB::raw('start_time as check_in'),
+                DB::raw('end_time as check_out'),
+                DB::raw('NULL as work_hours'),
+                DB::raw('NULL as overtime_hours'),
+                DB::raw("CASE WHEN status IN ('approved', 'locked') THEN 'present' ELSE status END as status"),
+                'created_at',
+                'updated_at',
+            ]);
+
+        if (! empty($filters['driver_id'])) {
+            $query->where('driver_id', (int) $filters['driver_id']);
+        }
+        if (! empty($filters['date'])) {
+            $query->where($dateColumn, $filters['date']);
+        }
+        if (! empty($filters['from']) && ! empty($filters['to'])) {
+            $query->whereBetween($dateColumn, [$filters['from'], $filters['to']]);
+        }
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        $perPage = isset($filters['per_page']) ? min((int) $filters['per_page'], 200) : 50;
+
+        return $query->orderByDesc($dateColumn)->paginate($perPage > 0 ? $perPage : 50);
+    }
+
+    /**
+     * @return LengthAwarePaginator
+     */
+    public function getLateList(array $filters): LengthAwarePaginator
+    {
+        if (! Schema::hasTable('attendances')) {
+            return DB::table('driver_work_schedules')
+                ->where('status', 'submitted')
+                ->when(! empty($filters['driver_id']), fn ($q) => $q->where('driver_id', (int) $filters['driver_id']))
+                ->when(
+                    ! empty($filters['from']) && ! empty($filters['to']),
+                    fn ($q) => $q->whereBetween('work_date', [$filters['from'], $filters['to']]),
+                )
+                ->orderByDesc('work_date')
+                ->paginate(50);
+        }
+
+        $query = DB::table('attendances')->where('status', 'late');
+
+        if (! empty($filters['driver_id'])) {
+            $query->where('driver_id', (int) $filters['driver_id']);
+        }
+        if (! empty($filters['from']) && ! empty($filters['to'])) {
+            $query->whereBetween('date', [$filters['from'], $filters['to']]);
+        }
+
+        return $query->orderByDesc('date')->paginate(50);
+    }
+
     /**
      * Record a driver's check-in.
      *

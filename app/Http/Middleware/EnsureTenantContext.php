@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Models\User;
 use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -33,6 +34,14 @@ final class EnsureTenantContext
 
         $this->tenantContext->setCompanyId($resolved);
 
+        // Resolve office scope: office_admin sees only their assigned office.
+        // company_admin and admin get no office restriction (null = see all offices).
+        if ($resolved !== null && $resolved !== self::NO_TENANT_SENTINEL && $request->user() !== null) {
+            $this->tenantContext->setOfficeId(
+                $this->resolveOfficeId($request->user(), $resolved)
+            );
+        }
+
         return $next($request);
     }
 
@@ -60,12 +69,12 @@ final class EnsureTenantContext
 
             if ($candidate > 0) {
                 if ($user->hasRole('admin')) {
-                    // Admins can access any existing company
+                    // Global admin can access any existing company
                     if (Company::query()->whereKey($candidate)->exists()) {
                         return $candidate;
                     }
                 } else {
-                    // Non-admins must have an explicit user_companies assignment
+                    // company_admin / office_admin must have explicit user_companies row
                     $assigned = $user->companies()
                         ->wherePivot('company_id', $candidate)
                         ->exists();
@@ -85,5 +94,31 @@ final class EnsureTenantContext
         $user->loadMissing('driver.office');
 
         return $user->driver?->office?->company_id;
+    }
+
+    /**
+     * Returns the office_id this user is restricted to within $companyId,
+     * or null if the user can see all offices (admin / company_admin).
+     *
+     * Logic:
+     *  - admin or company_admin (with null office_id in user_roles) → null (no restriction)
+     *  - office_admin → the office_id from their user_roles row for this company
+     */
+    private function resolveOfficeId(User $user, int $companyId): ?int
+    {
+        // Global admin and company_admin are never restricted to a single office
+        if ($user->hasRole('admin') || $user->hasRole('company_admin', $companyId)) {
+            return null;
+        }
+
+        // Find the office_admin assignment for this company
+        $pivot = $user->roles()
+            ->where('roles.name', 'office_admin')
+            ->where('user_roles.company_id', $companyId)
+            ->whereNotNull('user_roles.office_id')
+            ->orderBy('user_roles.office_id')
+            ->first();
+
+        return $pivot?->pivot?->office_id;
     }
 }

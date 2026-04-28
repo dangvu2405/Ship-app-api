@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Leave\ApproveLeaveRequest;
+use App\Http\Requests\Leave\CancelLeaveRequest;
 use App\Http\Requests\Leave\RejectLeaveRequest;
 use App\Http\Requests\Leave\StoreLeaveRequest;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Services\LeaveService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Throwable;
 
@@ -23,7 +24,7 @@ class LeaveController extends BaseController
 
     /**
      * @OA\Get(
-     *     path="/api/v1/leave/types",
+     *     path="/api/leave/types",
      *     tags={"Leave"},
      *     summary="Danh sách loại nghỉ phép",
      *     security={{"sanctum":{}}},
@@ -35,12 +36,12 @@ class LeaveController extends BaseController
     {
         $types = LeaveType::query()->active()->orderBy('name')->get();
 
-        return $this->successResponse(['leave_types' => $types], 'Leave types retrieved.');
+        return $this->successResponse(['leave_types' => $types], 'api.leave.types_retrieved');
     }
 
     /**
      * @OA\Get(
-     *     path="/api/v1/leave",
+     *     path="/api/leave",
      *     tags={"Leave"},
      *     summary="Danh sách đơn nghỉ phép",
      *     security={{"sanctum":{}}},
@@ -72,12 +73,12 @@ class LeaveController extends BaseController
 
         $requests = $query->orderByDesc('from_date')->paginate(20);
 
-        return $this->successResponse($requests, 'Leave requests retrieved.');
+        return $this->successResponse($requests, 'api.leave.requests_retrieved');
     }
 
     /**
      * @OA\Post(
-     *     path="/api/v1/leave",
+     *     path="/api/leave",
      *     tags={"Leave"},
      *     summary="Tạo đơn nghỉ phép",
      *     security={{"sanctum":{}}},
@@ -102,7 +103,7 @@ class LeaveController extends BaseController
         try {
             $leave = $this->leaveService->create($request->validated(), $request->user());
 
-            return $this->successResponse($leave, 'Leave request submitted.', 201);
+            return $this->successResponse($leave, 'api.leave.request_submitted', 201);
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -114,19 +115,19 @@ class LeaveController extends BaseController
     {
         return $this->successResponse(
             $leaveRequest->load(['driver', 'leaveType', 'approver']),
-            'Leave request retrieved.',
+            'api.leave.request_retrieved',
         );
     }
 
     /**
      * Approve a leave request. SoD enforced in LeaveService.
      */
-    public function approve(Request $request, LeaveRequest $leaveRequest): JsonResponse
+    public function approve(ApproveLeaveRequest $request, LeaveRequest $leaveRequest): JsonResponse
     {
         try {
             $leave = $this->leaveService->approve($leaveRequest, $request->user());
 
-            return $this->successResponse($leave, 'Leave request approved.');
+            return $this->successResponse($leave, 'api.leave.request_approved');
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() === 403 ? 403 : 422;
 
@@ -145,7 +146,7 @@ class LeaveController extends BaseController
                 $request->user(),
             );
 
-            return $this->successResponse($leave, 'Leave request rejected.');
+            return $this->successResponse($leave, 'api.leave.request_rejected');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -153,12 +154,12 @@ class LeaveController extends BaseController
         }
     }
 
-    public function cancel(Request $request, LeaveRequest $leaveRequest): JsonResponse
+    public function cancel(CancelLeaveRequest $request, LeaveRequest $leaveRequest): JsonResponse
     {
         try {
             $leave = $this->leaveService->cancel($leaveRequest, $request->user());
 
-            return $this->successResponse($leave, 'Leave request cancelled.');
+            return $this->successResponse($leave, 'api.leave.request_cancelled');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {

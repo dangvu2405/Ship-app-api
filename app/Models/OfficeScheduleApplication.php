@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToOffice;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OfficeScheduleApplication extends Model
 {
+    use BelongsToOffice;
+
     protected $table = 'office_schedule_applications';
 
     protected $fillable = [

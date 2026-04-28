@@ -19,9 +19,9 @@ class UpdateVehicleExpenseRequest extends FormRequest
             'vehicle_id' => 'sometimes|exists:vehicles,id',
             'driver_id' => 'nullable|exists:drivers,id',
             'type' => 'sometimes|in:fuel,maintenance,repair,toll,parking,other',
-            'amount' => 'sometimes|numeric|min:0',
-            'note' => 'nullable|string',
-            'expense_date' => 'sometimes|date',
+            'amount' => 'sometimes|numeric|min:0|max:999999999',
+            'note' => 'nullable|string|max:500',
+            'expense_date' => 'sometimes|date|before_or_equal:today',
         ];
     }
 }

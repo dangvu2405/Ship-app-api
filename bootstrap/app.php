@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // API middleware
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
+            \App\Http\Middleware\SetApiLocale::class,
             \App\Http\Middleware\HandleApiErrors::class,
         ]);
 
@@ -50,7 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation failed',
+                    'message' => __('api.validation_failed'),
                     'errors' => $e->errors(),
                 ], 422);
             }
@@ -61,7 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Resource not found',
+                    'message' => __('api.resource_not_found'),
                 ], 404);
             }
         });
@@ -71,7 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthenticated. Please login.',
+                    'message' => __('api.unauthenticated'),
                 ], 401);
             }
         });
@@ -81,7 +82,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage() ?: 'Access denied. You do not have permission.',
+                    'message' => $e->getMessage() ?: __('api.access_denied'),
                 ], 403);
             }
         });
@@ -91,7 +92,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Route not found',
+                    'message' => __('api.route_not_found'),
                 ], 404);
             }
         });
@@ -101,7 +102,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Method not allowed',
+                    'message' => __('api.method_not_allowed'),
                 ], 405);
             }
         });
@@ -109,22 +110,22 @@ return Application::configure(basePath: dirname(__DIR__))
         // Database Query Exception
         $exceptions->render(function (\Illuminate\Database\QueryException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
-                $message = 'Database error occurred';
+                $message = __('api.database_error');
                 
                 // Check for common database errors
                 $errorCode = $e->getCode();
                 $errorMessage = $e->getMessage();
                 
                 if ($errorCode === 23000) { // Integrity constraint violation
-                    $message = 'Cannot perform this action due to data integrity constraints';
+                    $message = __('api.integrity_constraints_error');
                 } elseif (str_contains($errorMessage, "doesn't exist") || str_contains($errorMessage, 'Base table')) {
-                    $message = 'Database table not found';
+                    $message = __('api.database_table_not_found');
                 } elseif (str_contains($errorMessage, "Unknown column")) {
-                    $message = 'Database column not found';
+                    $message = __('api.database_column_not_found');
                 } elseif (str_contains($errorMessage, "Duplicate entry")) {
-                    $message = 'Duplicate entry. This record already exists.';
+                    $message = __('api.duplicate_entry');
                 } elseif (str_contains($errorMessage, "foreign key constraint")) {
-                    $message = 'Cannot delete this record because it is being used by other records.';
+                    $message = __('api.foreign_key_constraint');
                 }
                 
                 return response()->json([
@@ -155,10 +156,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 if (config('app.debug')) {
                     $message = $e->getMessage() ?: 'An error occurred';
                 } elseif ($statusCode >= 500) {
-                    $message = 'Internal server error. Please try again later.';
+                    $message = __('api.internal_server_error');
                 } else {
                     // 4xx from HttpException subclasses are safe to forward as-is
-                    $message = $e->getMessage() ?: 'An error occurred';
+                    $message = $e->getMessage() ?: __('api.generic_error');
                 }
 
                 return response()->json([

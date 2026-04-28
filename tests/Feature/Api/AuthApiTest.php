@@ -4,25 +4,24 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Api;
 
+use App\Mail\PasswordResetMail;
 use App\Models\Department;
 use App\Models\Office;
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class AuthApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const SOCIAL_LOGIN_ENDPOINT = '/api/v1/auth/social/login';
+    private const SOCIAL_LOGIN_ENDPOINT = '/api/auth/social/login';
 
     private const LARK_AUTH_CONTROLLER = 'App\\Http\\Controllers\\Api\\LarkAuthController';
 
@@ -116,7 +115,7 @@ class AuthApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response = $this->postJson('/api/v1/auth/login', [
+        $response = $this->postJson('/api/auth/login', [
             'email' => 'login.v1@example.com',
             'password' => 'password123',
         ]);
@@ -124,7 +123,7 @@ class AuthApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'message' => 'Login successful',
+                'message' => 'Login successful.',
             ])
             ->assertJsonPath('data.user.id', $user->id)
             ->assertJsonStructure([
@@ -139,7 +138,7 @@ class AuthApiTest extends TestCase
 
     public function test_user_endpoint_requires_auth(): void
     {
-        $response = $this->getJson('/api/v1/user');
+        $response = $this->getJson('/api/user');
 
         $response->assertStatus(401)
             ->assertJson([
@@ -373,49 +372,126 @@ class AuthApiTest extends TestCase
 
     public function test_forgot_password_sends_reset_link_for_existing_user(): void
     {
-        Notification::fake();
+        Mail::fake();
         $user = User::factory()->create([
             'email' => 'forgot@example.com',
             'status' => 'active',
         ]);
 
-        $response = $this->postJson('/api/v1/auth/forgot-password', [
+        $response = $this->postJson('/api/auth/forgot-password', [
             'email' => 'forgot@example.com',
         ]);
 
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'message' => 'Password reset link sent',
+                'message' => 'Password reset OTP sent.',
             ]);
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Mail::assertSent(PasswordResetMail::class, function (PasswordResetMail $mail) use ($user): bool {
+            return $mail->hasTo($user->email)
+                && preg_match('/^\d{6}$/', $mail->otp) === 1;
+        });
     }
 
-    public function test_reset_password_updates_password_with_valid_token(): void
+    public function test_forgot_password_returns_429_when_throttled(): void
     {
+        Mail::fake();
+        User::factory()->create([
+            'email' => 'throttle@example.com',
+            'status' => 'active',
+        ]);
+
+        $this->postJson('/api/auth/forgot-password', ['email' => 'throttle@example.com']);
+
+        $response = $this->postJson('/api/auth/forgot-password', ['email' => 'throttle@example.com']);
+
+        $response->assertStatus(429)
+            ->assertJson(['success' => false]);
+    }
+
+    public function test_check_otp_then_reset_password_updates_password(): void
+    {
+        Mail::fake();
         $user = User::factory()->create([
             'email' => 'reset@example.com',
             'status' => 'active',
         ]);
 
-        $token = Password::getRepository()->create($user);
-
-        $response = $this->postJson('/api/v1/auth/reset-password', [
+        $this->postJson('/api/auth/forgot-password', [
             'email' => 'reset@example.com',
-            'token' => $token,
-            'password' => 'new-password-123',
-            'password_confirmation' => 'new-password-123',
+        ])->assertStatus(200);
+
+        /** @var PasswordResetMail $sentMail */
+        $sentMail = Mail::sent(PasswordResetMail::class)->first();
+        $this->assertInstanceOf(PasswordResetMail::class, $sentMail);
+
+        $checkOtpResponse = $this->postJson('/api/auth/check-otp', [
+            'email' => 'reset@example.com',
+            'otp' => $sentMail->otp,
+        ]);
+        $checkOtpResponse->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        $otpToken = (string) $checkOtpResponse->json('data.otp_token');
+        $this->assertNotSame('', $otpToken);
+
+        $response = $this->postJson('/api/auth/reset-password', [
+            'email' => 'reset@example.com',
+            'otp_token' => $otpToken,
+            'password' => 'Xq9!mK2$pL7@vN4#',
+            'password_confirmation' => 'Xq9!mK2$pL7@vN4#',
         ]);
 
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'message' => 'Password reset successful',
+                'message' => 'Password reset successful.',
             ]);
 
         $user->refresh();
-        $this->assertTrue(Hash::check('new-password-123', $user->password));
+        $this->assertTrue(Hash::check('Xq9!mK2$pL7@vN4#', $user->password));
+    }
+
+    public function test_reset_password_requires_otp_verified_first(): void
+    {
+        User::factory()->create([
+            'email' => 'reset.require.verify@example.com',
+            'status' => 'active',
+        ]);
+
+        $response = $this->postJson('/api/auth/reset-password', [
+            'email' => 'reset.require.verify@example.com',
+            'otp_token' => (string) \Illuminate\Support\Str::uuid(),
+            'password' => 'Xq9!mK2$pL7@vN4#',
+            'password_confirmation' => 'Xq9!mK2$pL7@vN4#',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'OTP verification required');
+    }
+
+    public function test_check_otp_returns_400_for_invalid_otp(): void
+    {
+        Mail::fake();
+        User::factory()->create([
+            'email' => 'check.otp.invalid@example.com',
+            'status' => 'active',
+        ]);
+
+        $this->postJson('/api/auth/forgot-password', [
+            'email' => 'check.otp.invalid@example.com',
+        ])->assertStatus(200);
+
+        $response = $this->postJson('/api/auth/check-otp', [
+            'email' => 'check.otp.invalid@example.com',
+            'otp' => '000000',
+        ]);
+
+        $response->assertStatus(400)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Invalid or expired OTP');
     }
 
     public function test_user_endpoint_returns_user_info_for_authenticated_user(): void
@@ -425,7 +501,7 @@ class AuthApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')->getJson('/api/v1/user');
+        $response = $this->actingAs($user, 'sanctum')->getJson('/api/user');
 
         $response->assertStatus(200)
             ->assertJsonFragment([
@@ -435,7 +511,7 @@ class AuthApiTest extends TestCase
 
     public function test_auth_me_requires_auth(): void
     {
-        $response = $this->getJson('/api/v1/auth/me');
+        $response = $this->getJson('/api/auth/me');
 
         $response->assertStatus(401)
             ->assertJson([
@@ -450,8 +526,8 @@ class AuthApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $me = $this->actingAs($user, 'sanctum')->getJson('/api/v1/auth/me');
-        $legacy = $this->actingAs($user, 'sanctum')->getJson('/api/v1/user');
+        $me = $this->actingAs($user, 'sanctum')->getJson('/api/auth/me');
+        $legacy = $this->actingAs($user, 'sanctum')->getJson('/api/user');
 
         $me->assertStatus(200);
         $legacy->assertStatus(200);
@@ -460,7 +536,7 @@ class AuthApiTest extends TestCase
 
     public function test_auth_actions_requires_authentication(): void
     {
-        $response = $this->getJson('/api/v1/auth/actions');
+        $response = $this->getJson('/api/auth/actions');
 
         $response->assertStatus(401)
             ->assertJson([
@@ -481,9 +557,9 @@ class AuthApiTest extends TestCase
             [
                 'user_id' => $targetUser->id,
                 'company_id' => null,
-                'action' => 'POST /api/v1/trips',
+                'action' => 'POST /api/trips',
                 'table_name' => 'api_requests',
-                'resource' => '/api/v1/trips',
+                'resource' => '/api/trips',
                 'record_id' => null,
                 'old_data' => null,
                 'new_data' => json_encode(['status_code' => 201]),
@@ -497,9 +573,9 @@ class AuthApiTest extends TestCase
             [
                 'user_id' => $otherUser->id,
                 'company_id' => null,
-                'action' => 'GET /api/v1/trips',
+                'action' => 'GET /api/trips',
                 'table_name' => 'api_requests',
-                'resource' => '/api/v1/trips',
+                'resource' => '/api/trips',
                 'record_id' => null,
                 'old_data' => null,
                 'new_data' => json_encode(['status_code' => 200]),
@@ -512,14 +588,14 @@ class AuthApiTest extends TestCase
             ],
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/auth/actions?username=driver.target&action=POST&from='.urlencode(now()->subDay()->toDateTimeString()).'&to='.urlencode(now()->toDateTimeString()).'&status_code=201');
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/auth/actions?username=driver.target&action=POST&from='.urlencode(now()->subDay()->toDateTimeString()).'&to='.urlencode(now()->toDateTimeString()).'&status_code=201');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Auth actions retrieved')
+            ->assertJsonPath('message', 'Auth actions retrieved.')
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.username', 'driver.target')
-            ->assertJsonPath('data.0.action', 'POST /api/v1/trips')
+            ->assertJsonPath('data.0.action', 'POST /api/trips')
             ->assertJsonPath('data.0.statusCode', 201)
             ->assertJsonStructure([
                 'data' => [[
@@ -547,7 +623,7 @@ class AuthApiTest extends TestCase
 
         $office = Office::factory()->create();
 
-        $create = $this->postJson('/api/v1/departments', [
+        $create = $this->postJson('/api/departments', [
             'office_id' => $office->id,
             'code' => 'DEP-AUDIT-01',
             'name' => 'Audit Department',
@@ -559,17 +635,17 @@ class AuthApiTest extends TestCase
             ->value('id');
         $this->assertNotSame(0, $departmentId);
 
-        $this->putJson('/api/v1/departments/'.$departmentId, [
+        $this->putJson('/api/departments/'.$departmentId, [
             'name' => 'Audit Department Updated',
         ])->assertStatus(200);
 
-        $this->deleteJson('/api/v1/departments/'.$departmentId)->assertStatus(200);
-        $this->postJson('/api/v1/auth/refresh')->assertStatus(200);
+        $this->deleteJson('/api/departments/'.$departmentId)->assertStatus(200);
+        $this->postJson('/api/auth/refresh')->assertStatus(200);
 
-        $response = $this->getJson('/api/v1/auth/actions?username=audit.admin');
+        $response = $this->getJson('/api/auth/actions?username=audit.admin');
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Auth actions retrieved')
+            ->assertJsonPath('message', 'Auth actions retrieved.')
             ->assertJsonStructure([
                 'data' => [[
                     'id',
@@ -586,13 +662,13 @@ class AuthApiTest extends TestCase
             ]);
 
         $actions = collect($response->json('data'))->pluck('action')->all();
-        $this->assertContains('POST /api/v1/departments', $actions);
-        $this->assertContains('PUT /api/v1/departments/'.$departmentId, $actions);
-        $this->assertContains('DELETE /api/v1/departments/'.$departmentId, $actions);
-        $this->assertContains('POST /api/v1/auth/refresh', $actions);
+        $this->assertContains('POST /api/departments', $actions);
+        $this->assertContains('PUT /api/departments/'.$departmentId, $actions);
+        $this->assertContains('DELETE /api/departments/'.$departmentId, $actions);
+        $this->assertContains('POST /api/auth/refresh', $actions);
 
         $deleteAction = collect($response->json('data'))
-            ->firstWhere('action', 'DELETE /api/v1/departments/'.$departmentId);
+            ->firstWhere('action', 'DELETE /api/departments/'.$departmentId);
         $this->assertIsArray($deleteAction);
         $this->assertSame('departments', $deleteAction['tableName']);
         $this->assertSame($departmentId, $deleteAction['recordId']);
@@ -608,9 +684,9 @@ class AuthApiTest extends TestCase
         DB::table('audit_logs')->insert([
             'user_id' => $admin->id,
             'company_id' => null,
-            'action' => 'DELETE /api/v1/departments/10',
+            'action' => 'DELETE /api/departments/10',
             'table_name' => 'api_requests',
-            'resource' => '/api/v1/departments/10',
+            'resource' => '/api/departments/10',
             'record_id' => null,
             'old_data' => null,
             'new_data' => json_encode(['status_code' => 200]),
@@ -622,13 +698,13 @@ class AuthApiTest extends TestCase
             'updated_at' => '2026-04-14 15:30:00',
         ]);
 
-        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/v1/auth/actions?username=admin&action=DELETE&from=2026-04-14&to=2026-04-14&status_code=200');
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/auth/actions?username=admin&action=DELETE&from=2026-04-14&to=2026-04-14&status_code=200');
 
         $response->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Auth actions retrieved')
+            ->assertJsonPath('message', 'Auth actions retrieved.')
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.action', 'DELETE /api/v1/departments/10')
+            ->assertJsonPath('data.0.action', 'DELETE /api/departments/10')
             ->assertJsonPath('data.0.statusCode', 200);
     }
 
@@ -639,12 +715,12 @@ class AuthApiTest extends TestCase
 
         $response = $this->withHeaders([
             'Authorization' => "Bearer $token",
-        ])->postJson('/api/v1/auth/logout');
+        ])->postJson('/api/auth/logout');
 
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'message' => 'Logout successful',
+                'message' => 'Logout successful.',
             ]);
 
         $this->assertCount(0, $user->tokens);
@@ -657,12 +733,12 @@ class AuthApiTest extends TestCase
 
         $response = $this->withHeaders([
             'Authorization' => "Bearer $token",
-        ])->postJson('/api/v1/auth/refresh');
+        ])->postJson('/api/auth/refresh');
 
         $response->assertStatus(200)
             ->assertJson([
                 'success' => true,
-                'message' => 'Token refreshed successfully',
+                'message' => 'Token refreshed successfully.',
             ])
             ->assertJsonStructure([
                 'data' => [
@@ -688,7 +764,7 @@ class AuthApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $loginResponse = $this->postJson('/api/v1/auth/login', [
+        $loginResponse = $this->postJson('/api/auth/login', [
             'email' => 'rotate-refresh@example.com',
             'password' => $password,
         ]);
@@ -698,7 +774,7 @@ class AuthApiTest extends TestCase
 
         $refreshResponse = $this->withHeaders([
             'Authorization' => 'Bearer '.$accessToken,
-        ])->postJson('/api/v1/auth/refresh');
+        ])->postJson('/api/auth/refresh');
 
         $refreshResponse->assertStatus(200)
             ->assertJsonStructure([
@@ -722,20 +798,20 @@ class AuthApiTest extends TestCase
             'status' => 'active',
         ]);
 
-        $loginResponse = $this->postJson('/api/v1/auth/login', [
+        $loginResponse = $this->postJson('/api/auth/login', [
             'email' => 'refresh.by.token@example.com',
             'password' => $password,
         ]);
         $loginResponse->assertStatus(200);
         $refreshToken = (string) $loginResponse->json('data.refreshToken');
 
-        $refreshResponse = $this->postJson('/api/v1/auth/refresh-token', [
+        $refreshResponse = $this->postJson('/api/auth/refresh-token', [
             'refresh_token' => $refreshToken,
         ]);
 
         $refreshResponse->assertStatus(200)
             ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Token refreshed successfully')
+            ->assertJsonPath('message', 'Token refreshed successfully.')
             ->assertJsonStructure([
                 'data' => ['token', 'refreshToken'],
             ]);
@@ -743,7 +819,7 @@ class AuthApiTest extends TestCase
 
     public function test_refresh_with_invalid_refresh_token_returns_401(): void
     {
-        $response = $this->postJson('/api/v1/auth/refresh-token', [
+        $response = $this->postJson('/api/auth/refresh-token', [
             'refresh_token' => str_repeat('a', 64),
         ]);
 
@@ -760,7 +836,7 @@ class AuthApiTest extends TestCase
 
         $unique = bin2hex(random_bytes(4));
         $email = 'newadmin+'.$unique.'@example.com';
-        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/v1/auth/register', [
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/auth/register', [
             'username' => 'newadminuser'.$unique,
             'email' => $email,
             'password' => 'Zx9!mK2$pL7@vN4#wQ8',
@@ -770,7 +846,7 @@ class AuthApiTest extends TestCase
         $response->assertStatus(201)
             ->assertJson([
                 'success' => true,
-                'message' => 'Registration successful',
+                'message' => 'Registration successful.',
             ]);
 
         $this->assertDatabaseHas('users', [
@@ -782,7 +858,7 @@ class AuthApiTest extends TestCase
     {
         $user = User::factory()->create(['status' => 'active']);
 
-        $response = $this->actingAs($user, 'sanctum')->postJson('/api/v1/auth/register', [
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/auth/register', [
             'username' => 'newadminuser2',
             'email' => 'newadmin2@example.com',
             'password' => 'password123',
@@ -798,7 +874,7 @@ class AuthApiTest extends TestCase
         config()->set('lark.oauth.redirect_uri', 'http://localhost:5173/auth/lark/callback');
         config()->set('lark.oauth.scope', 'contact:user.base:readonly');
 
-        $response = $this->get('/api/v1/lark/oauth/redirect');
+        $response = $this->get('/api/lark/oauth/redirect');
 
         $response->assertStatus(302);
         $this->assertStringContainsString('open.larksuite.com', (string) $response->headers->get('Location'));
@@ -832,7 +908,7 @@ class AuthApiTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->getJson('/api/v1/lark/oauth/callback?code=oauth_code_abc&state=test_state_1');
+        $response = $this->getJson('/api/lark/oauth/callback?code=oauth_code_abc&state=test_state_1');
 
         $response->assertStatus(200)
             ->assertJson([
@@ -873,7 +949,7 @@ class AuthApiTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->getJson('/api/v1/lark/oauth/callback?code=oauth_code_xyz&state=test_state_2');
+        $response = $this->getJson('/api/lark/oauth/callback?code=oauth_code_xyz&state=test_state_2');
 
         $response->assertStatus(200)
             ->assertJson(['success' => true]);
@@ -947,7 +1023,7 @@ class AuthApiTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson('/api/v1/lark/oauth/callback', [
+        $response = $this->postJson('/api/lark/oauth/callback', [
             'code' => 'oauth_post_body',
             'state' => 'post_state',
         ]);
@@ -978,7 +1054,7 @@ class AuthApiTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->getJson('/api/v1/lark/oauth/callback?code=oauth_create_code&state=create_state');
+        $response = $this->getJson('/api/lark/oauth/callback?code=oauth_create_code&state=create_state');
 
         $response->assertStatus(200)
             ->assertJson(['success' => true])
@@ -1025,7 +1101,7 @@ class AuthApiTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->getJson('/api/v1/lark/oauth/callback?code=oauth_linked_code&state=linked_state');
+        $response = $this->getJson('/api/lark/oauth/callback?code=oauth_linked_code&state=linked_state');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.user.id', $user->id);
@@ -1070,7 +1146,7 @@ class AuthApiTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->getJson('/api/v1/lark/oauth/callback?code=oauth_conflict_code&state=conflict_state');
+        $response = $this->getJson('/api/lark/oauth/callback?code=oauth_conflict_code&state=conflict_state');
 
         $response->assertStatus(401)
             ->assertJsonPath('message', 'This Lark account is already linked to another user.');
@@ -1083,7 +1159,7 @@ class AuthApiTest extends TestCase
 
     public function test_lark_oauth_callback_returns_401_when_lark_redirects_with_error(): void
     {
-        $response = $this->getJson('/api/v1/lark/oauth/callback?error=access_denied&error_description=User+cancelled');
+        $response = $this->getJson('/api/lark/oauth/callback?error=access_denied&error_description=User+cancelled');
 
         $response->assertStatus(401)
             ->assertJson([

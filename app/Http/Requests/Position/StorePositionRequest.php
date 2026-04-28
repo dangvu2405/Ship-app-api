@@ -38,8 +38,8 @@ class StorePositionRequest extends FormRequest
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'code' => 'required|string|max:50|unique:positions,code',
             'name' => 'required|string|max:255',
-            'base_salary' => 'required|numeric|min:0',
-            'level' => 'nullable|integer|min:0',
+            'base_salary' => 'required|numeric|min:0|max:999999999',
+            'level' => 'nullable|integer|min:0|max:10',
         ];
     }
 }

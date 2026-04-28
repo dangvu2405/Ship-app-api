@@ -35,7 +35,7 @@ class ReportsController extends BaseController
         $year = (int) ($validated['year'] ?? now()->year);
         $data = $this->reportService->getDashboardData($month, $year);
 
-        return $this->successResponse($data, 'OK');
+        return $this->successResponse($data, 'api.common.ok');
     }
 
     /**
@@ -58,7 +58,7 @@ class ReportsController extends BaseController
         $year = (int) ($validated['year'] ?? now()->year);
         $data = $this->reportService->getPayrollSummaryData($companyId, $month, $year);
 
-        return $this->successResponse($data, 'OK');
+        return $this->successResponse($data, 'api.common.ok');
     }
 
     public function revenueSummary(RevenueSummaryRequest $request): JsonResponse
@@ -69,6 +69,6 @@ class ReportsController extends BaseController
         $to = (string) $validated['to'];
         $data = $this->reportService->getRevenueSummaryData($companyId, $from, $to);
 
-        return $this->successResponse($data, 'OK');
+        return $this->successResponse($data, 'api.common.ok');
     }
 }

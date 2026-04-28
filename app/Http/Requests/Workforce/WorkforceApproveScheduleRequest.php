@@ -18,7 +18,7 @@ final class WorkforceApproveScheduleRequest extends FormRequest
     {
         return [
             'hos_override' => ['sometimes', 'boolean'],
-            'override_reason' => ['nullable', 'string', 'max:500'],
+            'override_reason' => ['nullable', 'string', 'max:500', 'required_if:hos_override,true'],
         ];
     }
 }

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Auth\AuthActionsRequest;
 use App\Http\Requests\Auth\AuthLogsRequest;
+use App\Http\Requests\Auth\CheckOtpRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
@@ -17,6 +18,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Throwable;
 
 /**
@@ -56,12 +58,26 @@ class AuthController extends BaseController
         try {
             $result = $this->authService->login($validated['email'], $validated['password']);
 
-            return $this->successResponse($result, 'Login successful');
+            return $this->successResponse($result, 'api.auth.login_success');
         } catch (AuthenticationException $e) {
-            return $this->errorResponse($e->getMessage(), 401);
+            return $this->authLoginErrorResponse($e);
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Login failed');
+            return $this->handleException($e, 'api.auth.login_failed');
         }
+    }
+
+    private function authLoginErrorResponse(AuthenticationException $exception): JsonResponse
+    {
+        $reason = strtoupper(trim((string) $exception->getMessage()));
+
+        [$messageKey, $statusCode] = match ($reason) {
+            'ACCOUNT_NOT_FOUND' => ['api.auth.account_not_found', 401],
+            'INVALID_PASSWORD' => ['api.auth.invalid_password', 401],
+            'ACCOUNT_INACTIVE' => ['api.auth.account_inactive', 403],
+            default => ['api.auth.login_failed', 401],
+        };
+
+        return $this->errorResponse($messageKey, $statusCode);
     }
 
     /**
@@ -78,11 +94,11 @@ class AuthController extends BaseController
                 $validated['id_token'] ?? null,
             );
 
-            return $this->successResponse($result, 'Social login successful');
+            return $this->successResponse($result, 'api.auth.social_login_success');
         } catch (AuthenticationException $e) {
             return $this->errorResponse($e->getMessage(), 401);
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Social login failed');
+            return $this->handleException($e, 'api.auth.social_login_failed');
         }
     }
 
@@ -93,11 +109,13 @@ class AuthController extends BaseController
         try {
             $this->authService->sendPasswordResetLink($validated['email']);
 
-            return $this->successResponse(null, 'Password reset link sent');
+            return $this->successResponse(null, 'api.auth.password_reset_link_sent');
+        } catch (TooManyRequestsHttpException $e) {
+            return $this->errorResponse($e->getMessage(), 429);
         } catch (AuthenticationException $e) {
             return $this->errorResponse($e->getMessage(), 400);
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Forgot password failed');
+            return $this->handleException($e, 'api.auth.forgot_password_failed');
         }
     }
 
@@ -108,11 +126,26 @@ class AuthController extends BaseController
         try {
             $this->authService->resetPassword($validated);
 
-            return $this->successResponse(null, 'Password reset successful');
+            return $this->successResponse(null, 'api.auth.password_reset_success');
         } catch (AuthenticationException $e) {
             return $this->errorResponse($e->getMessage(), 400);
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Reset password failed');
+            return $this->handleException($e, 'api.auth.reset_password_failed');
+        }
+    }
+
+    public function checkOtp(CheckOtpRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        try {
+            $result = $this->authService->checkPasswordResetOtp($validated);
+
+            return $this->successResponse($result, 'api.auth.otp_verified');
+        } catch (AuthenticationException $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        } catch (Throwable $e) {
+            return $this->handleException($e, 'api.auth.otp_verification_failed');
         }
     }
 
@@ -132,9 +165,9 @@ class AuthController extends BaseController
         try {
             $this->authService->logout($request->user());
 
-            return $this->successResponse(null, 'Logout successful');
+            return $this->successResponse(null, 'api.auth.logout_success');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Logout failed');
+            return $this->handleException($e, 'api.auth.logout_failed');
         }
     }
 
@@ -170,9 +203,9 @@ class AuthController extends BaseController
         try {
             $user = $this->authService->register($validated);
 
-            return $this->successResponse($user, 'Registration successful', 201);
+            return $this->successResponse($user, 'api.auth.registration_success', 201);
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Registration failed');
+            return $this->handleException($e, 'api.auth.registration_failed');
         }
     }
 
@@ -192,9 +225,9 @@ class AuthController extends BaseController
         try {
             $tokens = $this->authService->refresh($request->user());
 
-            return $this->successResponse($tokens, 'Token refreshed successfully');
+            return $this->successResponse($tokens, 'api.auth.token_refresh_success');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Token refresh failed');
+            return $this->handleException($e, 'api.auth.token_refresh_failed');
         }
     }
 
@@ -205,11 +238,11 @@ class AuthController extends BaseController
             /** @var array{token: string, refreshToken: string} $tokens */
             $tokens = $this->authService->refreshWithRefreshToken((string) $validated['refresh_token']);
 
-            return $this->successResponse($tokens, 'Token refreshed successfully');
+            return $this->successResponse($tokens, 'api.auth.token_refresh_success');
         } catch (AuthenticationException $e) {
             return $this->errorResponse($e->getMessage(), 401);
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Token refresh failed');
+            return $this->handleException($e, 'api.auth.token_refresh_failed');
         }
     }
 
@@ -218,14 +251,14 @@ class AuthController extends BaseController
         try {
             $user = $request->user();
             if (! $user) {
-                return $this->unauthorizedResponse('Unauthenticated.');
+                return $this->unauthorizedResponse('api.unauthenticated');
             }
 
             $summary = $this->authService->sessionsSummary($user);
 
-            return $this->successResponse($summary, 'Session summary retrieved');
+            return $this->successResponse($summary, 'api.auth.session_summary_retrieved');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Session summary failed');
+            return $this->handleException($e, 'api.auth.session_summary_failed');
         }
     }
 
@@ -234,15 +267,15 @@ class AuthController extends BaseController
         try {
             $user = $request->user();
             if (! $user) {
-                return $this->unauthorizedResponse('Unauthenticated.');
+                return $this->unauthorizedResponse('api.unauthenticated');
             }
 
             $perPage = (int) $request->input('per_page', 10);
             $result = $this->authService->sessions($user, $perPage);
 
-            return $this->successResponse($result, 'Sessions retrieved');
+            return $this->successResponse($result, 'api.auth.sessions_retrieved');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Sessions query failed');
+            return $this->handleException($e, 'api.auth.sessions_query_failed');
         }
     }
 
@@ -251,15 +284,15 @@ class AuthController extends BaseController
         try {
             $user = $request->user();
             if (! $user) {
-                return $this->unauthorizedResponse('Unauthenticated.');
+                return $this->unauthorizedResponse('api.unauthenticated');
             }
 
             $date = $request->input('date');
             $result = $this->authService->logs($user, is_string($date) ? $date : null);
 
-            return $this->successResponse($result, 'Auth logs retrieved');
+            return $this->successResponse($result, 'api.auth.logs_retrieved');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Auth logs query failed');
+            return $this->handleException($e, 'api.auth.logs_query_failed');
         }
     }
 
@@ -268,14 +301,14 @@ class AuthController extends BaseController
         try {
             $user = $request->user();
             if (! $user) {
-                return $this->unauthorizedResponse('Unauthenticated.');
+                return $this->unauthorizedResponse('api.unauthenticated');
             }
 
             $result = $this->authService->actions($user, $request->validated());
 
-            return $this->successResponse($result, 'Auth actions retrieved');
+            return $this->successResponse($result, 'api.auth.actions_retrieved');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Auth actions query failed');
+            return $this->handleException($e, 'api.auth.actions_query_failed');
         }
     }
 
@@ -284,16 +317,16 @@ class AuthController extends BaseController
         try {
             $user = $request->user();
             if (! $user) {
-                return $this->unauthorizedResponse('Unauthenticated.');
+                return $this->unauthorizedResponse('api.unauthenticated');
             }
 
             $this->authService->revokeSession($user, $sessionId);
 
-            return $this->successResponse(null, 'Session revoked');
+            return $this->successResponse(null, 'api.auth.session_revoked');
         } catch (ModelNotFoundException) {
-            return $this->notFoundResponse('Session not found');
+            return $this->notFoundResponse('api.auth.session_not_found');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Revoke session failed');
+            return $this->handleException($e, 'api.auth.revoke_session_failed');
         }
     }
 
@@ -302,16 +335,16 @@ class AuthController extends BaseController
         try {
             $user = $request->user();
             if (! $user) {
-                return $this->unauthorizedResponse('Unauthenticated.');
+                return $this->unauthorizedResponse('api.unauthenticated');
             }
 
             $this->authService->lockAccountForSession($user, $sessionId);
 
-            return $this->successResponse(null, 'Account locked for this session');
+            return $this->successResponse(null, 'api.auth.account_locked_for_session');
         } catch (ModelNotFoundException) {
-            return $this->notFoundResponse('Session not found');
+            return $this->notFoundResponse('api.auth.session_not_found');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Lock account failed');
+            return $this->handleException($e, 'api.auth.lock_account_failed');
         }
     }
 }

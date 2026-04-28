@@ -45,9 +45,9 @@ class AiAdvisorController extends BaseController
         try {
             $result = $this->advisorService->advise($request->validated());
 
-            return $this->successResponse($result, 'AI analysis generated successfully');
+            return $this->successResponse($result, 'api.ai.analysis_generated');
         } catch (Throwable $e) {
-            return $this->handleException($e, 'Failed to generate AI analysis');
+            return $this->handleException($e, 'api.ai.analysis_failed');
         }
     }
 }

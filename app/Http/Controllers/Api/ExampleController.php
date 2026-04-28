@@ -24,7 +24,7 @@ class ExampleController extends BaseController
     {
         $users = User::all();
         
-        return $this->successResponse($users, 'Users retrieved successfully');
+        return $this->successResponse($users, 'api.common.ok');
     }
 
     /**
@@ -34,7 +34,7 @@ class ExampleController extends BaseController
     {
         $user = User::create($request->validated());
 
-        return $this->successResponse($user, 'User created successfully', 201);
+        return $this->successResponse($user, 'api.user.created', 201);
     }
 
     /**
@@ -45,10 +45,10 @@ class ExampleController extends BaseController
         $user = User::find($id);
 
         if (! $user) {
-            return $this->notFoundResponse('User not found');
+            return $this->notFoundResponse('api.user.not_found');
         }
 
-        return $this->successResponse($user);
+        return $this->successResponse($user, 'api.common.ok');
     }
 
     /**
@@ -59,12 +59,12 @@ class ExampleController extends BaseController
         $user = User::find($id);
 
         if (! $user) {
-            return $this->notFoundResponse('User not found');
+            return $this->notFoundResponse('api.user.not_found');
         }
 
         $user->update($request->validated());
 
-        return $this->successResponse($user, 'User updated successfully');
+        return $this->successResponse($user, 'api.user.updated');
     }
 
     /**
@@ -75,11 +75,11 @@ class ExampleController extends BaseController
         $user = User::find($id);
 
         if (! $user) {
-            return $this->notFoundResponse('User not found');
+            return $this->notFoundResponse('api.user.not_found');
         }
 
         $user->delete();
 
-        return $this->successResponse(null, 'User deleted successfully');
+        return $this->successResponse(null, 'api.user.deleted');
     }
 }

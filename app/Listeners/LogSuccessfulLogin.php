@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Listeners;
 
-use Illuminate\Auth\Events\Login;
 use App\Models\LoginLog;
+use Illuminate\Auth\Events\Login;
 
-class LogSuccessfulLogin
+final class LogSuccessfulLogin
 {
-    /**
-     * Handle the event.
-     */
     public function handle(Login $event): void
     {
-        LoginLog::create([
-            'user_id' => $event->user->id,
-            'ip' => request()->ip() ?? '127.0.0.1',
-            'device' => substr(request()->header('User-Agent') ?? 'Unknown', 0, 255),
+        LoginLog::query()->create([
+            'user_id' => $event->user->getAuthIdentifier(),
+            'ip' => request()->ip(),
+            'device' => request()->userAgent(),
             'login_at' => now(),
+            'status' => 'success',
+            'action' => 'login',
+            'performed_by' => null,
         ]);
     }
 }

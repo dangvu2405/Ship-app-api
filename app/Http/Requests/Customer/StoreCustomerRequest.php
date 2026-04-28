@@ -6,6 +6,7 @@ namespace App\Http\Requests\Customer;
 
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreCustomerRequest extends FormRequest
 {
@@ -38,9 +39,11 @@ class StoreCustomerRequest extends FormRequest
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'type' => 'required|in:individual,company',
             'name' => 'required|string|max:255',
-            'tax_code' => 'nullable|string|max:50',
+            'tax_code' => ['nullable', 'string', 'max:50', 'required_if:type,company',
+                Rule::unique('customers', 'tax_code')->where('company_id', $this->input('company_id'))],
             'phone' => 'nullable|string|max:20',
-            'email' => 'nullable|email',
+            'email' => ['nullable', 'email', 'max:255',
+                Rule::unique('customers', 'email')->where('company_id', $this->input('company_id'))],
             'address' => 'nullable|string',
         ];
     }

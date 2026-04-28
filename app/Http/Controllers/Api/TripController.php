@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Trip\AssignTripRequest;
+use App\Http\Requests\Trip\CancelTripRequest;
+use App\Http\Requests\Trip\DelayTripRequest;
 use App\Http\Requests\Trip\StoreTripRequest;
 use App\Http\Requests\Trip\UpdateTripRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Trip;
+use App\Services\Trip\TripService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @OA\Tag(name="Trips", description="Quản lý chuyến xe")
@@ -21,6 +23,8 @@ class TripController extends BaseController
     use HasIndexQuery;
 
     protected array $allowedSortColumns = ['id', 'code', 'customer_id', 'driver_id', 'vehicle_id', 'status', 'start_time', 'price', 'created_at'];
+
+    public function __construct(private readonly TripService $tripService) {}
 
     /**
      * @OA\Get(
@@ -43,9 +47,7 @@ class TripController extends BaseController
     {
         $query = Trip::query()->with(['customer', 'driver', 'vehicle']);
 
-        if ($request->filled('company_id')) {
-            $query->where($query->qualifyColumn('company_id'), $request->integer('company_id'));
-        }
+        // BelongsToTenant đã áp global scope company_id từ TenantContext — không filter thủ công
 
         if ($request->filled('office_id')) {
             $query->whereHas('vehicle', static function ($q) use ($request): void {
@@ -60,7 +62,7 @@ class TripController extends BaseController
             'status' => 'status',
         ]);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     /**
@@ -97,7 +99,7 @@ class TripController extends BaseController
     {
         $trip = Trip::create($request->validated());
 
-        return $this->successResponse($trip->load(['customer', 'driver', 'vehicle']), 'Trip created successfully', 201);
+        return $this->successResponse($trip->load(['customer', 'driver', 'vehicle']), 'api.trip.created', 201);
     }
 
     /**
@@ -115,11 +117,11 @@ class TripController extends BaseController
     public function show(string $trip): JsonResponse
     {
         $model = Trip::with(['customer', 'driver', 'vehicle'])->find($trip);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 
     /**
@@ -157,12 +159,12 @@ class TripController extends BaseController
     public function update(UpdateTripRequest $request, string $trip): JsonResponse
     {
         $model = Trip::find($trip);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Trip updated successfully');
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.updated');
     }
 
     /**
@@ -180,160 +182,142 @@ class TripController extends BaseController
     public function destroy(string $trip): JsonResponse
     {
         $model = Trip::find($trip);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'Trip deleted successfully');
+        return $this->successResponse(null, 'api.trip.deleted');
     }
 
     public function assign(AssignTripRequest $request, string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
 
         $data = $request->validated();
         $fromStatus = $model->status;
         $model->update(['driver_id' => $data['driver_id']]);
-        $this->recordStatusHistory($model->id, $fromStatus, $fromStatus, auth()->id(), 'Assigned driver');
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, $fromStatus, auth()->id(), 'Assigned driver');
 
-        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Driver assigned');
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.driver_assigned');
     }
 
     public function start(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
-        if (! in_array($model->status, ['pending', 'in_progress'], true)) {
-            return $this->errorResponse('Trip cannot be started from status: '.$model->status, 422);
+        if (!in_array($model->status, ['pending', 'in_progress'], true)) {
+            return $this->errorResponse(__('api.trip.cannot_start_from_status', ['status' => $model->status]), 422);
         }
 
         $fromStatus = $model->status;
         $model->update(['status' => 'in_progress', 'start_time' => $model->start_time ?? now()]);
-        $this->recordStatusHistory($model->id, $fromStatus, 'in_progress', auth()->id());
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'in_progress', auth()->id());
 
-        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Trip started');
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.started');
     }
 
     public function pickup(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->recordStatusHistory($model->id, $model->status, 'pickup', auth()->id(), 'Cargo picked up');
+        $this->tripService->recordStatusHistory($model->id, $model->status, 'pickup', auth()->id(), 'Cargo picked up');
 
-        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Pickup recorded');
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.pickup_recorded');
     }
 
     public function transit(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->recordStatusHistory($model->id, $model->status, 'transit', auth()->id(), 'In transit');
+        $this->tripService->recordStatusHistory($model->id, $model->status, 'transit', auth()->id(), 'In transit');
 
-        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Transit recorded');
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.transit_recorded');
     }
 
     public function arrive(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->recordStatusHistory($model->id, $model->status, 'arrived', auth()->id(), 'Arrived at destination');
+        $this->tripService->recordStatusHistory($model->id, $model->status, 'arrived', auth()->id(), 'Arrived at destination');
 
-        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Arrival recorded');
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.arrival_recorded');
     }
 
     public function complete(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+        if (!$model) {
+            return $this->notFoundResponse('api.trip.not_found');
         }
         if ($model->status === 'completed') {
-            return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Trip already completed');
+            return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.already_completed');
         }
         if ($model->status === 'cancelled') {
-            return $this->errorResponse('Cannot complete a cancelled trip', 422);
+            return $this->errorResponse('api.trip.cannot_complete_cancelled', 422);
         }
 
         $fromStatus = $model->status;
         $model->update(['status' => 'completed', 'end_time' => $model->end_time ?? now()]);
-        $this->recordStatusHistory($model->id, $fromStatus, 'completed', auth()->id());
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'completed', auth()->id());
 
-        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Trip completed');
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.completed');
     }
 
-    public function cancel(Request $request, string $id): JsonResponse
+    public function cancel(CancelTripRequest $request, string $id): JsonResponse
     {
         $model = Trip::find($id);
         if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+            return $this->notFoundResponse('api.trip.not_found');
         }
         if ($model->status === 'completed') {
-            return $this->errorResponse('Cannot cancel a completed trip', 422);
+            return $this->errorResponse('api.trip.cannot_cancel_completed', 422);
         }
 
         $fromStatus = $model->status;
-        $note = $request->input('reason', 'Cancelled');
+        $note = $request->validated('reason') ?? 'Cancelled';
         $model->update(['status' => 'cancelled']);
-        $this->recordStatusHistory($model->id, $fromStatus, 'cancelled', auth()->id(), $note);
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'cancelled', auth()->id(), $note);
 
-        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'Trip cancelled');
+        return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.cancelled');
     }
 
-    public function delay(Request $request, string $id): JsonResponse
+    public function delay(DelayTripRequest $request, string $id): JsonResponse
     {
         $model = Trip::find($id);
         if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+            return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $note = $request->input('reason', 'Delayed');
-        $this->recordStatusHistory($model->id, $model->status, 'delayed', auth()->id(), $note);
+        $note = $request->validated('reason') ?? 'Delayed';
+        $this->tripService->recordStatusHistory($model->id, $model->status, 'delayed', auth()->id(), $note);
 
-        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Delay recorded');
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.delay_recorded');
     }
 
     public function resume(string $id): JsonResponse
     {
         $model = Trip::find($id);
         if (! $model) {
-            return $this->notFoundResponse('Trip not found');
+            return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->recordStatusHistory($model->id, $model->status, 'in_progress', auth()->id(), 'Resumed after delay');
+        $this->tripService->recordStatusHistory($model->id, $model->status, 'in_progress', auth()->id(), 'Resumed after delay');
 
-        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'Trip resumed');
-    }
-
-    private function recordStatusHistory(int $tripId, ?string $from, string $to, ?int $userId, ?string $note = null): void
-    {
-        if (! DB::getSchemaBuilder()->hasTable('trip_status_histories')) {
-            return;
-        }
-
-        DB::table('trip_status_histories')->insert([
-            'trip_id' => $tripId,
-            'from_status' => $from,
-            'to_status' => $to,
-            'changed_by' => $userId,
-            'note' => $note,
-            'changed_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.resumed');
     }
 }

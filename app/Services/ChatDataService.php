@@ -95,8 +95,8 @@ final class ChatDataService
         $context['_intent'] = $intent;
         $context['_user_message'] = $message;
 
-        $driver = $user->driver_id !== null
-            ? Driver::withoutGlobalScope('tenant')->find($user->driver_id)
+        $driver = $user->driver !== null
+            ? Driver::withoutGlobalScope('tenant')->find($user->driver->id)
             : null;
 
         $companyId = $this->tenantContext->getCompanyId()

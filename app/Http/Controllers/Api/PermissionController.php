@@ -34,7 +34,7 @@ class PermissionController extends BaseController
         $query = Permission::query();
         $result = $this->indexQuery($request, $query, ['code', 'name'], []);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     /**
@@ -51,9 +51,9 @@ class PermissionController extends BaseController
     {
         $model = Permission::find($permission);
         if (! $model) {
-            return $this->notFoundResponse('Permission not found');
+            return $this->notFoundResponse('api.permission.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 }

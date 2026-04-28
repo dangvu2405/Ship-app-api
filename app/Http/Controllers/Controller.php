@@ -21,7 +21,7 @@ namespace App\Http\Controllers;
  *     type="http",
  *     scheme="bearer",
  *     bearerFormat="JWT",
- *     description="Dùng token Bearer trả về từ POST /api/v1/auth/login (email + password)"
+ *     description="Dùng token Bearer trả về từ POST /api/auth/login (email + password)"
  * )
  *
  * @OA\SecurityRequirement(

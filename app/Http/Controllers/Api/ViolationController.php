@@ -24,7 +24,7 @@ class ViolationController extends BaseController
 
     /**
      * @OA\Get(
-     *     path="/api/v1/violations",
+     *     path="/api/violations",
      *     tags={"Violations"},
      *     summary="Danh sách vi phạm",
      *     security={{"sanctum":{}}},
@@ -60,12 +60,12 @@ class ViolationController extends BaseController
 
         $violations = $query->orderByDesc('occurred_at')->paginate(20);
 
-        return $this->successResponse($violations, 'Violations retrieved.');
+        return $this->successResponse($violations, 'api.violation.retrieved');
     }
 
     /**
      * @OA\Post(
-     *     path="/api/v1/violations",
+     *     path="/api/violations",
      *     tags={"Violations"},
      *     summary="Ghi nhận vi phạm mới",
      *     security={{"sanctum":{}}},
@@ -91,7 +91,7 @@ class ViolationController extends BaseController
         try {
             $violation = $this->violationService->create($request->validated(), $request->user());
 
-            return $this->successResponse($violation, 'Violation recorded.', 201);
+            return $this->successResponse($violation, 'api.violation.recorded', 201);
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
@@ -101,7 +101,7 @@ class ViolationController extends BaseController
     {
         return $this->successResponse(
             $violation->load(['driver', 'trip', 'reporter', 'confirmer', 'dispute.resolver']),
-            'Violation retrieved.',
+            'api.violation.single_retrieved',
         );
     }
 
@@ -113,7 +113,7 @@ class ViolationController extends BaseController
         try {
             $v = $this->violationService->confirm($violation, $request->user());
 
-            return $this->successResponse($v, 'Violation confirmed. Penalty will be applied to next payroll.');
+            return $this->successResponse($v, 'api.violation.confirmed');
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() === 403 ? 403 : 422;
 
@@ -131,7 +131,7 @@ class ViolationController extends BaseController
         try {
             $dispute = $this->violationService->dispute($violation, $request->validated(), $request->user());
 
-            return $this->successResponse($dispute, 'Dispute opened.', 201);
+            return $this->successResponse($dispute, 'api.violation.dispute_opened', 201);
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -147,11 +147,11 @@ class ViolationController extends BaseController
         try {
             $dispute = $violation->dispute;
             if (! $dispute) {
-                return $this->errorResponse('No open dispute found for this violation.', 404);
+                return $this->errorResponse('api.violation.no_open_dispute', 404);
             }
             $resolved = $this->violationService->resolveDispute($dispute, $request->validated(), $request->user());
 
-            return $this->successResponse($resolved, 'Dispute resolved.');
+            return $this->successResponse($resolved, 'api.violation.dispute_resolved');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -171,7 +171,7 @@ class ViolationController extends BaseController
                 $request->user(),
             );
 
-            return $this->successResponse($v, 'Violation waived.');
+            return $this->successResponse($v, 'api.violation.waived');
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() === 403 ? 403 : 422;
 

@@ -20,7 +20,7 @@ final class OfficeApplyScheduleController extends BaseController
     ) {}
 
     /**
-     * POST /api/v1/offices/{office}/apply-schedule
+     * POST /api/offices/{office}/apply-schedule
      * Áp khung giờ (template) cho toàn bộ tài xế thuộc văn phòng trong khoảng ngày.
      */
     public function store(ApplyOfficeScheduleRequest $request, Office $office): JsonResponse
@@ -45,7 +45,7 @@ final class OfficeApplyScheduleController extends BaseController
                     actorUserId: (int) $request->user()->id,
                     notes: isset($validated['notes']) ? (string) $validated['notes'] : null,
                     replaceDrafts: (bool) ($validated['replace_drafts'] ?? true),
-                );
+                )->onQueue('bulk-ops');
 
                 return $this->successResponse([
                     'queued' => true,
@@ -53,7 +53,7 @@ final class OfficeApplyScheduleController extends BaseController
                     'sync_max_rows' => $syncMaxRows,
                     'driver_count' => $estimate['driver_count'],
                     'day_count' => $estimate['day_count'],
-                ], 'Khối lượng lớn: đã đưa vào hàng đợi xử lý. Kiểm tra queue worker.', 202);
+                ], 'api.office_schedule_apply.queued_large_volume', 202);
             }
 
             $result = $this->applyOfficeScheduleService->apply(
@@ -66,7 +66,7 @@ final class OfficeApplyScheduleController extends BaseController
                 replaceDrafts: (bool) ($validated['replace_drafts'] ?? true),
             );
 
-            return $this->successResponse($result, 'Đã áp dụng lịch làm việc cho văn phòng.', 201);
+            return $this->successResponse($result, 'api.office_schedule_apply.applied', 201);
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() >= 400 && $e->getCode() < 600 ? $e->getCode() : 422;
 

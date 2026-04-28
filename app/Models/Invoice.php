@@ -13,6 +13,7 @@ class Invoice extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'code',
         'trip_id',
         'customer_id',
@@ -24,6 +25,17 @@ class Invoice extends Model
         'issued_at',
         'paid_at',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(static function (Invoice $invoice): void {
+            if ($invoice->company_id === null && $invoice->customer_id !== null) {
+                $invoice->company_id = Customer::withoutGlobalScopes()
+                    ->where('id', $invoice->customer_id)
+                    ->value('company_id');
+            }
+        });
+    }
 
     protected $casts = [
         'subtotal' => 'decimal:2',

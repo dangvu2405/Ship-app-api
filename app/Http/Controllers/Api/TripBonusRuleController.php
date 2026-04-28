@@ -39,61 +39,47 @@ class TripBonusRuleController extends BaseController
 
         $result = $this->indexQuery($request, $query, [], ['company_id' => 'company_id']);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     public function store(StoreTripBonusRuleRequest $request): JsonResponse
     {
         $rule = TripBonusRule::create($request->validated());
 
-        return $this->successResponse($rule, 'Trip bonus rule created successfully', 201);
+        return $this->successResponse($rule, 'api.trip_bonus_rule.created', 201);
     }
 
     public function show(string $tripBonusRule): JsonResponse
     {
         $model = TripBonusRule::find($tripBonusRule);
         if (! $model) {
-            return $this->notFoundResponse('Trip bonus rule not found');
+            return $this->notFoundResponse('api.trip_bonus_rule.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 
     public function update(UpdateTripBonusRuleRequest $request, string $tripBonusRule): JsonResponse
     {
         $model = TripBonusRule::find($tripBonusRule);
         if (! $model) {
-            return $this->notFoundResponse('Trip bonus rule not found');
+            return $this->notFoundResponse('api.trip_bonus_rule.not_found');
         }
 
-        $payload = $request->validated();
+        $model->update($request->validated());
 
-        if (array_key_exists('max_km', $payload) && $payload['max_km'] !== null) {
-            $minKm = array_key_exists('min_km', $payload)
-                ? (float) $payload['min_km']
-                : (float) $model->min_km;
-
-            if ((float) $payload['max_km'] <= $minKm) {
-                return $this->validationErrorResponse([
-                    'max_km' => ['The max km field must be greater than min km.'],
-                ]);
-            }
-        }
-
-        $model->update($payload);
-
-        return $this->successResponse($model->fresh(), 'Trip bonus rule updated successfully');
+        return $this->successResponse($model->fresh(), 'api.trip_bonus_rule.updated');
     }
 
     public function destroy(string $tripBonusRule): JsonResponse
     {
         $model = TripBonusRule::find($tripBonusRule);
         if (! $model) {
-            return $this->notFoundResponse('Trip bonus rule not found');
+            return $this->notFoundResponse('api.trip_bonus_rule.not_found');
         }
 
         $model->delete();
 
-        return $this->successResponse(null, 'Trip bonus rule deleted successfully');
+        return $this->successResponse(null, 'api.trip_bonus_rule.deleted');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Trip;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -20,6 +21,7 @@ class InvoiceFactory extends Factory
         
         return [
             'code' => strtoupper(fake()->unique()->bothify('INV#######')),
+            'company_id' => Company::factory(),
             'trip_id' => null,
             'customer_id' => Customer::factory(),
             'subtotal' => $subtotal,

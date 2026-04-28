@@ -41,7 +41,7 @@ class DriverController extends BaseController
             'available_status' => 'available_status',
         ]);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     /**
@@ -68,7 +68,7 @@ class DriverController extends BaseController
     {
         $driver = Driver::create($request->validated());
 
-        return $this->successResponse($driver->load(['office', 'department', 'position']), 'Driver created successfully', 201);
+        return $this->successResponse($driver->load(['office', 'department', 'position']), 'api.driver.created', 201);
     }
 
     /**
@@ -85,10 +85,10 @@ class DriverController extends BaseController
     {
         $model = Driver::with(['office', 'department', 'position'])->find($driver);
         if (! $model) {
-            return $this->notFoundResponse('Driver not found');
+            return $this->notFoundResponse('api.driver.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 
     /**
@@ -116,11 +116,11 @@ class DriverController extends BaseController
     {
         $model = Driver::find($driver);
         if (! $model) {
-            return $this->notFoundResponse('Driver not found');
+            return $this->notFoundResponse('api.driver.not_found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(['office', 'department', 'position']), 'Driver updated successfully');
+        return $this->successResponse($model->fresh(['office', 'department', 'position']), 'api.driver.updated');
     }
 
     /**
@@ -137,10 +137,10 @@ class DriverController extends BaseController
     {
         $model = Driver::find($driver);
         if (! $model) {
-            return $this->notFoundResponse('Driver not found');
+            return $this->notFoundResponse('api.driver.not_found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'Driver deleted successfully');
+        return $this->successResponse(null, 'api.driver.deleted');
     }
 }

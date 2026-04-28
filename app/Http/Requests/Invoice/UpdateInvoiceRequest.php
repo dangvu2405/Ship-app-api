@@ -51,18 +51,18 @@ class UpdateInvoiceRequest extends FormRequest
                 $trip = Trip::query()->find($tripId);
                 if ($trip) {
                     if ($trip->status !== 'completed') {
-                        $validator->errors()->add('trip_id', 'Chỉ được gắn hóa đơn với chuyến đã completed.');
+                        $validator->errors()->add('trip_id', __('api.validation.invoice_trip_must_be_completed'));
                     }
 
                     if ((int) $trip->customer_id !== $customerId) {
-                        $validator->errors()->add('customer_id', 'customer_id phải trùng với khách hàng của chuyến đi.');
+                        $validator->errors()->add('customer_id', __('api.validation.invoice_customer_mismatch'));
                     }
 
                     if (Invoice::query()
                         ->where('id', '!=', $invoiceId)
                         ->where('trip_id', $tripId)
                         ->exists()) {
-                        $validator->errors()->add('trip_id', 'Chuyến đi này đã có hóa đơn khác.');
+                        $validator->errors()->add('trip_id', __('api.validation.invoice_trip_already_has_other_invoice'));
                     }
                 }
             }
@@ -81,7 +81,7 @@ class UpdateInvoiceRequest extends FormRequest
             $inputTotal = round((float) $this->input('total_amount', $invoice->total_amount), 2);
 
             if (abs($inputTotal - $expectedTotal) > 0.01) {
-                $validator->errors()->add('total_amount', 'total_amount phải bằng subtotal + vat_amount.');
+                $validator->errors()->add('total_amount', __('api.validation.invoice_total_mismatch'));
             }
         });
     }

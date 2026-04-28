@@ -4,28 +4,68 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
+use App\Models\AuditLog;
+use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Role-based access guard, tenant-aware.
+ *
+ * Usage in routes:
+ *   ->middleware('role:admin')           // global admin only
+ *   ->middleware('role:company_admin')   // company_admin OR admin at current company
+ *   ->middleware('role:office_admin')    // office_admin OR company_admin OR admin
+ *
+ * Hierarchy (each level includes roles above it):
+ *   admin > company_admin > office_admin
+ */
 class RoleMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
+    public function __construct(
+        private readonly TenantContext $tenantContext
+    ) {}
+
     public function handle(Request $request, Closure $next, string $role): Response
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthenticated',
             ], 401);
         }
 
-        $user = auth()->user();
-        if (!$user->hasRole($role)) {
+        $user      = auth()->user();
+        $companyId = $this->tenantContext->getCompanyId();
+
+        // Sentinel -1 means authenticated but no company resolved.
+        // Pass null so hasRole() does a global (unscoped) check instead of
+        // looking for company_id = -1, which never exists in user_roles.
+        $roleCompanyId = ($companyId !== null && $companyId > 0) ? $companyId : null;
+
+        $allowed = match ($role) {
+            // Only the global system admin
+            'admin' => $user->hasRole('admin'),
+
+            // company_admin or higher
+            'company_admin' => $user->hasRole('admin')
+                || $user->hasRole('company_admin', $roleCompanyId),
+
+            // office_admin or higher
+            'office_admin' => $user->hasRole('admin')
+                || $user->hasRole('company_admin', $roleCompanyId)
+                || $user->hasRole('office_admin', $roleCompanyId),
+
+            // Exact match for any other custom role, scoped to current company
+            default => $user->hasRole('admin')
+                || $user->hasRole($role, $roleCompanyId),
+        };
+
+        if (! $allowed) {
+            $this->logAuthzFailure($request, $user->id, "role:{$role}", $roleCompanyId);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Forbidden: Insufficient role',
@@ -33,5 +73,26 @@ class RoleMiddleware
         }
 
         return $next($request);
+    }
+
+    private function logAuthzFailure(Request $request, int $userId, string $required, ?int $companyId): void
+    {
+        try {
+            AuditLog::create([
+                'user_id'    => $userId,
+                'company_id' => $companyId,
+                'action'     => 'authz_failure',
+                'table_name' => 'roles',
+                'resource'   => $required,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'metadata'   => [
+                    'route'  => $request->path(),
+                    'method' => $request->method(),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to write authz_failure audit log', ['error' => $e->getMessage()]);
+        }
     }
 }

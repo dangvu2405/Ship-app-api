@@ -37,7 +37,7 @@ class NotificationController extends BaseController
                 'last_page' => $paginator->lastPage(),
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
-            ], 'OK');
+            ], 'api.common.ok');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
@@ -48,7 +48,7 @@ class NotificationController extends BaseController
         try {
             $count = $request->user()->unreadNotifications()->count();
 
-            return $this->successResponse(['count' => $count], 'OK');
+            return $this->successResponse(['count' => $count], 'api.common.ok');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
@@ -60,7 +60,7 @@ class NotificationController extends BaseController
             /** @var DatabaseNotification|null $notification */
             $notification = $request->user()->notifications()->where('id', $id)->first();
             if ($notification === null) {
-                return $this->notFoundResponse('Notification not found');
+                return $this->notFoundResponse('api.notification.not_found');
             }
 
             if ($notification->read_at === null) {
@@ -68,7 +68,7 @@ class NotificationController extends BaseController
                 $notification->refresh();
             }
 
-            return $this->successResponse($this->toActivityPayload($notification), 'Marked as read');
+            return $this->successResponse($this->toActivityPayload($notification), 'api.notification.marked_read');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
@@ -79,7 +79,7 @@ class NotificationController extends BaseController
         try {
             $request->user()->unreadNotifications->markAsRead();
 
-            return $this->successResponse(null, 'All notifications marked as read');
+            return $this->successResponse(null, 'api.notification.all_marked_read');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }

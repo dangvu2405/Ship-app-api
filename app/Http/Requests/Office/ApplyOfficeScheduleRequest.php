@@ -39,7 +39,7 @@ class ApplyOfficeScheduleRequest extends FormRequest
             $maxDays = (int) config('ship.office_schedule_apply.max_date_range_days', 120);
             $days = \Carbon\Carbon::parse($start)->diffInDays(\Carbon\Carbon::parse($end)) + 1;
             if ($days > $maxDays) {
-                $validator->errors()->add('end_date', "Khoảng áp dụng không được vượt quá {$maxDays} ngày.");
+                $validator->errors()->add('end_date', __('api.validation.office_apply_date_range_exceeded', ['max_days' => $maxDays]));
             }
         });
     }

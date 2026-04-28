@@ -36,7 +36,7 @@ class PositionController extends BaseController
         $query = Position::query();
         $result = $this->indexQuery($request, $query, ['code', 'name'], []);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     /**
@@ -63,7 +63,7 @@ class PositionController extends BaseController
     {
         $position = Position::create($request->validated());
 
-        return $this->successResponse($position, 'Position created successfully', 201);
+        return $this->successResponse($position, 'api.position.created', 201);
     }
 
     /**
@@ -80,10 +80,10 @@ class PositionController extends BaseController
     {
         $model = Position::find($position);
         if (! $model) {
-            return $this->notFoundResponse('Position not found');
+            return $this->notFoundResponse('api.position.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 
     /**
@@ -111,11 +111,11 @@ class PositionController extends BaseController
     {
         $model = Position::find($position);
         if (! $model) {
-            return $this->notFoundResponse('Position not found');
+            return $this->notFoundResponse('api.position.not_found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(), 'Position updated successfully');
+        return $this->successResponse($model->fresh(), 'api.position.updated');
     }
 
     /**
@@ -132,10 +132,10 @@ class PositionController extends BaseController
     {
         $model = Position::find($position);
         if (! $model) {
-            return $this->notFoundResponse('Position not found');
+            return $this->notFoundResponse('api.position.not_found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'Position deleted successfully');
+        return $this->successResponse(null, 'api.position.deleted');
     }
 }

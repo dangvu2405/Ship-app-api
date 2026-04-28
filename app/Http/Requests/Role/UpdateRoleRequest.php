@@ -19,7 +19,7 @@ class UpdateRoleRequest extends FormRequest
 
         return [
             'name' => 'sometimes|string|max:255|unique:roles,name,' . $id,
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:1000',
         ];
     }
 }

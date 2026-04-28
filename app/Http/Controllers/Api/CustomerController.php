@@ -37,7 +37,7 @@ class CustomerController extends BaseController
         $query = Customer::query();
         $result = $this->indexQuery($request, $query, ['name', 'tax_code', 'email'], ['type' => 'type']);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     /**
@@ -66,7 +66,7 @@ class CustomerController extends BaseController
     {
         $customer = Customer::create($request->validated());
 
-        return $this->successResponse($customer, 'Customer created successfully', 201);
+        return $this->successResponse($customer, 'api.customer.created', 201);
     }
 
     /**
@@ -83,10 +83,10 @@ class CustomerController extends BaseController
     {
         $model = Customer::find($customer);
         if (! $model) {
-            return $this->notFoundResponse('Customer not found');
+            return $this->notFoundResponse('api.customer.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 
     /**
@@ -116,11 +116,11 @@ class CustomerController extends BaseController
     {
         $model = Customer::find($customer);
         if (! $model) {
-            return $this->notFoundResponse('Customer not found');
+            return $this->notFoundResponse('api.customer.not_found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(), 'Customer updated successfully');
+        return $this->successResponse($model->fresh(), 'api.customer.updated');
     }
 
     /**
@@ -137,10 +137,10 @@ class CustomerController extends BaseController
     {
         $model = Customer::find($customer);
         if (! $model) {
-            return $this->notFoundResponse('Customer not found');
+            return $this->notFoundResponse('api.customer.not_found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'Customer deleted successfully');
+        return $this->successResponse(null, 'api.customer.deleted');
     }
 }

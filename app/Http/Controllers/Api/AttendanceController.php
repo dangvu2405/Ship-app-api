@@ -7,12 +7,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Attendance\AdjustAttendanceRequest;
 use App\Http\Requests\Attendance\CheckInRequest;
 use App\Http\Requests\Attendance\CheckOutAttendanceRequest;
+use App\Http\Requests\Attendance\IndexAttendanceRequest;
 use App\Http\Requests\Attendance\NotifyLateAttendanceRequest;
 use App\Services\AttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Throwable;
 
@@ -25,7 +24,7 @@ class AttendanceController extends BaseController
 
     /**
      * @OA\Get(
-     *     path="/api/v1/attendance",
+     *     path="/api/attendance",
      *     tags={"Attendance"},
      *     summary="Danh sách chấm công",
      *     security={{"sanctum":{}}},
@@ -38,48 +37,16 @@ class AttendanceController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function index(Request $request): JsonResponse
+    public function index(IndexAttendanceRequest $request): JsonResponse
     {
-        $useLegacyAttendance = Schema::hasTable('attendances');
-        $dateColumn = $useLegacyAttendance ? 'date' : 'work_date';
+        $records = $this->attendanceService->getList($request->validated());
 
-        $query = $useLegacyAttendance
-            ? DB::table('attendances')
-            : DB::table('driver_work_schedules')->select([
-                'id',
-                'driver_id',
-                DB::raw('work_date as date'),
-                DB::raw('start_time as check_in'),
-                DB::raw('end_time as check_out'),
-                DB::raw('NULL as work_hours'),
-                DB::raw('NULL as overtime_hours'),
-                DB::raw("CASE WHEN status IN ('approved', 'locked') THEN 'present' ELSE status END as status"),
-                'created_at',
-                'updated_at',
-            ]);
-
-        if ($request->filled('driver_id')) {
-            $query->where('driver_id', $request->integer('driver_id'));
-        }
-        if ($request->filled('date')) {
-            $query->where($dateColumn, $request->input('date'));
-        }
-        if ($request->filled('from') && $request->filled('to')) {
-            $query->whereBetween($dateColumn, [$request->input('from'), $request->input('to')]);
-        }
-        if ($request->filled('status')) {
-            $query->where('status', $request->input('status'));
-        }
-
-        $perPage = $request->integer('per_page', 50);
-        $records = $query->orderByDesc($dateColumn)->paginate($perPage > 0 ? min($perPage, 200) : 50);
-
-        return $this->successResponse($records, 'Attendance records retrieved.');
+        return $this->successResponse($records, 'api.attendance.records_retrieved');
     }
 
     /**
      * @OA\Post(
-     *     path="/api/v1/attendance/check-in",
+     *     path="/api/attendance/check-in",
      *     tags={"Attendance"},
      *     summary="Ghi nhận check-in",
      *     security={{"sanctum":{}}},
@@ -103,7 +70,7 @@ class AttendanceController extends BaseController
                 $request->user(),
             );
 
-            return $this->successResponse($record, 'Check-in recorded.', 201);
+            return $this->successResponse($record, 'api.attendance.check_in_recorded', 201);
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -122,7 +89,7 @@ class AttendanceController extends BaseController
                 $request->user(),
             );
 
-            return $this->successResponse($record, 'Check-out recorded.');
+            return $this->successResponse($record, 'api.attendance.check_out_recorded');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -135,7 +102,7 @@ class AttendanceController extends BaseController
         try {
             $record = $this->attendanceService->adjust($id, $request->validated(), $request->user());
 
-            return $this->successResponse($record, 'Attendance adjusted.');
+            return $this->successResponse($record, 'api.attendance.adjusted');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -148,34 +115,9 @@ class AttendanceController extends BaseController
      */
     public function late(Request $request): JsonResponse
     {
-        if (! Schema::hasTable('attendances')) {
-            return $this->successResponse(
-                DB::table('driver_work_schedules')
-                    ->where('status', 'submitted')
-                    ->when(
-                        $request->filled('driver_id'),
-                        fn ($q) => $q->where('driver_id', $request->integer('driver_id')),
-                    )
-                    ->when(
-                        $request->filled('from') && $request->filled('to'),
-                        fn ($q) => $q->whereBetween('work_date', [$request->input('from'), $request->input('to')]),
-                    )
-                    ->orderByDesc('work_date')
-                    ->paginate(50),
-                'Late attendances retrieved.',
-            );
-        }
+        $records = $this->attendanceService->getLateList($request->only(['driver_id', 'from', 'to']));
 
-        $query = DB::table('attendances')->where('status', 'late');
-
-        if ($request->filled('driver_id')) {
-            $query->where('driver_id', $request->integer('driver_id'));
-        }
-        if ($request->filled('from') && $request->filled('to')) {
-            $query->whereBetween('date', [$request->input('from'), $request->input('to')]);
-        }
-
-        return $this->successResponse($query->orderByDesc('date')->paginate(50), 'Late attendances retrieved.');
+        return $this->successResponse($records, 'api.attendance.late_retrieved');
     }
 
     /**
@@ -190,6 +132,6 @@ class AttendanceController extends BaseController
                 'to' => $request->input('to'),
                 'driver_ids' => $request->input('driver_ids', []),
             ],
-        ], 'Late attendance notifications queued.');
+        ], 'api.attendance.late_notifications_queued');
     }
 }

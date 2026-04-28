@@ -25,7 +25,7 @@ final class DriverScheduleController extends BaseController
 
     /**
      * @OA\Get(
-     *     path="/api/v1/driver-schedules",
+     *     path="/api/driver-schedules",
      *     tags={"Driver Schedules"},
      *     summary="Danh sách lịch làm việc",
      *     security={{"sanctum":{}}},
@@ -44,12 +44,12 @@ final class DriverScheduleController extends BaseController
     {
         $schedules = $this->schedule_service->paginateSchedulesForIndex($request->validated());
 
-        return $this->successResponse($schedules, 'Schedules retrieved.');
+        return $this->successResponse($schedules, 'api.driver_schedule.retrieved');
     }
 
     /**
      * @OA\Post(
-     *     path="/api/v1/driver-schedules",
+     *     path="/api/driver-schedules",
      *     tags={"Driver Schedules"},
      *     summary="Tạo lịch làm việc mới",
      *     security={{"sanctum":{}}},
@@ -76,7 +76,7 @@ final class DriverScheduleController extends BaseController
         try {
             $schedule = $this->schedule_service->create($request->validated(), $request->user());
 
-            return $this->successResponse($schedule->load(['driver', 'vehicle', 'office']), 'Schedule created.', 201);
+            return $this->successResponse($schedule->load(['driver', 'vehicle', 'office']), 'api.driver_schedule.created', 201);
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() === 409 ? 409 : 422;
 
@@ -90,7 +90,7 @@ final class DriverScheduleController extends BaseController
     {
         return $this->successResponse(
             $driverWorkSchedule->load(['driver', 'vehicle', 'office', 'approver']),
-            'Schedule retrieved.',
+            'api.driver_schedule.single_retrieved',
         );
     }
 
@@ -99,7 +99,7 @@ final class DriverScheduleController extends BaseController
         try {
             $schedule = $this->schedule_service->update($driverWorkSchedule, $request->validated());
 
-            return $this->successResponse($schedule->load(['driver', 'vehicle', 'office']), 'Schedule updated.');
+            return $this->successResponse($schedule->load(['driver', 'vehicle', 'office']), 'api.driver_schedule.updated');
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() === 409 ? 409 : 422;
 
@@ -114,7 +114,7 @@ final class DriverScheduleController extends BaseController
         try {
             $schedule = $this->schedule_service->submit($driverWorkSchedule, $request->user());
 
-            return $this->successResponse($schedule, 'Schedule submitted for approval.');
+            return $this->successResponse($schedule, 'api.driver_schedule.submitted');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -134,7 +134,7 @@ final class DriverScheduleController extends BaseController
                 (string) ($validated['override_reason'] ?? ''),
             );
 
-            return $this->successResponse($schedule, 'Schedule approved.');
+            return $this->successResponse($schedule, 'api.driver_schedule.approved');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 422);
         } catch (Throwable $e) {
@@ -147,7 +147,7 @@ final class DriverScheduleController extends BaseController
         try {
             $schedule = $this->schedule_service->reject($driverWorkSchedule, $request->user());
 
-            return $this->successResponse($schedule, 'Schedule rejected and returned to draft.');
+            return $this->successResponse($schedule, 'api.driver_schedule.rejected');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -163,7 +163,7 @@ final class DriverScheduleController extends BaseController
         try {
             $schedule = $this->schedule_service->lockSingleRow($driverWorkSchedule, $request->user());
 
-            return $this->successResponse($schedule, 'Schedule locked.');
+            return $this->successResponse($schedule, 'api.driver_schedule.locked');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 422);
         } catch (Throwable $e) {
@@ -187,7 +187,7 @@ final class DriverScheduleController extends BaseController
                 $override_reason,
             );
 
-            return $this->successResponse($schedule, 'Schedule overridden successfully.');
+            return $this->successResponse($schedule, 'api.driver_schedule.overridden');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
@@ -199,7 +199,7 @@ final class DriverScheduleController extends BaseController
     public function hosCheck(DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
         $summary = $this->schedule_service->dailyHoursSummaryForRow($driverWorkSchedule);
-        $message = $summary['is_ok'] ? 'HOS check passed.' : 'HOS check failed.';
+        $message = $summary['is_ok'] ? 'api.driver_schedule.hos_passed' : 'api.driver_schedule.hos_failed';
 
         return $this->successResponse($summary, $message);
     }
@@ -209,7 +209,7 @@ final class DriverScheduleController extends BaseController
         try {
             $this->schedule_service->destroyIfAllowed($driverWorkSchedule);
 
-            return $this->successResponse(null, 'Schedule deleted.');
+            return $this->successResponse(null, 'api.driver_schedule.deleted');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), $e->getCode() >= 400 ? $e->getCode() : 422);
         } catch (Throwable $e) {

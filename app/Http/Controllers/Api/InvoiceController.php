@@ -8,8 +8,10 @@ use App\Http\Requests\Invoice\StoreInvoiceRequest;
 use App\Http\Requests\Invoice\UpdateInvoiceRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Invoice;
+use App\Services\InvoiceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 
 /**
  * @OA\Tag(name="Invoices", description="Quản lý hóa đơn")
@@ -19,6 +21,8 @@ class InvoiceController extends BaseController
     use HasIndexQuery;
 
     protected array $allowedSortColumns = ['id', 'code', 'customer_id', 'trip_id', 'status', 'total_amount', 'issued_at', 'created_at'];
+
+    public function __construct(private readonly InvoiceService $invoiceService) {}
 
     /**
      * @OA\Get(
@@ -43,7 +47,7 @@ class InvoiceController extends BaseController
             'status' => 'status',
         ]);
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     /**
@@ -73,7 +77,7 @@ class InvoiceController extends BaseController
     {
         $invoice = Invoice::create($request->validated());
 
-        return $this->successResponse($invoice->load(['trip', 'customer']), 'Invoice created successfully', 201);
+        return $this->successResponse($invoice->load(['trip', 'customer']), 'api.invoice.created', 201);
     }
 
     /**
@@ -90,10 +94,10 @@ class InvoiceController extends BaseController
     {
         $model = Invoice::with(['trip', 'customer'])->find($invoice);
         if (! $model) {
-            return $this->notFoundResponse('Invoice not found');
+            return $this->notFoundResponse('api.invoice.not_found');
         }
 
-        return $this->successResponse($model);
+        return $this->successResponse($model, 'api.common.ok');
     }
 
     /**
@@ -124,11 +128,11 @@ class InvoiceController extends BaseController
     {
         $model = Invoice::find($invoice);
         if (! $model) {
-            return $this->notFoundResponse('Invoice not found');
+            return $this->notFoundResponse('api.invoice.not_found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(['trip', 'customer']), 'Invoice updated successfully');
+        return $this->successResponse($model->fresh(['trip', 'customer']), 'api.invoice.updated');
     }
 
     /**
@@ -145,68 +149,66 @@ class InvoiceController extends BaseController
     {
         $model = Invoice::find($invoice);
         if (! $model) {
-            return $this->notFoundResponse('Invoice not found');
+            return $this->notFoundResponse('api.invoice.not_found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'Invoice deleted successfully');
+        return $this->successResponse(null, 'api.invoice.deleted');
     }
 
     public function issue(string $invoice): JsonResponse
     {
         $model = Invoice::find($invoice);
         if (! $model) {
-            return $this->notFoundResponse('Invoice not found');
-        }
-        if ($model->status !== 'draft') {
-            return $this->errorResponse('Only draft invoices can be issued', 422);
+            return $this->notFoundResponse('api.invoice.not_found');
         }
 
-        $model->update(['status' => 'issued', 'issued_at' => $model->issued_at ?? now()]);
-
-        return $this->successResponse($model->fresh(['trip', 'customer']), 'Invoice issued');
+        try {
+            return $this->successResponse($this->invoiceService->issue($model), 'api.invoice.issued');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
     }
 
     public function markPaid(string $invoice): JsonResponse
     {
         $model = Invoice::find($invoice);
         if (! $model) {
-            return $this->notFoundResponse('Invoice not found');
-        }
-        if ($model->status !== 'issued') {
-            return $this->errorResponse('Only issued invoices can be marked as paid', 422);
+            return $this->notFoundResponse('api.invoice.not_found');
         }
 
-        $model->update(['status' => 'paid', 'paid_at' => now()]);
-
-        return $this->successResponse($model->fresh(['trip', 'customer']), 'Invoice marked as paid');
+        try {
+            return $this->successResponse($this->invoiceService->markPaid($model), 'api.invoice.marked_paid');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
     }
 
     public function sendCqt(string $invoice): JsonResponse
     {
         $model = Invoice::find($invoice);
         if (! $model) {
-            return $this->notFoundResponse('Invoice not found');
-        }
-        if ($model->status !== 'issued') {
-            return $this->errorResponse('Only issued invoices can be sent to tax authority', 422);
+            return $this->notFoundResponse('api.invoice.not_found');
         }
 
-        return $this->successResponse($model->load(['trip', 'customer']), 'Invoice submitted to tax authority');
+        try {
+            return $this->successResponse($this->invoiceService->sendCqt($model), 'api.invoice.submitted_tax_authority');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
     }
 
     public function cancel(string $invoice): JsonResponse
     {
         $model = Invoice::find($invoice);
         if (! $model) {
-            return $this->notFoundResponse('Invoice not found');
-        }
-        if ($model->status === 'paid') {
-            return $this->errorResponse('Paid invoices cannot be cancelled', 422);
+            return $this->notFoundResponse('api.invoice.not_found');
         }
 
-        $model->update(['status' => 'cancelled']);
-
-        return $this->successResponse($model->fresh(['trip', 'customer']), 'Invoice cancelled');
+        try {
+            return $this->successResponse($this->invoiceService->cancel($model), 'api.invoice.cancelled');
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
     }
 }

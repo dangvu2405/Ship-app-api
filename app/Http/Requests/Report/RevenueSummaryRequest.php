@@ -56,7 +56,7 @@ class RevenueSummaryRequest extends FormRequest
             if (! $hasRange && ! $hasMonthYear) {
                 $validator->errors()->add(
                     'from',
-                    'Provide either from/to or month/year for revenue summary.',
+                    __('api.validation.report_revenue_missing_filters'),
                 );
             }
         });

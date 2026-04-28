@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\DriverWorkSchedule;
 use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ final class WorkforceService
 {
     public function __construct(
         private readonly ScheduleService $schedule_service,
+        private readonly TenantContext $tenant_context,
     ) {}
 
     /**
@@ -50,10 +52,12 @@ final class WorkforceService
 
     public function findScheduleForWorkforceMutation(Request $request, int $id): DriverWorkSchedule
     {
+        $company_id = $this->resolveCompanyId($request);
+
         return DriverWorkSchedule::query()
             ->when(
-                $this->resolveCompanyId($request) !== null && Schema::hasColumn('driver_work_schedules', 'company_id'),
-                fn ($q) => $q->where('company_id', $this->resolveCompanyId($request)),
+                $company_id !== null && Schema::hasColumn('driver_work_schedules', 'company_id'),
+                fn ($q) => $q->where('company_id', $company_id),
             )
             ->findOrFail($id);
     }
@@ -175,13 +179,17 @@ final class WorkforceService
 
     private function resolveCompanyId(Request $request): ?int
     {
+        $company_id = $this->tenant_context->getCompanyId();
+        if ($company_id !== null && $company_id > 0) {
+            return $company_id;
+        }
+
         $user = $request->user();
         if (! $user instanceof User) {
             return null;
         }
 
         $company_id = $user->driver?->company_id;
-
         return $company_id !== null ? (int) $company_id : null;
     }
 }

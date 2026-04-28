@@ -27,54 +27,53 @@ class LeaveService
         $to          = $data['to_date'];
         $totalDays   = (float) $data['total_days'];
 
-        // Check for overlapping approved/pending requests
-        $overlap = LeaveRequest::query()
-            ->where('driver_id', $driverId)
-            ->scopeOverlapping($from, $to)
-            ->exists();
-
-        if ($overlap) {
-            throw new InvalidArgumentException(
-                'Driver already has a leave request that overlaps with the requested dates.',
-            );
-        }
-
-        // Check leave balance (including already-pending requests to prevent over-allocation)
         $leaveType = LeaveType::findOrFail($leaveTypeId);
-        if ($leaveType->is_paid) {
-            $year    = (int) substr($from, 0, 4);
-            $balance = LeaveBalance::query()
-                ->where('driver_id', $driverId)
-                ->where('leave_type_id', $leaveTypeId)
-                ->where('year', $year)
-                ->first();
 
-            if ($balance) {
-                // Count pending requests that have not yet been approved/deducted.
-                // Without this, concurrent submissions can each pass the balance check
-                // individually but together exceed the remaining quota.
-                $pendingDays = (float) LeaveRequest::query()
+        return DB::transaction(function () use ($data, $actor, $driverId, $leaveTypeId, $from, $to, $totalDays, $leaveType): LeaveRequest {
+            // Check for overlapping requests inside transaction to prevent race conditions
+            $overlap = LeaveRequest::query()
+                ->where('driver_id', $driverId)
+                ->scopeOverlapping($from, $to)
+                ->exists();
+
+            if ($overlap) {
+                throw new InvalidArgumentException(
+                    'Driver already has a leave request that overlaps with the requested dates.',
+                );
+            }
+
+            // Check leave balance with row lock to prevent concurrent over-allocation
+            if ($leaveType->is_paid) {
+                $year    = (int) substr($from, 0, 4);
+                $balance = LeaveBalance::query()
                     ->where('driver_id', $driverId)
                     ->where('leave_type_id', $leaveTypeId)
-                    ->whereYear('from_date', $year)
-                    ->where('status', 'pending')
-                    ->sum('total_days');
+                    ->where('year', $year)
+                    ->lockForUpdate()
+                    ->first();
 
-                $effectiveRemaining = $balance->remainingDays() - $pendingDays;
+                if ($balance) {
+                    $pendingDays = (float) LeaveRequest::query()
+                        ->where('driver_id', $driverId)
+                        ->where('leave_type_id', $leaveTypeId)
+                        ->whereYear('from_date', $year)
+                        ->where('status', 'pending')
+                        ->sum('total_days');
 
-                if ($effectiveRemaining < $totalDays) {
-                    throw new InvalidArgumentException(
-                        sprintf(
-                            'Insufficient leave balance. Available (after pending requests): %.1f days, Requested: %.1f days.',
-                            max(0.0, $effectiveRemaining),
-                            $totalDays,
-                        ),
-                    );
+                    $effectiveRemaining = $balance->remainingDays() - $pendingDays;
+
+                    if ($effectiveRemaining < $totalDays) {
+                        throw new InvalidArgumentException(
+                            sprintf(
+                                'Insufficient leave balance. Available (after pending requests): %.1f days, Requested: %.1f days.',
+                                max(0.0, $effectiveRemaining),
+                                $totalDays,
+                            ),
+                        );
+                    }
                 }
             }
-        }
 
-        return DB::transaction(function () use ($data, $actor): LeaveRequest {
             $request = LeaveRequest::create([
                 ...$data,
                 'status'     => 'pending',

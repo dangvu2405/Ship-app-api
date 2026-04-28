@@ -27,6 +27,8 @@ final class ApplyOfficeScheduleJob implements ShouldQueue
 
     public int $tries = 3;
 
+    public int $timeout = 300;
+
     public function __construct(
         public readonly int $officeId,
         public readonly int $templateId,
@@ -56,6 +58,13 @@ final class ApplyOfficeScheduleJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        // Có thể bắn notification / log channel riêng khi cần SOC2
+        \Illuminate\Support\Facades\Log::error('ApplyOfficeScheduleJob failed', [
+            'office_id'   => $this->officeId,
+            'template_id' => $this->templateId,
+            'start_date'  => $this->startDate,
+            'end_date'    => $this->endDate,
+            'actor'       => $this->actorUserId,
+            'error'       => $exception?->getMessage(),
+        ]);
     }
 }

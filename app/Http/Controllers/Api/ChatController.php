@@ -34,7 +34,7 @@ final class ChatController extends BaseController
         try {
             $result = $this->chatService->send($request->user(), $request->validated());
 
-            return $this->successResponse($result, 'Chat response generated');
+            return $this->successResponse($result, 'api.chat.response_generated');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }
@@ -60,7 +60,7 @@ final class ChatController extends BaseController
             (int) ($validated['limit'] ?? 30)
         );
 
-        return $this->successResponse($result, 'OK');
+        return $this->successResponse($result, 'api.common.ok');
     }
 
     /**
@@ -79,7 +79,7 @@ final class ChatController extends BaseController
 
         $sessions = $this->chatService->listSessions($request->user(), (int) ($validated['limit'] ?? 20));
 
-        return $this->successResponse(['sessions' => $sessions], 'OK');
+        return $this->successResponse(['sessions' => $sessions], 'api.common.ok');
     }
 
     /**
@@ -100,7 +100,7 @@ final class ChatController extends BaseController
         try {
             $result = $this->chatService->deleteSession(request()->user(), $sessionId);
 
-            return $this->successResponse($result, 'Chat session deleted successfully');
+            return $this->successResponse($result, 'api.chat.session_deleted');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }

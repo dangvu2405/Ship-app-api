@@ -67,6 +67,6 @@ final class WorkforceController extends BaseController
     {
         $payload = $this->workforce_service->absencesPayloadForWorkforce($request, $request->validated());
 
-        return $this->successResponse($payload);
+        return $this->successResponse($payload, 'api.common.ok');
     }
 }

@@ -27,11 +27,11 @@ final class UploadController extends BaseController
 
             return $this->successResponse(
                 data: $result,
-                message: 'Upload successful',
+                message: 'api.upload.success',
                 code: 201
             );
         } catch (\Throwable $e) {
-            return $this->handleException($e, 'Failed to upload image');
+            return $this->handleException($e, 'api.upload.failed');
         }
     }
 }

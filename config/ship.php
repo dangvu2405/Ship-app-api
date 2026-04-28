@@ -32,6 +32,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default role assigned when admin creates a new user via /auth/register
+    |--------------------------------------------------------------------------
+    */
+    'default_register_role' => env('DEFAULT_REGISTER_ROLE', 'admin'),
+
+    /*
+    |--------------------------------------------------------------------------
     | BulkDataSeeder — số bản ghi mỗi “nhóm” bảng (companies, trips, cache, …)
     |--------------------------------------------------------------------------
     |
@@ -50,9 +57,9 @@ return [
     |
     */
     'audit_read_path_patterns' => [
-        '#^api/(v1/)?drivers(\b|/)#',
-        '#^api/(v1/)?payrolls(\b|/)#',
-        '#^api/(v1/)?positions(\b|/)#',
+        '#^api/drivers(\b|/)#',
+        '#^api/payrolls(\b|/)#',
+        '#^api/positions(\b|/)#',
     ],
 
     /*

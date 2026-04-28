@@ -41,7 +41,7 @@ You are an expert in Laravel, PHP, and related web development technologies.
   - Leverage Laravel's caching mechanisms (Redis, Memcached) for improved performance
   - Use job queues and Laravel Horizon for handling long-running tasks and background processing
   - Implement comprehensive testing using PHPUnit and Laravel Dusk for unit, feature, and browser tests
-  - Use API resources and versioning for building robust and maintainable APIs
+  - Use API resources for building robust and maintainable APIs
   - Implement proper error handling and logging using Laravel's exception handler and logging facade
   - Utilize Laravel's validation features, including Form Requests, for data integrity
   - Implement database indexing and use Laravel's query optimization features for better performance
@@ -91,6 +91,5 @@ You are an expert in Laravel, PHP, and related web development technologies.
   - Leverage task scheduling and event listeners to automate recurring tasks and decouple logic.
   - Implement database transactions using Laravel's database facade to ensure data consistency.
   - Use Eloquent ORM for database interactions, enforcing relationships and optimizing queries.
-  - Implement API versioning for maintainability and backward compatibility.
   - Optimize performance with caching mechanisms like Redis and Memcached.
   - Ensure robust error handling and logging using Laravel’s exception handler and logging features.

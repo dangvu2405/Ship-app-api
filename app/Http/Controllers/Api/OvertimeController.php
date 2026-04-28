@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Requests\Overtime\ApproveOvertimeRequest;
 use App\Http\Requests\Overtime\RejectOvertimeRequest;
 use App\Http\Requests\Overtime\StoreOvertimeRequest;
 use App\Models\OvertimeRequest;
 use App\Services\OvertimeService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Throwable;
 
@@ -22,7 +22,7 @@ class OvertimeController extends BaseController
 
     /**
      * @OA\Get(
-     *     path="/api/v1/overtime",
+     *     path="/api/overtime",
      *     tags={"Overtime"},
      *     summary="Danh sách yêu cầu làm thêm giờ",
      *     security={{"sanctum":{}}},
@@ -53,12 +53,12 @@ class OvertimeController extends BaseController
 
         $requests = $query->orderByDesc('work_date')->paginate(20);
 
-        return $this->successResponse($requests, 'Overtime requests retrieved.');
+        return $this->successResponse($requests, 'api.overtime.requests_retrieved');
     }
 
     /**
      * @OA\Post(
-     *     path="/api/v1/overtime",
+     *     path="/api/overtime",
      *     tags={"Overtime"},
      *     summary="Tạo yêu cầu làm thêm giờ",
      *     security={{"sanctum":{}}},
@@ -84,7 +84,7 @@ class OvertimeController extends BaseController
         try {
             $ot = $this->overtimeService->request($request->validated(), $request->user());
 
-            return $this->successResponse($ot, 'Overtime request submitted.', 201);
+            return $this->successResponse($ot, 'api.overtime.request_submitted', 201);
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {
@@ -96,19 +96,19 @@ class OvertimeController extends BaseController
     {
         return $this->successResponse(
             $overtimeRequest->load(['driver', 'requester', 'approver']),
-            'Overtime request retrieved.',
+            'api.overtime.request_retrieved',
         );
     }
 
     /**
      * Approve an OT request. SoD enforced in OvertimeService.
      */
-    public function approve(Request $request, OvertimeRequest $overtimeRequest): JsonResponse
+    public function approve(ApproveOvertimeRequest $request, OvertimeRequest $overtimeRequest): JsonResponse
     {
         try {
             $ot = $this->overtimeService->approve($overtimeRequest, $request->user());
 
-            return $this->successResponse($ot, 'Overtime request approved.');
+            return $this->successResponse($ot, 'api.overtime.request_approved');
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() === 403 ? 403 : 422;
 
@@ -127,7 +127,7 @@ class OvertimeController extends BaseController
                 $request->user(),
             );
 
-            return $this->successResponse($ot, 'Overtime request rejected.');
+            return $this->successResponse($ot, 'api.overtime.request_rejected');
         } catch (InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
         } catch (Throwable $e) {

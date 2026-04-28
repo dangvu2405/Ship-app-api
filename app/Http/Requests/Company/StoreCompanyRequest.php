@@ -19,9 +19,9 @@ class StoreCompanyRequest extends FormRequest
             'code' => 'required|string|max:50|unique:companies,code',
             'name' => 'required|string|max:255',
             'tax_code' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
+            'address' => 'nullable|string|max:500',
             'phone' => 'nullable|string|max:20',
-            'email' => 'nullable|email',
+            'email' => 'nullable|email|max:255',
             'status' => 'required|in:active,inactive',
         ];
     }
