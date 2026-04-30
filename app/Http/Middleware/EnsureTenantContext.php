@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Models\Driver;
 use App\Models\User;
 use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
 final class EnsureTenantContext
@@ -25,6 +27,14 @@ final class EnsureTenantContext
 
     public function handle(Request $request, Closure $next): Response
     {
+        $requestedCompanyId = $this->requestedCompanyId($request);
+        if ($requestedCompanyId !== null && ! $this->canAccessRequestedCompany($request, $requestedCompanyId)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden: tenant mismatch',
+            ], 403);
+        }
+
         $resolved = $this->resolveCompanyId($request);
 
         // Authenticated but no tenant resolved → block data access with sentinel
@@ -43,6 +53,42 @@ final class EnsureTenantContext
         }
 
         return $next($request);
+    }
+
+    private function requestedCompanyId(Request $request): ?int
+    {
+        $header = $request->header('X-Tenant-ID')
+            ?? $request->header('X-Company-Id');
+        $query = $request->query('company_id');
+        $raw = ($header !== null && $header !== '') ? $header : $query;
+
+        if ($raw === null || $raw === '' || ! ctype_digit((string) $raw)) {
+            return null;
+        }
+
+        $candidate = (int) $raw;
+
+        return $candidate > 0 ? $candidate : null;
+    }
+
+    private function canAccessRequestedCompany(Request $request, int $companyId): bool
+    {
+        $user = $request->user();
+        if ($user === null) {
+            return false;
+        }
+
+        if ($user->hasRole('admin') || $user->hasRole('super_admin')) {
+            return Company::query()->whereKey($companyId)->exists();
+        }
+
+        if (Schema::hasTable('user_companies')) {
+            return $user->companies()
+                ->wherePivot('company_id', $companyId)
+                ->exists();
+        }
+
+        return false;
     }
 
     public function terminate(Request $request, Response $response): void
@@ -68,32 +114,43 @@ final class EnsureTenantContext
             $candidate = (int) $raw;
 
             if ($candidate > 0) {
-                if ($user->hasRole('admin')) {
-                    // Global admin can access any existing company
+                if ($user->hasRole('admin') || $user->hasRole('super_admin')) {
+                    // Global admin/super_admin can access any existing company
                     if (Company::query()->whereKey($candidate)->exists()) {
                         return $candidate;
                     }
                 } else {
                     // company_admin / office_admin must have explicit user_companies row
-                    $assigned = $user->companies()
-                        ->wherePivot('company_id', $candidate)
-                        ->exists();
-                    if ($assigned) {
-                        return $candidate;
+                    if (Schema::hasTable('user_companies')) {
+                        $assigned = $user->companies()
+                            ->wherePivot('company_id', $candidate)
+                            ->exists();
+                        if ($assigned) {
+                            return $candidate;
+                        }
                     }
                 }
             }
         }
 
-        // Fall back: first assigned company (highest is_default first), then driver's office company
-        $defaultCompany = $user->companies()->first();
-        if ($defaultCompany !== null) {
-            return $defaultCompany->id;
+        // Fall back: first assigned company (highest is_default first)
+        if (Schema::hasTable('user_companies')) {
+            $defaultCompany = $user->companies()->first();
+            if ($defaultCompany !== null) {
+                return $defaultCompany->id;
+            }
         }
 
-        $user->loadMissing('driver.office');
+        $driverId = $user->getAttribute('driver_id');
+        if (is_int($driverId) || ctype_digit((string) $driverId)) {
+            $companyId = Driver::query()
+                ->whereKey((int) $driverId)
+                ->value('company_id');
 
-        return $user->driver?->office?->company_id;
+            return $companyId !== null ? (int) $companyId : null;
+        }
+
+        return null;
     }
 
     /**
@@ -112,6 +169,10 @@ final class EnsureTenantContext
         }
 
         // Find the office_admin assignment for this company
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('user_roles')) {
+            return null;
+        }
+
         $pivot = $user->roles()
             ->where('roles.name', 'office_admin')
             ->where('user_roles.company_id', $companyId)

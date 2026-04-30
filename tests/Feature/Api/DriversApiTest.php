@@ -101,7 +101,7 @@ class DriversApiTest extends TestCase
         $this->assertDatabaseHas('drivers', ['id' => $driver->id, 'available_status' => 'busy']);
     }
 
-    public function test_admin_can_delete_driver(): void
+    public function test_admin_delete_driver_marks_inactive_instead_of_soft_delete(): void
     {
         $company = Company::factory()->create();
         $office = Office::factory()->create(['company_id' => $company->id]);
@@ -113,6 +113,10 @@ class DriversApiTest extends TestCase
         $response = $this->deleteJson('/api/v1/drivers/'.$driver->id, [], $this->tenant_headers($company));
 
         $response->assertStatus(200);
-        $this->assertSoftDeleted('drivers', ['id' => $driver->id]);
+        $this->assertDatabaseHas('drivers', [
+            'id' => $driver->id,
+            'status' => 'inactive',
+            'available_status' => 'off',
+        ]);
     }
 }

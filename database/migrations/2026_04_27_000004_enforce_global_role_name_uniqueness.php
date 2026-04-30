@@ -28,13 +28,21 @@ return new class extends Migration
             );
         }
 
-        Schema::table('roles', function (Blueprint $table): void {
-            if (! Schema::hasColumn('roles', 'company_scope_id')) {
-                $table->unsignedBigInteger('company_scope_id')
-                    ->storedAs('IFNULL(company_id, 0)')
-                    ->after('company_id');
-            }
-        });
+        // Drop FK before adding stored generated column (MySQL restriction with CASCADE FKs)
+        try {
+            DB::statement('ALTER TABLE `roles` DROP FOREIGN KEY `roles_company_id_foreign`');
+        } catch (\Throwable) {
+        }
+
+        if (! Schema::hasColumn('roles', 'company_scope_id')) {
+            DB::statement('ALTER TABLE `roles` ADD COLUMN `company_scope_id` BIGINT UNSIGNED AS (IFNULL(company_id, 0)) STORED AFTER `company_id`');
+        }
+
+        // Recreate FK
+        try {
+            DB::statement('ALTER TABLE `roles` ADD CONSTRAINT `roles_company_id_foreign` FOREIGN KEY (`company_id`) REFERENCES `companies` (`id`) ON DELETE CASCADE');
+        } catch (\Throwable) {
+        }
 
         if (! $this->indexExists('roles', 'roles_name_company_scope_unique')) {
             DB::statement('CREATE UNIQUE INDEX roles_name_company_scope_unique ON roles (name, company_scope_id)');

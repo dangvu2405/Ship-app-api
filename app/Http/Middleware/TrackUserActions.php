@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Models\AuditLog;
+use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,6 +15,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class TrackUserActions
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext
+    ) {}
+
     /** @var array<string, bool>|null */
     private static ?array $auditLogColumns = null;
 
@@ -52,7 +57,8 @@ class TrackUserActions
 
             $columns = $this->auditLogColumns();
             if (($columns['company_id'] ?? false) === true) {
-                $payload['company_id'] = $user->driver?->company_id;
+                $companyId = $this->tenantContext->getCompanyId();
+                $payload['company_id'] = ($companyId !== null && $companyId > 0) ? $companyId : null;
             }
             if (($columns['resource'] ?? false) === true) {
                 $payload['resource'] = $resource;

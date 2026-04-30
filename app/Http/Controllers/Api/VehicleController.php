@@ -42,7 +42,7 @@ class VehicleController extends BaseController
             'status' => 'status',
         ]);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -72,7 +72,7 @@ class VehicleController extends BaseController
     {
         $vehicle = Vehicle::create($request->validated());
 
-        return $this->successResponse($vehicle->load('office'), 'api.vehicle.created', 201);
+        return $this->successResponse($vehicle->load('office'), 'Vehicle created successfully', 201);
     }
 
     /**
@@ -89,10 +89,10 @@ class VehicleController extends BaseController
     {
         $model = Vehicle::with('office')->find($vehicle);
         if (! $model) {
-            return $this->notFoundResponse('api.vehicle.not_found');
+            return $this->notFoundResponse('Vehicle not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -123,11 +123,11 @@ class VehicleController extends BaseController
     {
         $model = Vehicle::find($vehicle);
         if (! $model) {
-            return $this->notFoundResponse('api.vehicle.not_found');
+            return $this->notFoundResponse('Vehicle not found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh('office'), 'api.vehicle.updated');
+        return $this->successResponse($model->fresh('office'), 'Vehicle updated successfully');
     }
 
     /**
@@ -145,13 +145,14 @@ class VehicleController extends BaseController
     {
         $model = Vehicle::find($vehicle);
         if (! $model) {
-            return $this->notFoundResponse('api.vehicle.not_found');
+            return $this->notFoundResponse('Vehicle not found');
         }
         if (VehicleAssignment::where('vehicle_id', $vehicle)->exists()) {
-            return $this->errorResponse('api.vehicle.cannot_delete_assigned', 422);
+            return $this->errorResponse('Cannot delete vehicle that is assigned', 422);
         }
-        $model->delete();
 
-        return $this->successResponse(null, 'api.vehicle.deleted');
+        $model->update(['status' => 'out_of_service']);
+
+        return $this->successResponse($model->fresh(), 'Vehicle marked as out_of_service');
     }
 }

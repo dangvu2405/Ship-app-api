@@ -45,9 +45,8 @@ class TripFactory extends Factory
                 return;
             }
 
-            if ((int) $vehicle->office_id !== (int) $driver->office_id) {
+            if ($driver->company_id !== null && (int) $vehicle->company_id !== (int) $driver->company_id) {
                 $vehicle->forceFill([
-                    'office_id' => $driver->office_id,
                     'company_id' => $driver->company_id,
                 ])->saveQuietly();
             }

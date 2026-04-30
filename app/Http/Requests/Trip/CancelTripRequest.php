@@ -11,7 +11,7 @@ class CancelTripRequest extends AppFormRequest
     public function rules(): array
     {
         return [
-            'reason' => ['nullable', 'string', 'max:500'],
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
         ];
     }
 

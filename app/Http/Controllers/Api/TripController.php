@@ -10,10 +10,16 @@ use App\Http\Requests\Trip\DelayTripRequest;
 use App\Http\Requests\Trip\StoreTripRequest;
 use App\Http\Requests\Trip\UpdateTripRequest;
 use App\Http\Traits\HasIndexQuery;
+use App\Models\PriceList;
 use App\Models\Trip;
+use App\Models\TripDocument;
+use App\Models\TripStop;
+use App\Models\VehicleAssignment;
 use App\Services\Trip\TripService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * @OA\Tag(name="Trips", description="Quản lý chuyến xe")
@@ -22,9 +28,16 @@ class TripController extends BaseController
 {
     use HasIndexQuery;
 
-    protected array $allowedSortColumns = ['id', 'code', 'customer_id', 'driver_id', 'vehicle_id', 'status', 'start_time', 'price', 'created_at'];
+    protected array $allowedSortColumns = ['id', 'code', 'customer_id', 'driver_id', 'vehicle_id', 'office_id', 'status', 'start_time', 'price', 'created_at'];
 
     public function __construct(private readonly TripService $tripService) {}
+
+    private function actorId(): ?int
+    {
+        $id = Auth::id();
+
+        return $id !== null ? (int) $id : null;
+    }
 
     /**
      * @OA\Get(
@@ -97,9 +110,114 @@ class TripController extends BaseController
      */
     public function store(StoreTripRequest $request): JsonResponse
     {
-        $trip = Trip::create($request->validated());
+        $payload = $request->validated();
+        $warnings = [];
 
-        return $this->successResponse($trip->load(['customer', 'driver', 'vehicle']), 'api.trip.created', 201);
+        if (isset($payload['quotation_id'])) {
+            $payload['status'] = $payload['status'] ?? 'pending';
+        }
+
+        if (! isset($payload['base_price']) && isset($payload['price'])) {
+            $payload['base_price'] = $payload['price'];
+        }
+        if (! isset($payload['base_price'])) {
+            $resolvedPrice = $this->resolveBasePriceFromPriceList($payload);
+            if ($resolvedPrice !== null) {
+                $payload['base_price'] = $resolvedPrice;
+            }
+        }
+        if (! isset($payload['surcharge_amount'])) {
+            $payload['surcharge_amount'] = 0;
+        }
+        if (! isset($payload['total_revenue'])) {
+            $basePrice = (float) ($payload['base_price'] ?? 0);
+            $surcharge = (float) ($payload['surcharge_amount'] ?? 0);
+            $payload['total_revenue'] = $basePrice + $surcharge;
+        }
+
+        if (! isset($payload['office_id']) && isset($payload['driver_id'])) {
+            $payload['office_id'] = \App\Models\Driver::query()->whereKey($payload['driver_id'])->value('office_id');
+        }
+
+        if (isset($payload['driver_id'])) {
+            $expiredDate = \App\Models\Driver::query()->whereKey($payload['driver_id'])->value('expired_date');
+            if ($expiredDate !== null && now()->toDateString() > (string) $expiredDate) {
+                $warnings[] = 'Driver license is expired. Trip is still allowed but requires follow-up.';
+            }
+        }
+
+        $trip = Trip::create($payload);
+        $responseData = $trip->load(['customer', 'driver', 'vehicle'])->toArray();
+        if ($warnings !== []) {
+            $responseData['warnings'] = $warnings;
+        }
+
+        return $this->successResponse($responseData, 'api.trip.created', 201);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveBasePriceFromPriceList(array $payload): ?float
+    {
+        $customerId = $payload['customer_id'] ?? null;
+        $routeTemplateId = $payload['route_template_id'] ?? null;
+        if ($customerId === null || $routeTemplateId === null) {
+            return null;
+        }
+
+        $priceList = PriceList::query()
+            ->where('customer_id', $customerId)
+            ->where('is_active', true)
+            ->whereDate('effective_from', '<=', now()->toDateString())
+            ->where(function ($query): void {
+                $query->whereNull('effective_to')
+                    ->orWhereDate('effective_to', '>=', now()->toDateString());
+            })
+            ->orderByDesc('effective_from')
+            ->first();
+        if ($priceList === null) {
+            return null;
+        }
+
+        $item = $priceList->items()
+            ->where(function ($query) use ($routeTemplateId): void {
+                $query->where('route_template_id', $routeTemplateId)
+                    ->orWhereNull('route_template_id');
+            })
+            ->where(function ($query) use ($payload): void {
+                if (! isset($payload['cargo_type_id'])) {
+                    $query->whereNull('cargo_type_id');
+
+                    return;
+                }
+
+                $query->where('cargo_type_id', $payload['cargo_type_id'])
+                    ->orWhereNull('cargo_type_id');
+            })
+            ->where(function ($query) use ($payload): void {
+                if (! isset($payload['vehicle_id'])) {
+                    $query->whereNull('vehicle_type_id');
+
+                    return;
+                }
+
+                $vehicleTypeId = \App\Models\Vehicle::query()->whereKey($payload['vehicle_id'])->value('vehicle_type_id');
+                if ($vehicleTypeId === null) {
+                    $query->whereNull('vehicle_type_id');
+
+                    return;
+                }
+
+                $query->where('vehicle_type_id', $vehicleTypeId)
+                    ->orWhereNull('vehicle_type_id');
+            })
+            ->orderByRaw('route_template_id is null')
+            ->orderByRaw('vehicle_type_id is null')
+            ->orderByRaw('cargo_type_id is null')
+            ->first();
+
+        return $item !== null ? (float) $item->price : null;
     }
 
     /**
@@ -162,7 +280,21 @@ class TripController extends BaseController
         if (!$model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
-        $model->update($request->validated());
+
+        $payload = $request->validated();
+        unset($payload['code']);
+
+        if (isset($payload['price']) && ! isset($payload['base_price'])) {
+            $payload['base_price'] = $payload['price'];
+        }
+
+        if (isset($payload['base_price']) || isset($payload['surcharge_amount'])) {
+            $basePrice = (float) ($payload['base_price'] ?? $model->base_price ?? 0);
+            $surcharge = (float) ($payload['surcharge_amount'] ?? $model->surcharge_amount ?? 0);
+            $payload['total_revenue'] = $basePrice + $surcharge;
+        }
+
+        $model->update($payload);
 
         return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.updated');
     }
@@ -185,9 +317,15 @@ class TripController extends BaseController
         if (!$model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
-        $model->delete();
 
-        return $this->successResponse(null, 'api.trip.deleted');
+        return $this->errorResponse(
+            'api.trip.delete_not_allowed',
+            422,
+            [
+                'code' => __('api.errors.code.operation_not_allowed'),
+                'details' => [__('api.trip.delete_not_allowed')],
+            ],
+        );
     }
 
     public function assign(AssignTripRequest $request, string $id): JsonResponse
@@ -197,10 +335,91 @@ class TripController extends BaseController
             return $this->notFoundResponse('api.trip.not_found');
         }
 
+        if (in_array($model->status, ['completed', 'cancelled'], true)) {
+            return $this->errorResponse(
+                'api.trip.assign_not_allowed_from_status',
+                422,
+                [
+                    'code' => __('api.errors.code.operation_not_allowed'),
+                    'details' => [__('api.trip.assign_not_allowed_from_status', ['status' => $model->status])],
+                ],
+            );
+        }
+
         $data = $request->validated();
+
+        if ($model->driver_id !== null && (int) $model->driver_id !== (int) $data['driver_id']) {
+            return $this->errorResponse(
+                'api.trip.already_assigned',
+                422,
+                [
+                    'code' => __('api.errors.code.operation_not_allowed'),
+                    'details' => [__('api.trip.already_assigned')],
+                ],
+            );
+        }
+
+        $driverBusy = Trip::query()
+            ->whereKeyNot($model->id)
+            ->where('driver_id', $data['driver_id'])
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->exists();
+
+        if ($driverBusy) {
+            return $this->errorResponse(
+                'api.trip.driver_conflict',
+                422,
+                [
+                    'code' => __('api.errors.code.dependency_restriction'),
+                    'details' => [__('api.trip.driver_conflict')],
+                ],
+            );
+        }
+
+        if ($model->vehicle_id !== null) {
+            $tripDate = $model->start_time?->toDateString() ?? now()->toDateString();
+            $hasValidAssignment = VehicleAssignment::query()
+                ->where('driver_id', $data['driver_id'])
+                ->where('vehicle_id', $model->vehicle_id)
+                ->whereDate('from_date', '<=', $tripDate)
+                ->where(function ($query) use ($tripDate): void {
+                    $query->whereNull('to_date')
+                        ->orWhereDate('to_date', '>=', $tripDate);
+                })
+                ->exists();
+
+            if (! $hasValidAssignment) {
+                return $this->errorResponse(
+                    'api.trip.assignment_mismatch',
+                    422,
+                    [
+                        'code' => __('api.errors.code.dependency_restriction'),
+                        'details' => [__('api.trip.assignment_mismatch')],
+                    ],
+                );
+            }
+
+            $vehicleBusy = Trip::query()
+                ->whereKeyNot($model->id)
+                ->where('vehicle_id', $model->vehicle_id)
+                ->whereNotIn('status', ['completed', 'cancelled'])
+                ->exists();
+
+            if ($vehicleBusy) {
+                return $this->errorResponse(
+                    'api.trip.vehicle_conflict',
+                    422,
+                    [
+                        'code' => __('api.errors.code.dependency_restriction'),
+                        'details' => [__('api.trip.vehicle_conflict')],
+                    ],
+                );
+            }
+        }
+
         $fromStatus = $model->status;
         $model->update(['driver_id' => $data['driver_id']]);
-        $this->tripService->recordStatusHistory($model->id, $fromStatus, $fromStatus, auth()->id(), 'Assigned driver');
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, $fromStatus, $this->actorId(), 'Assigned driver');
 
         return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.driver_assigned');
     }
@@ -217,7 +436,7 @@ class TripController extends BaseController
 
         $fromStatus = $model->status;
         $model->update(['status' => 'in_progress', 'start_time' => $model->start_time ?? now()]);
-        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'in_progress', auth()->id());
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'in_progress', $this->actorId());
 
         return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.started');
     }
@@ -229,7 +448,7 @@ class TripController extends BaseController
             return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->tripService->recordStatusHistory($model->id, $model->status, 'pickup', auth()->id(), 'Cargo picked up');
+        $this->tripService->recordStatusHistory($model->id, $model->status, $model->status, $this->actorId(), 'Cargo picked up');
 
         return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.pickup_recorded');
     }
@@ -241,7 +460,7 @@ class TripController extends BaseController
             return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->tripService->recordStatusHistory($model->id, $model->status, 'transit', auth()->id(), 'In transit');
+        $this->tripService->recordStatusHistory($model->id, $model->status, $model->status, $this->actorId(), 'In transit');
 
         return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.transit_recorded');
     }
@@ -253,7 +472,7 @@ class TripController extends BaseController
             return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->tripService->recordStatusHistory($model->id, $model->status, 'arrived', auth()->id(), 'Arrived at destination');
+        $this->tripService->recordStatusHistory($model->id, $model->status, $model->status, $this->actorId(), 'Arrived at destination');
 
         return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.arrival_recorded');
     }
@@ -273,7 +492,7 @@ class TripController extends BaseController
 
         $fromStatus = $model->status;
         $model->update(['status' => 'completed', 'end_time' => $model->end_time ?? now()]);
-        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'completed', auth()->id());
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'completed', $this->actorId());
 
         return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.completed');
     }
@@ -290,8 +509,13 @@ class TripController extends BaseController
 
         $fromStatus = $model->status;
         $note = $request->validated('reason') ?? 'Cancelled';
-        $model->update(['status' => 'cancelled']);
-        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'cancelled', auth()->id(), $note);
+        $model->update([
+            'status' => 'cancelled',
+            'cancellation_reason' => $note,
+            'cancelled_at' => now(),
+            'cancelled_by' => $this->actorId(),
+        ]);
+        $this->tripService->recordStatusHistory($model->id, $fromStatus, 'cancelled', $this->actorId(), $note);
 
         return $this->successResponse($model->fresh(['customer', 'driver', 'vehicle']), 'api.trip.cancelled');
     }
@@ -304,7 +528,7 @@ class TripController extends BaseController
         }
 
         $note = $request->validated('reason') ?? 'Delayed';
-        $this->tripService->recordStatusHistory($model->id, $model->status, 'delayed', auth()->id(), $note);
+        $this->tripService->recordStatusHistory($model->id, $model->status, $model->status, $this->actorId(), $note);
 
         return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.delay_recorded');
     }
@@ -316,8 +540,104 @@ class TripController extends BaseController
             return $this->notFoundResponse('api.trip.not_found');
         }
 
-        $this->tripService->recordStatusHistory($model->id, $model->status, 'in_progress', auth()->id(), 'Resumed after delay');
+        $this->tripService->recordStatusHistory($model->id, $model->status, 'in_progress', $this->actorId(), 'Resumed after delay');
 
         return $this->successResponse($model->load(['customer', 'driver', 'vehicle']), 'api.trip.resumed');
+    }
+
+    public function uploadDocument(Request $request, string $id): JsonResponse
+    {
+        $trip = Trip::query()->find($id);
+        if (! $trip) {
+            return $this->notFoundResponse('api.trip.not_found');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'doc_type' => ['required', 'string', 'in:dispatch_note,delivery_receipt,epod,invoice,other'],
+            'doc_name' => ['required', 'string', 'max:255'],
+            'file_url' => ['required', 'string', 'regex:/\.(pdf|jpg|jpeg|png)$/i'],
+            'file_size_kb' => ['nullable', 'integer', 'min:1', 'max:10240'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        if ($validator->fails()) {
+            return $this->errorResponse(
+                $validator->errors()->first(),
+                422,
+                ['errors' => $validator->errors()->toArray()],
+            );
+        }
+
+        $document = TripDocument::query()->create([
+            ...$validator->validated(),
+            'company_id' => $trip->company_id,
+            'trip_id' => $trip->id,
+            'uploaded_by' => $this->actorId(),
+            'created_at' => now(),
+        ]);
+
+        return $this->successResponse($document, 'api.common.created', 201);
+    }
+
+    public function updateStopStatus(Request $request, string $id, string $stopId): JsonResponse
+    {
+        $trip = Trip::query()->find($id);
+        if (! $trip) {
+            return $this->notFoundResponse('api.trip.not_found');
+        }
+
+        $stop = TripStop::query()
+            ->where('trip_id', $trip->id)
+            ->where('id', $stopId)
+            ->first();
+        if (! $stop) {
+            return $this->notFoundResponse('api.common.not_found');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'status' => ['required', 'string', 'in:pending,arrived,completed'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), 422, ['errors' => $validator->errors()->toArray()]);
+        }
+
+        $targetStatus = (string) $validator->validated()['status'];
+        $allowed = [
+            'pending' => ['arrived'],
+            'arrived' => ['completed'],
+            'completed' => [],
+        ];
+        if (! in_array($targetStatus, $allowed[(string) $stop->status] ?? [], true)) {
+            return $this->errorResponse('Invalid stop status transition.', 422);
+        }
+
+        $stop->status = $targetStatus;
+        $stop->notes = $validator->validated()['notes'] ?? $stop->notes;
+        if (in_array($targetStatus, ['arrived', 'completed'], true) && $stop->actual_time === null) {
+            $stop->actual_time = now();
+        }
+        $stop->save();
+
+        return $this->successResponse($stop->fresh(), 'api.common.updated');
+    }
+
+    public function updateDetails(Request $request, string $id): JsonResponse
+    {
+        $trip = Trip::query()->find($id);
+        if (! $trip) {
+            return $this->notFoundResponse('api.trip.not_found');
+        }
+
+        $validator = Validator::make($request->all(), [
+            'internal_notes' => ['nullable', 'string', 'max:2000'],
+            'actual_distance_km' => ['nullable', 'numeric', 'min:0'],
+        ]);
+        if ($validator->fails()) {
+            return $this->errorResponse($validator->errors()->first(), 422, ['errors' => $validator->errors()->toArray()]);
+        }
+
+        $trip->update($validator->validated());
+
+        return $this->successResponse($trip->fresh(), 'api.common.updated');
     }
 }

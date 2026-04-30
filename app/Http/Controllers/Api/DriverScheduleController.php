@@ -11,6 +11,7 @@ use App\Http\Requests\Schedule\StoreScheduleRequest;
 use App\Http\Requests\Schedule\UpdateScheduleRequest;
 use App\Models\DriverWorkSchedule;
 use App\Services\ScheduleService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use InvalidArgumentException;
@@ -77,6 +78,8 @@ final class DriverScheduleController extends BaseController
             $schedule = $this->schedule_service->create($request->validated(), $request->user());
 
             return $this->successResponse($schedule->load(['driver', 'vehicle', 'office']), 'api.driver_schedule.created', 201);
+        } catch (QueryException $e) {
+            return $this->errorResponse('Driver schedule conflict.', 422);
         } catch (InvalidArgumentException $e) {
             $code = $e->getCode() === 409 ? 409 : 422;
 

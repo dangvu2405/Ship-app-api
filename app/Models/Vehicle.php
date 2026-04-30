@@ -9,6 +9,7 @@ use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Vehicle extends Model
@@ -19,6 +20,7 @@ class Vehicle extends Model
 
     protected $fillable = [
         'company_id',
+        'vehicle_type_id',
         'office_id',
         'plate_number',
         'type',
@@ -26,17 +28,23 @@ class Vehicle extends Model
         'model',
         'year',
         'capacity',
+        'max_load_ton',
+        'volume_m3',
+        'fuel_type',
+        'fuel_consumption',
+        'current_odometer_km',
         'status',
-        'image_front',
-        'image_back',
-        'image_side',
-        'image_other',
     ];
 
     protected $casts = [
         'company_id' => 'integer',
+        'vehicle_type_id' => 'integer',
         'year' => 'integer',
         'capacity' => 'integer',
+        'max_load_ton' => 'decimal:2',
+        'volume_m3' => 'decimal:2',
+        'fuel_consumption' => 'decimal:2',
+        'current_odometer_km' => 'decimal:2',
     ];
 
     protected static function booted(): void
@@ -64,17 +72,32 @@ class Vehicle extends Model
         return $this->belongsTo(Office::class);
     }
 
-    public function assignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function vehicleType(): BelongsTo
+    {
+        return $this->belongsTo('App\\Models\\VehicleType', 'vehicle_type_id');
+    }
+
+    public function assignments(): HasMany
     {
         return $this->hasMany(VehicleAssignment::class);
     }
 
-    public function expenses(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function documents(): HasMany
     {
-        return $this->hasMany(VehicleExpense::class);
+        return $this->hasMany('App\\Models\\VehicleDocument');
     }
 
-    public function trips(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function maintenanceSchedules(): HasMany
+    {
+        return $this->hasMany('App\\Models\\MaintenanceSchedule');
+    }
+
+    public function maintenanceRecords(): HasMany
+    {
+        return $this->hasMany('App\\Models\\MaintenanceRecord');
+    }
+
+    public function trips(): HasMany
     {
         return $this->hasMany(Trip::class);
     }

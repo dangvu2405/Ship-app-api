@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Schedule;
 
+use App\Models\DriverWorkSchedule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -36,6 +37,20 @@ class StoreScheduleRequest extends FormRequest
             $end = $this->input('end_time');
             if ($start && $end && $end <= $start) {
                 $v->errors()->add('end_time', __('api.validation.schedule_end_time_after_start'));
+            }
+
+            if (! $this->filled('driver_id') || ! $this->filled('work_date') || ! $this->filled('shift_code')) {
+                return;
+            }
+
+            $exists = DriverWorkSchedule::query()
+                ->where('driver_id', (int) $this->input('driver_id'))
+                ->where('work_date', (string) $this->input('work_date'))
+                ->where('shift_code', (string) $this->input('shift_code'))
+                ->exists();
+
+            if ($exists) {
+                $v->errors()->add('shift_code', 'Driver already has a schedule for this shift and date.');
             }
         });
     }

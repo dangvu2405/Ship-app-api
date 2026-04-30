@@ -30,7 +30,10 @@ class UpdateTripRequest extends FormRequest
             'start_time' => 'nullable|date',
             'end_time' => 'nullable|date|after_or_equal:start_time',
             'price' => 'nullable|numeric|min:0',
-            'status' => 'sometimes|in:pending,in_progress,completed,cancelled',
+            'base_price' => 'nullable|numeric|min:0',
+            'surcharge_amount' => 'nullable|numeric|min:0',
+            'total_revenue' => 'nullable|numeric|min:0',
+            'status' => 'sometimes|in:pending,assigned,in_progress,in_transit,delivered,completed,cancelled',
         ];
     }
 
@@ -47,35 +50,38 @@ class UpdateTripRequest extends FormRequest
             $startPoint = $this->input('start_point', $trip->start_point);
             $endPoint = $this->input('end_point', $trip->end_point);
             if ((string) $startPoint !== '' && (string) $endPoint !== '' && $startPoint === $endPoint) {
-                $validator->errors()->add('end_point', __('api.validation.trip_end_point_must_differ'));
+                $validator->errors()->add('end_point', 'Điểm đến phải khác điểm đi.');
             }
 
             $newStatus = (string) $this->input('status', $trip->status);
             $allowedTransitions = [
-                'pending' => ['pending', 'in_progress', 'cancelled'],
-                'in_progress' => ['in_progress', 'completed', 'cancelled'],
+                'pending' => ['pending', 'assigned', 'cancelled'],
+                'assigned' => ['assigned', 'in_progress', 'in_transit', 'cancelled'],
+                'in_progress' => ['in_progress', 'in_transit', 'delivered', 'completed', 'cancelled'],
+                'in_transit' => ['in_transit', 'delivered', 'completed', 'cancelled'],
+                'delivered' => ['delivered', 'completed', 'cancelled'],
                 'completed' => ['completed'],
                 'cancelled' => ['cancelled'],
             ];
 
             if (! in_array($newStatus, $allowedTransitions[$trip->status] ?? [], true)) {
-                $validator->errors()->add('status', __('api.validation.trip_invalid_status_transition'));
+                $validator->errors()->add('status', 'Chuyển trạng thái chuyến đi không hợp lệ.');
             }
 
             $effectiveStartTime = $this->input('start_time', $trip->start_time);
             $effectiveEndTime = $this->input('end_time', $trip->end_time);
 
             if ($newStatus === 'in_progress' && empty($effectiveStartTime)) {
-                $validator->errors()->add('start_time', __('api.validation.trip_start_time_required_for_in_progress'));
+                $validator->errors()->add('start_time', 'start_time là bắt buộc khi trạng thái là in_progress.');
             }
 
             if ($newStatus === 'completed') {
                 if (empty($effectiveStartTime)) {
-                    $validator->errors()->add('start_time', __('api.validation.trip_start_time_required_for_completed'));
+                    $validator->errors()->add('start_time', 'start_time là bắt buộc khi trạng thái là completed.');
                 }
 
                 if (empty($effectiveEndTime)) {
-                    $validator->errors()->add('end_time', __('api.validation.trip_end_time_required_for_completed'));
+                    $validator->errors()->add('end_time', 'end_time là bắt buộc khi trạng thái là completed.');
                 }
             }
 
@@ -85,7 +91,7 @@ class UpdateTripRequest extends FormRequest
                 ->where('driver_id', $driverId)
                 ->where('status', 'in_progress')
                 ->exists()) {
-                $validator->errors()->add('driver_id', __('api.validation.trip_driver_in_progress_conflict'));
+                $validator->errors()->add('driver_id', 'Tài xế đang có chuyến in_progress khác.');
             }
 
             $vehicleId = (int) $this->input('vehicle_id', $trip->vehicle_id);
@@ -94,7 +100,7 @@ class UpdateTripRequest extends FormRequest
                 ->where('vehicle_id', $vehicleId)
                 ->where('status', 'in_progress')
                 ->exists()) {
-                $validator->errors()->add('vehicle_id', __('api.validation.trip_vehicle_in_progress_conflict'));
+                $validator->errors()->add('vehicle_id', 'Xe đang có chuyến in_progress khác.');
             }
         });
     }

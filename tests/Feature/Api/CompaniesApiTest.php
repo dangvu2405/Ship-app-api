@@ -110,7 +110,7 @@ class CompaniesApiTest extends TestCase
         $this->assertDatabaseHas('companies', ['id' => $company->id, 'name' => 'New Name']);
     }
 
-    public function test_admin_can_delete_company(): void
+    public function test_admin_cannot_delete_company_due_to_policy(): void
     {
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
@@ -119,7 +119,8 @@ class CompaniesApiTest extends TestCase
 
         $response = $this->deleteJson('/api/v1/companies/' . $company->id);
 
-        $response->assertStatus(200);
-        $this->assertSoftDeleted('companies', ['id' => $company->id]);
+        $response->assertStatus(422)
+            ->assertJsonPath('errors.code', 'OPERATION_NOT_ALLOWED');
+        $this->assertDatabaseHas('companies', ['id' => $company->id]);
     }
 }

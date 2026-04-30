@@ -63,7 +63,7 @@ class AuthService
             ]);
         }
 
-        $user->load(['driver', 'roles.permissions']);
+        $user->load(['roles.permissions']);
 
         return [
             'user'         => $user,
@@ -137,7 +137,7 @@ class AuthService
             'action' => 'social_login',
             'performed_by' => $user->username,
         ]);
-        $user->load(['driver', 'roles.permissions']);
+        $user->load(['roles.permissions']);
 
         return [
             'user'         => $user,
@@ -159,7 +159,7 @@ class AuthService
         $defaultRole = config('ship.default_register_role', 'admin');
         $role = Role::firstOrCreate(['name' => $defaultRole]);
         $user->roles()->syncWithoutDetaching([$role->id]);
-        $user->load(['driver', 'roles.permissions']);
+        $user->load(['roles.permissions']);
 
         return $user;
     }

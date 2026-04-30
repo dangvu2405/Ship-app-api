@@ -21,10 +21,14 @@ class VehicleAssignment extends Model
         'driver_id',
         'from_date',
         'to_date',
+        'release_reason',
+        'notes',
+        'created_by',
     ];
 
     protected $casts = [
         'company_id' => 'integer',
+        'created_by' => 'integer',
         'from_date' => 'date',
         'to_date' => 'date',
     ];
@@ -57,5 +61,10 @@ class VehicleAssignment extends Model
     public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class, 'driver_id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }

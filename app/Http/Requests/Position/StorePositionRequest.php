@@ -27,9 +27,6 @@ class StorePositionRequest extends FormRequest
             return;
         }
 
-        if ($this->user()?->driver?->company_id !== null) {
-            $this->merge(['company_id' => $this->user()->driver->company_id]);
-        }
     }
 
     public function rules(): array

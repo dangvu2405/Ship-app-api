@@ -37,7 +37,7 @@ class RoleController extends BaseController
         $query = Role::query()->with('permissions');
         $result = $this->indexQuery($request, $query, ['name'], []);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -61,7 +61,7 @@ class RoleController extends BaseController
     {
         $role = Role::create($request->validated());
 
-        return $this->successResponse($role->load('permissions'), 'api.role.created', 201);
+        return $this->successResponse($role->load('permissions'), 'Role created successfully', 201);
     }
 
     /**
@@ -78,10 +78,10 @@ class RoleController extends BaseController
     {
         $model = Role::with('permissions')->find($role);
         if (! $model) {
-            return $this->notFoundResponse('api.role.not_found');
+            return $this->notFoundResponse('Role not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -106,11 +106,11 @@ class RoleController extends BaseController
     {
         $model = Role::find($role);
         if (! $model) {
-            return $this->notFoundResponse('api.role.not_found');
+            return $this->notFoundResponse('Role not found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh('permissions'), 'api.role.updated');
+        return $this->successResponse($model->fresh('permissions'), 'Role updated successfully');
     }
 
     /**
@@ -127,11 +127,11 @@ class RoleController extends BaseController
     {
         $model = Role::find($role);
         if (! $model) {
-            return $this->notFoundResponse('api.role.not_found');
+            return $this->notFoundResponse('Role not found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'api.role.deleted');
+        return $this->successResponse(null, 'Role deleted successfully');
     }
 
     /**
@@ -154,12 +154,12 @@ class RoleController extends BaseController
     {
         $model = Role::find($role);
         if (! $model) {
-            return $this->notFoundResponse('api.role.not_found');
+            return $this->notFoundResponse('Role not found');
         }
 
         $validated = $request->validated();
         $model->permissions()->sync($validated['permission_ids'] ?? []);
 
-        return $this->successResponse($model->fresh('permissions'), 'api.role.permissions_synced');
+        return $this->successResponse($model->fresh('permissions'), 'Permissions synced successfully');
     }
 }

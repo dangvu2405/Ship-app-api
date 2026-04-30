@@ -6,6 +6,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Concerns\BelongsToTenant;
 use App\Tenancy\TenantContext;
@@ -16,16 +18,37 @@ class Customer extends Model
 
     protected $fillable = [
         'company_id',
+        'code',
         'type',
         'name',
+        'company_name',
+        'full_name',
         'tax_code',
         'phone',
         'email',
         'address',
+        'extra_contact_name',
+        'extra_contact_phone',
+        'group_id',
+        'assigned_dispatcher_id',
+        'credit_limit',
+        'payment_terms_days',
+        'contract_file_url',
+        'contract_start_date',
+        'contract_end_date',
+        'notes',
+        'is_active',
     ];
 
     protected $casts = [
         'company_id' => 'integer',
+        'group_id' => 'integer',
+        'assigned_dispatcher_id' => 'integer',
+        'credit_limit' => 'decimal:2',
+        'payment_terms_days' => 'integer',
+        'contract_start_date' => 'date',
+        'contract_end_date' => 'date',
+        'is_active' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -42,13 +65,43 @@ class Customer extends Model
         });
     }
 
-    public function trips(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo('App\\Models\\CustomerGroup', 'group_id');
+    }
+
+    public function assignedDispatcher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_dispatcher_id');
+    }
+
+    public function trips(): HasMany
     {
         return $this->hasMany(Trip::class);
     }
 
-    public function invoices(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function priceLists(): HasMany
+    {
+        return $this->hasMany('App\\Models\\PriceList');
+    }
+
+    public function transportRequests(): HasMany
+    {
+        return $this->hasMany(TransportRequest::class);
+    }
+
+    public function reconciliationSessions(): HasMany
+    {
+        return $this->hasMany(ReconciliationSession::class);
+    }
+
+    public function paymentRecords(): HasMany
+    {
+        return $this->hasMany(PaymentRecord::class);
     }
 }

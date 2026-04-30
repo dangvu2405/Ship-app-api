@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToOffice;
 use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,7 +20,6 @@ class Driver extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'user_id',
         // Personal info
         'code',
         'name',
@@ -33,10 +33,9 @@ class Driver extends Model
         'national_id_issue_date',
         'national_id_issue_place',
         'social_insurance_no',
-        'health_insurance_no',
-        'insurance_registered_at',
         // Organization
         'company_id',
+        'team_id',
         'office_id',
         'department_id',
         'position_id',
@@ -51,13 +50,12 @@ class Driver extends Model
         // Driver-specific
         'license_no',
         'license_image_url',
-        'identity_image_url',
-        'driver_insurance_no',
-        'driver_insurance_expired_date',
         'health_certificate_no',
         'health_certificate_expired_date',
         'license_class',
         'expired_date',
+        'license_alert_days',
+        'annual_leave_days',
         'available_status',
     ];
 
@@ -68,14 +66,15 @@ class Driver extends Model
     {
         $casts = [
             'company_id' => 'integer',
+            'team_id' => 'integer',
             'dob' => 'date',
             'national_id_issue_date' => 'date',
-            'insurance_registered_at' => 'date',
             'join_date' => 'date',
             'resign_date' => 'date',
             'expired_date' => 'date',
-            'driver_insurance_expired_date' => 'date',
             'health_certificate_expired_date' => 'date',
+            'license_alert_days' => 'integer',
+            'annual_leave_days' => 'integer',
         ];
 
         if (config('ship.encrypt_pii_fields', false)) {
@@ -83,7 +82,6 @@ class Driver extends Model
             $casts['national_id_no'] = 'encrypted';
             $casts['bank_account_no'] = 'encrypted';
             $casts['social_insurance_no'] = 'encrypted';
-            $casts['health_insurance_no'] = 'encrypted';
         }
 
         return $casts;
@@ -124,14 +122,6 @@ class Driver extends Model
         return $this->belongsTo(Position::class);
     }
 
-    /**
-     * The user account linked to this driver profile (FK: drivers.user_id → users.id).
-     */
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
     public function trips(): HasMany
     {
         return $this->hasMany(Trip::class, 'driver_id');
@@ -142,17 +132,17 @@ class Driver extends Model
         return $this->hasMany(VehicleAssignment::class, 'driver_id');
     }
 
-    public function vehicleExpenses(): HasMany
+    public function team(): BelongsTo
     {
-        return $this->hasMany(VehicleExpense::class, 'driver_id');
+        return $this->belongsTo(DriverTeam::class, 'team_id');
     }
 
-    public function payrollLines(): HasMany
+    public function documents(): HasMany
     {
-        return $this->hasMany(PayrollLine::class, 'driver_id');
+        return $this->hasMany(DriverDocument::class, 'driver_id');
     }
 
-    public function scopeActive($query)
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active');
     }

@@ -84,7 +84,7 @@ class InvoicesApiTest extends TestCase
         $this->assertDatabaseHas('invoices', ['id' => $invoice->id, 'status' => 'issued']);
     }
 
-    public function test_admin_can_delete_invoice(): void
+    public function test_admin_cannot_delete_invoice_due_to_policy(): void
     {
         $admin = $this->getAdminUser();
         Sanctum::actingAs($admin);
@@ -93,6 +93,8 @@ class InvoicesApiTest extends TestCase
 
         $response = $this->deleteJson('/api/v1/invoices/' . $invoice->id);
 
-        $response->assertStatus(200);
+        $response->assertStatus(422)
+            ->assertJsonPath('errors.code', 'OPERATION_NOT_ALLOWED');
+        $this->assertDatabaseHas('invoices', ['id' => $invoice->id]);
     }
 }

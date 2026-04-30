@@ -4,8 +4,12 @@ namespace Tests\Feature\Api;
 
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\Driver;
+use App\Models\Office;
+use App\Models\Trip;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -96,5 +100,32 @@ class CustomersApiTest extends TestCase
         $response = $this->deleteJson('/api/v1/customers/'.$customer->id, [], $this->tenant_headers($company));
 
         $response->assertStatus(200);
+    }
+
+    public function test_admin_cannot_delete_customer_when_has_any_trip(): void
+    {
+        $company = Company::factory()->create();
+        $admin = $this->getAdminUser();
+        Sanctum::actingAs($admin);
+
+        $customer = Customer::factory()->create(['company_id' => $company->id]);
+        $office = Office::factory()->create(['company_id' => $company->id]);
+        $vehicle = Vehicle::factory()->create(['office_id' => $office->id]);
+        $driver = Driver::factory()->create(['office_id' => $office->id]);
+        Trip::query()->create([
+            'customer_id' => $customer->id,
+            'vehicle_id' => $vehicle->id,
+            'driver_id' => $driver->id,
+            'code' => 'TRIP-LOCK-CUST-01',
+            'start_point' => 'A',
+            'end_point' => 'B',
+            'status' => 'completed',
+            'price' => 1000000,
+        ]);
+
+        $response = $this->deleteJson('/api/v1/customers/'.$customer->id, [], $this->tenant_headers($company));
+
+        $response->assertStatus(422)
+            ->assertJsonPath('errors.code', 'DEPENDENCY_RESTRICTION');
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Driver;
 use App\Models\DriverWorkSchedule;
 use App\Models\LeaveRequest;
 use App\Models\User;
@@ -189,7 +190,13 @@ final class WorkforceService
             return null;
         }
 
-        $company_id = $user->driver?->company_id;
-        return $company_id !== null ? (int) $company_id : null;
+        $driverId = $user->getAttribute('driver_id');
+        if (! is_int($driverId) && ! ctype_digit((string) $driverId)) {
+            return null;
+        }
+
+        $companyId = Driver::query()->whereKey((int) $driverId)->value('company_id');
+
+        return $companyId !== null ? (int) $companyId : null;
     }
 }

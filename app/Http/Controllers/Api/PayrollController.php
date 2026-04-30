@@ -4,20 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\Payroll\ApprovePayrollRequest;
-use App\Http\Requests\Payroll\DriverMonthlySalaryRequest;
-use App\Http\Requests\Payroll\LockPayrollRequest;
-use App\Http\Requests\Payroll\MarkPaidPayrollRequest;
-use App\Http\Requests\Payroll\MySalaryRequest;
 use App\Http\Requests\Payroll\StorePayrollRequest;
+use App\Http\Requests\Payroll\MySalaryRequest;
 use App\Http\Requests\Payroll\UpdatePayrollRequest;
 use App\Http\Traits\HasIndexQuery;
-use App\Models\Driver;
 use App\Models\Payroll;
+use App\Models\PayrollLine;
 use App\Services\Payroll\PayrollQueryService;
 use App\Services\PayrollService;
 use App\Services\Payroll\PayrollWorkflowService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * @OA\Tag(name="Payrolls", description="Quản lý bảng lương")
@@ -38,7 +35,8 @@ class PayrollController extends BaseController
         PayrollService $payrollService,
         PayrollQueryService $payrollQueryService,
         PayrollWorkflowService $payrollWorkflowService
-    ) {
+    )
+    {
         $this->payrollService = $payrollService;
         $this->payrollQueryService = $payrollQueryService;
         $this->payrollWorkflowService = $payrollWorkflowService;
@@ -49,14 +47,12 @@ class PayrollController extends BaseController
      *     path="/api/payrolls",
      *     tags={"Payrolls"},
      *     summary="Danh sách bảng lương",
-     *
      *     @OA\Parameter(name="company_id", in="query", description="Lọc theo công ty", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="month", in="query", description="Lọc theo tháng", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="year", in="query", description="Lọc theo năm", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="status", in="query", description="Lọc theo trạng thái", @OA\Schema(type="string")),
      *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
      *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
-     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -70,7 +66,7 @@ class PayrollController extends BaseController
             'status' => 'status',
         ]);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -78,19 +74,15 @@ class PayrollController extends BaseController
      *     path="/api/payrolls",
      *     tags={"Payrolls"},
      *     summary="Tạo bảng lương mới",
-     *
      *     @OA\RequestBody(
      *         required=true,
-     *
      *         @OA\JsonContent(
      *             required={"company_id","month","year"},
-     *
      *             @OA\Property(property="company_id", type="integer", example=1),
      *             @OA\Property(property="month", type="integer", example=2),
      *             @OA\Property(property="year", type="integer", example=2026)
      *         )
      *     ),
-     *
      *     @OA\Response(response=201, description="Tạo thành công"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
@@ -105,12 +97,13 @@ class PayrollController extends BaseController
                 (int) $validated['year']
             );
         } catch (\Exception $e) {
-            $statusCode = is_int($e->getCode()) && $e->getCode() >= 400 && $e->getCode() <= 499 ? $e->getCode() : 422;
+            $status = $e->getCode();
+            $statusCode = is_int($status) && $status >= 400 && $status <= 499 ? $status : 422;
 
             return $this->errorResponse($e->getMessage(), $statusCode);
         }
 
-        return $this->successResponse($payroll->load(['company', 'lines.driver']), 'api.payroll.generated', 201);
+        return $this->successResponse($payroll->load(['company', 'lines.driver']), 'Payroll generated successfully', 201);
     }
 
     /**
@@ -118,9 +111,7 @@ class PayrollController extends BaseController
      *     path="/api/payrolls/{id}",
      *     tags={"Payrolls"},
      *     summary="Chi tiết bảng lương",
-     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
      *     @OA\Response(response=200, description="Thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )
@@ -129,10 +120,10 @@ class PayrollController extends BaseController
     {
         $model = Payroll::with(['company', 'lines.driver'])->find($payroll);
         if (! $model) {
-            return $this->notFoundResponse('api.payroll.not_found');
+            return $this->notFoundResponse('Payroll not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -140,18 +131,13 @@ class PayrollController extends BaseController
      *     path="/api/payrolls/{id}",
      *     tags={"Payrolls"},
      *     summary="Cập nhật bảng lương",
-     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
      *     @OA\RequestBody(
      *         required=true,
-     *
      *         @OA\JsonContent(
-     *
      *             @OA\Property(property="status", type="string", enum={"draft","approved","locked"})
      *         )
      *     ),
-     *
      *     @OA\Response(response=200, description="Cập nhật thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Bảng lương đã khóa")
@@ -161,7 +147,7 @@ class PayrollController extends BaseController
     {
         $model = Payroll::find($payroll);
         if (! $model) {
-            return $this->notFoundResponse('api.payroll.not_found');
+            return $this->notFoundResponse('Payroll not found');
         }
 
         try {
@@ -170,7 +156,7 @@ class PayrollController extends BaseController
             return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return $this->successResponse($model->fresh(['company', 'lines.driver']), 'api.payroll.updated');
+        return $this->successResponse($model->fresh(['company', 'lines.driver']), 'Payroll updated successfully');
     }
 
     /**
@@ -178,9 +164,7 @@ class PayrollController extends BaseController
      *     path="/api/payrolls/{id}",
      *     tags={"Payrolls"},
      *     summary="Xóa bảng lương",
-     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
      *     @OA\Response(response=200, description="Xóa thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Bảng lương đã khóa")
@@ -190,7 +174,7 @@ class PayrollController extends BaseController
     {
         $model = Payroll::find($payroll);
         if (! $model) {
-            return $this->notFoundResponse('api.payroll.not_found');
+            return $this->notFoundResponse('Payroll not found');
         }
 
         try {
@@ -199,7 +183,7 @@ class PayrollController extends BaseController
             return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return $this->successResponse(null, 'api.payroll.deleted');
+        return $this->successResponse(null, 'Payroll deleted successfully');
     }
 
     /**
@@ -207,19 +191,17 @@ class PayrollController extends BaseController
      *     path="/api/payrolls/{id}/approve",
      *     tags={"Payrolls"},
      *     summary="Duyệt bảng lương",
-     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
      *     @OA\Response(response=200, description="Duyệt thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Lỗi duyệt")
      * )
      */
-    public function approve(ApprovePayrollRequest $request, string $id): JsonResponse
+    public function approve(string $id): JsonResponse
     {
         $payroll = Payroll::find($id);
         if (! $payroll) {
-            return $this->notFoundResponse('api.payroll.not_found');
+            return $this->notFoundResponse('Payroll not found');
         }
         try {
             $payroll = $this->payrollWorkflowService->approve((int) $id);
@@ -227,7 +209,7 @@ class PayrollController extends BaseController
             return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return $this->successResponse($payroll->fresh(['company', 'lines.driver']), 'api.payroll.approved');
+        return $this->successResponse($payroll->fresh(['company', 'lines.driver']), 'Payroll approved successfully');
     }
 
     /**
@@ -235,19 +217,17 @@ class PayrollController extends BaseController
      *     path="/api/payrolls/{id}/lock",
      *     tags={"Payrolls"},
      *     summary="Khóa bảng lương",
-     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
      *     @OA\Response(response=200, description="Khóa thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Lỗi khóa")
      * )
      */
-    public function lock(LockPayrollRequest $request, string $id): JsonResponse
+    public function lock(string $id): JsonResponse
     {
         $payroll = Payroll::find($id);
         if (! $payroll) {
-            return $this->notFoundResponse('api.payroll.not_found');
+            return $this->notFoundResponse('Payroll not found');
         }
         try {
             $payroll = $this->payrollWorkflowService->lock((int) $id);
@@ -255,7 +235,7 @@ class PayrollController extends BaseController
             return $this->errorResponse($e->getMessage(), 422);
         }
 
-        return $this->successResponse($payroll->fresh(['company', 'lines.driver']), 'api.payroll.locked');
+        return $this->successResponse($payroll->fresh(['company', 'lines.driver']), 'Payroll locked successfully');
     }
 
     /**
@@ -263,9 +243,7 @@ class PayrollController extends BaseController
      *     path="/api/payrolls/{id}/export",
      *     tags={"Payrolls"},
      *     summary="Xuất bảng lương",
-     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
      *     @OA\Response(response=200, description="Dữ liệu xuất"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )
@@ -274,12 +252,12 @@ class PayrollController extends BaseController
     {
         $payroll = $this->payrollQueryService->findByIdForExport((int) $id);
         if (! $payroll) {
-            return $this->notFoundResponse('api.payroll.not_found');
+            return $this->notFoundResponse('Payroll not found');
         }
 
         $export = $this->payrollQueryService->buildExportPayload($payroll);
 
-        return $this->successResponse($export, 'api.common.ok');
+        return $this->successResponse($export, 'OK');
     }
 
     /**
@@ -288,18 +266,16 @@ class PayrollController extends BaseController
      *     tags={"Payrolls"},
      *     summary="Xem lương cá nhân",
      *     security={{"sanctum":{}}},
-     *
      *     @OA\Parameter(name="month", in="query", description="Tháng", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="year", in="query", description="Năm", @OA\Schema(type="integer")),
-     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
     public function mySalary(MySalaryRequest $request): JsonResponse
     {
         $user = $request->user();
-        if (! $user->driver) {
-            return $this->successResponse(null, 'api.payroll.no_driver_linked');
+        if (! isset($user->driver_id) || $user->driver_id === null) {
+            return $this->successResponse(null, 'No employee linked to your account');
         }
 
         $validated = $request->validated();
@@ -309,58 +285,35 @@ class PayrollController extends BaseController
         $payroll = $this->payrollQueryService->findMySalary($user, $month, $year);
 
         if (! $payroll) {
-            return $this->successResponse(null, 'api.payroll.no_payroll_for_period');
+            return $this->successResponse(null, 'No payroll found for this period');
         }
 
-        return $this->successResponse($payroll, 'api.common.ok');
+        return $this->successResponse($payroll);
     }
 
-    /**
-     * @OA\Post(
-     *     path="/api/payrolls/{id}/mark-paid",
-     *     tags={"Payrolls"},
-     *     summary="Đánh dấu đã trả lương",
-     *
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Đã trả lương"),
-     *     @OA\Response(response=404, description="Không tìm thấy"),
-     *     @OA\Response(response=422, description="Bảng lương chưa ở trạng thái approved")
-     * )
-     */
-    public function markPaid(MarkPaidPayrollRequest $request, string $id): JsonResponse
+    public function driverMonthlySalary(Request $request, int $driverId): JsonResponse
     {
-        $payroll = Payroll::find($id);
-        if (! $payroll) {
-            return $this->notFoundResponse('api.payroll.not_found');
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+
+        $line = PayrollLine::query()
+            ->with(['driver', 'payroll'])
+            ->where('driver_id', $driverId)
+            ->whereHas('payroll', function ($query) use ($month, $year): void {
+                $query->where('month', $month)->where('year', $year);
+            })
+            ->latest('id')
+            ->first();
+
+        if ($line === null) {
+            return $this->notFoundResponse('Payroll line not found');
         }
 
-        try {
-            $payroll = $this->payrollWorkflowService->markPaid((int) $id, (int) $request->user()->id);
-        } catch (\Exception $e) {
-            return $this->errorResponse($e->getMessage(), 422);
-        }
-
-        return $this->successResponse($payroll, 'api.payroll.marked_paid');
-    }
-
-    public function driverMonthlySalary(DriverMonthlySalaryRequest $request, int $driverId): JsonResponse
-    {
-        $driver = Driver::query()->find($driverId);
-        if ($driver === null) {
-            return $this->notFoundResponse('api.driver.not_found');
-        }
-
-        $validated = $request->validated();
-
-        $month = (int) ($validated['month'] ?? now()->month);
-        $year = (int) ($validated['year'] ?? now()->year);
-
-        $payload = $this->payrollService->getDriverMonthlyPayroll($driverId, $month, $year);
-        if ($payload === null) {
-            return $this->successResponse(null, 'api.payroll.no_payroll_for_driver_period');
-        }
-
-        return $this->successResponse($payload, 'api.common.ok');
+        return $this->successResponse([
+            'driver_id' => $driverId,
+            'month' => $month,
+            'year' => $year,
+            'line' => $line,
+        ]);
     }
 }

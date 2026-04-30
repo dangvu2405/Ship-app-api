@@ -30,14 +30,13 @@ class RoleMiddleware
 
     public function handle(Request $request, Closure $next, string $role): Response
     {
-        if (! auth()->check()) {
+        $user = $request->user();
+        if ($user === null) {
             return response()->json([
                 'success' => false,
                 'message' => 'Unauthenticated',
             ], 401);
         }
-
-        $user      = auth()->user();
         $companyId = $this->tenantContext->getCompanyId();
 
         // Sentinel -1 means authenticated but no company resolved.
@@ -47,19 +46,22 @@ class RoleMiddleware
 
         $allowed = match ($role) {
             // Only the global system admin
-            'admin' => $user->hasRole('admin'),
+            'admin' => $user->hasRole('admin') || $user->hasRole('super_admin'),
 
             // company_admin or higher
             'company_admin' => $user->hasRole('admin')
+                || $user->hasRole('super_admin')
                 || $user->hasRole('company_admin', $roleCompanyId),
 
             // office_admin or higher
             'office_admin' => $user->hasRole('admin')
+                || $user->hasRole('super_admin')
                 || $user->hasRole('company_admin', $roleCompanyId)
                 || $user->hasRole('office_admin', $roleCompanyId),
 
             // Exact match for any other custom role, scoped to current company
             default => $user->hasRole('admin')
+                || $user->hasRole('super_admin')
                 || $user->hasRole($role, $roleCompanyId),
         };
 

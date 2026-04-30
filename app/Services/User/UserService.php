@@ -14,7 +14,7 @@ class UserService
         $data['password'] = Hash::make($data['password']);
         $user = User::create($data);
 
-        return $user->load(['driver', 'roles']);
+        return $user->load(['roles']);
     }
 
     public function update(User $user, array $data): User
@@ -27,6 +27,6 @@ class UserService
 
         $user->update($data);
 
-        return $user->fresh(['driver', 'roles']);
+        return $user->fresh(['roles']);
     }
 }

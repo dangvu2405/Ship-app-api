@@ -8,10 +8,12 @@ namespace App\Models;
 use App\Models\Company;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -32,6 +34,8 @@ class User extends Authenticatable
         'avatar_url',
         'password',
         'status',
+        'role',
+        'driver_id',
         'last_login_at',
         'emergency_contact_name',
         'emergency_contact_phone',
@@ -58,6 +62,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'driver_id' => 'integer',
             'password' => 'hashed',
         ];
     }
@@ -91,21 +96,13 @@ class User extends Authenticatable
     // Relationships
 
     /**
-     * The driver profile linked to this account (FK lives on drivers.user_id).
-     */
-    public function driver(): \Illuminate\Database\Eloquent\Relations\HasOne
-    {
-        return $this->hasOne(Driver::class);
-    }
-
-    /**
      * All roles across all companies.
      * Use rolesForCompany() when you need tenant-scoped access checks.
      */
     public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles')
-            ->withPivot('company_id', 'office_id')
+            ->withPivot(['company_id', 'office_id'])
             ->withTimestamps();
     }
 
@@ -116,7 +113,7 @@ class User extends Authenticatable
     public function rolesForCompany(int $companyId): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles')
-            ->withPivot('company_id', 'office_id')
+            ->withPivot(['company_id', 'office_id'])
             ->withTimestamps()
             ->where(function ($q) use ($companyId) {
                 $q->where('user_roles.company_id', $companyId)
@@ -147,6 +144,11 @@ class User extends Authenticatable
     public function chatMessages(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ChatMessage::class);
+    }
+
+    public function userPermissions(): HasMany
+    {
+        return $this->hasMany(UserPermission::class);
     }
 
     /**
@@ -199,6 +201,14 @@ class User extends Authenticatable
      */
     public function hasRole(string $roleName, ?int $companyId = null): bool
     {
+        if (Schema::hasColumn('users', 'role') && is_string($this->role) && $this->role !== '') {
+            return $this->role === $roleName;
+        }
+
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('user_roles')) {
+            return false;
+        }
+
         $query = $this->roles()->where('roles.name', $roleName);
 
         if ($companyId !== null) {
@@ -223,8 +233,33 @@ class User extends Authenticatable
      */
     public function hasPermission(string $permissionCode, ?int $companyId = null): bool
     {
-        if ($this->hasRole('admin', $companyId)) {
+        if ($this->hasRole('admin', $companyId) || $this->hasRole('super_admin', $companyId)) {
             return true;
+        }
+
+        // Support module-level permission matrix (user_permissions) from business spec.
+        if (Schema::hasTable('user_permissions')) {
+            $module = explode('.', $permissionCode, 2)[0];
+            $action = explode('.', $permissionCode, 2)[1] ?? 'view';
+            $column = match ($action) {
+                'view' => 'can_view',
+                'create' => 'can_create',
+                'edit', 'update' => 'can_edit',
+                'delete' => 'can_delete',
+                'approve' => 'can_approve',
+                'export' => 'can_export',
+                default => null,
+            };
+
+            if ($column !== null) {
+                $userPermissionQuery = $this->userPermissions()->where('module', $module);
+                if ($companyId !== null) {
+                    $userPermissionQuery->where('company_id', $companyId);
+                }
+                if ($userPermissionQuery->where($column, true)->exists()) {
+                    return true;
+                }
+            }
         }
 
         $rolesQuery = $companyId !== null

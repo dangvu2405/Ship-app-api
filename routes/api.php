@@ -26,7 +26,7 @@ $healthResponse = static function () {
 
 $currentUserResponse = static function (Request $request) {
     $user = $request->user();
-    $user->load(['driver', 'roles.permissions']);
+    $user->load(['roles.permissions']);
 
     return response()->json([
         'success' => true,
@@ -37,7 +37,6 @@ $currentUserResponse = static function (Request $request) {
         ],
     ]);
 };
-
 
 $registerAuthenticatedRoutes = static function () use ($currentUserResponse): void {
     Route::prefix('auth')->group(function () use ($currentUserResponse): void {
@@ -67,8 +66,11 @@ $registerAuthenticatedRoutes = static function () use ($currentUserResponse): vo
     // Database notifications (Laravel `notifications` table) — any authenticated user
     Route::prefix('notifications')->group(function (): void {
         Route::get('/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
+        Route::get('/count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
         Route::post('/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
         Route::post('/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead'])
+            ->where('id', '[0-9a-fA-F\\-]{36}');
+        Route::patch('/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead'])
             ->where('id', '[0-9a-fA-F\\-]{36}');
         Route::get('/', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
     });
@@ -108,10 +110,34 @@ $registerAdminRoutes = static function (): void {
     Route::apiResource('departments', \App\Http\Controllers\Api\DepartmentController::class);
     Route::apiResource('positions', \App\Http\Controllers\Api\PositionController::class);
     Route::apiResource('drivers', \App\Http\Controllers\Api\DriverController::class);
+    Route::apiResource('driver-documents', \App\Http\Controllers\Api\DriverDocumentController::class);
     Route::apiResource('vehicles', \App\Http\Controllers\Api\VehicleController::class);
+    Route::apiResource('vehicle-documents', \App\Http\Controllers\Api\VehicleDocumentController::class);
+    Route::apiResource('maintenance-schedules', \App\Http\Controllers\Api\MaintenanceScheduleController::class);
+    Route::apiResource('maintenance-records', \App\Http\Controllers\Api\MaintenanceRecordController::class);
+    Route::apiResource('vehicle-types', \App\Http\Controllers\Api\VehicleTypeController::class);
+    Route::apiResource('cargo-types', \App\Http\Controllers\Api\CargoTypeController::class);
+    Route::apiResource('cost-categories', \App\Http\Controllers\Api\CostCategoryController::class);
+    Route::apiResource('locations', \App\Http\Controllers\Api\LocationController::class);
+    Route::apiResource('route-templates', \App\Http\Controllers\Api\RouteTemplateController::class);
     Route::apiResource('vehicle_assignments', \App\Http\Controllers\Api\VehicleAssignmentController::class);
     Route::apiResource('vehicle_expenses', \App\Http\Controllers\Api\VehicleExpenseController::class);
     Route::apiResource('customers', \App\Http\Controllers\Api\CustomerController::class);
+    Route::apiResource('price-lists', \App\Http\Controllers\Api\PriceListController::class);
+    Route::apiResource('price-list-items', \App\Http\Controllers\Api\PriceListItemController::class);
+    Route::apiResource('transport-requests', \App\Http\Controllers\Api\TransportRequestController::class)
+        ->except(['destroy']);
+    Route::apiResource('pricing-rules', \App\Http\Controllers\Api\PricingRuleController::class)
+        ->only(['index', 'store']);
+    Route::apiResource('quotations', \App\Http\Controllers\Api\QuotationController::class)
+        ->only(['index', 'store', 'show']);
+    Route::prefix('quotations')->group(function (): void {
+        Route::post('{id}/calculate-pricing', [\App\Http\Controllers\Api\QuotationController::class, 'calculatePricing']);
+        Route::patch('{id}/pricing', [\App\Http\Controllers\Api\QuotationController::class, 'updatePricing']);
+        Route::get('{id}/pricing-breakdown', [\App\Http\Controllers\Api\QuotationController::class, 'pricingBreakdown']);
+        Route::post('{id}/approve', [\App\Http\Controllers\Api\QuotationController::class, 'approve']);
+        Route::post('{id}/reject', [\App\Http\Controllers\Api\QuotationController::class, 'reject']);
+    });
 
     // =========================
     // Trips
@@ -126,6 +152,9 @@ $registerAdminRoutes = static function (): void {
         Route::post('{id}/cancel', [\App\Http\Controllers\Api\TripController::class, 'cancel'])->name('trips.cancel');
         Route::post('{id}/delay', [\App\Http\Controllers\Api\TripController::class, 'delay'])->name('trips.delay');
         Route::post('{id}/resume', [\App\Http\Controllers\Api\TripController::class, 'resume'])->name('trips.resume');
+        Route::post('{id}/documents', [\App\Http\Controllers\Api\TripController::class, 'uploadDocument'])->name('trips.documents.store');
+        Route::patch('{id}/stops/{stopId}/status', [\App\Http\Controllers\Api\TripController::class, 'updateStopStatus'])->name('trips.stops.status');
+        Route::patch('{id}/details', [\App\Http\Controllers\Api\TripController::class, 'updateDetails'])->name('trips.details.update');
     });
     Route::apiResource('trips', \App\Http\Controllers\Api\TripController::class);
     Route::apiResource('trip_bonus_rules', \App\Http\Controllers\Api\TripBonusRuleController::class);
@@ -249,7 +278,11 @@ $registerAdminRoutes = static function (): void {
         Route::get('dashboard', [\App\Http\Controllers\Api\ReportsController::class, 'dashboard']);
         Route::get('payroll-summary', [\App\Http\Controllers\Api\ReportsController::class, 'payrollSummary']);
         Route::get('revenue-summary', [\App\Http\Controllers\Api\ReportsController::class, 'revenueSummary']);
-        // ... continue 
+        Route::get('vehicle-performance', [\App\Http\Controllers\Api\ReportsController::class, 'vehiclePerformance']);
+        Route::get('exports/revenue', [\App\Http\Controllers\Api\ReportsController::class, 'exportRevenue'])->name('reports.exports.revenue');
+        Route::get('exports/revenue-excel', [\App\Http\Controllers\Api\ReportsController::class, 'exportRevenueExcel'])->name('reports.exports.revenue_excel');
+        Route::get('exports/trips', [\App\Http\Controllers\Api\ReportsController::class, 'exportTrips'])->name('reports.exports.trips');
+        Route::get('exports/payroll', [\App\Http\Controllers\Api\ReportsController::class, 'exportPayroll'])->name('reports.exports.payroll');
     });
 
     // =========================
@@ -333,11 +366,10 @@ Route::prefix('auth')->group(function () {
         ->middleware('throttle:5,1');
 });
 
-
-
 // Protected routes: authenticated users (legacy)
 Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group($registerAuthenticatedRoutes);
+Route::prefix('v1')->middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group($registerAuthenticatedRoutes);
 
 // Protected routes: admin only (legacy)
 Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions', 'role:admin'])->group($registerAdminRoutes);
-
+Route::prefix('v1')->middleware(['auth:sanctum', 'tenant.context', 'track.actions', 'role:admin'])->group($registerAdminRoutes);

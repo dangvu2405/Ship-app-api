@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\DriverDocument;
+
+use App\Http\Requests\AppFormRequest;
+use Illuminate\Validation\Rule;
+
+final class StoreDriverDocumentRequest extends AppFormRequest
+{
+    public function prepareForValidation(): void
+    {
+        if ($this->filled('company_id')) {
+            return;
+        }
+
+        $companyId = $this->tenantCompanyId();
+        if ($companyId !== null) {
+            $this->merge(['company_id' => $companyId]);
+        }
+    }
+
+    public function rules(): array
+    {
+        return [
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'driver_id' => ['required', 'integer', Rule::exists('drivers', 'id')->where(fn ($query) => $query->where('company_id', $this->input('company_id')))],
+            'doc_type' => ['required', 'in:driver_license,international_license,health_certificate,skill_certificate,id_card,other'],
+            'doc_name' => ['required', 'string', 'max:200'],
+            'doc_number' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'issued_date' => ['sometimes', 'nullable', 'date'],
+            'expiry_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:issued_date'],
+            'issuer' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'file_url' => ['required', 'string', 'max:500', 'regex:/\.(pdf|png|jpg|jpeg|webp)$/i'],
+            'alert_before_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'notes' => ['sometimes', 'nullable', 'string'],
+        ];
+    }
+}

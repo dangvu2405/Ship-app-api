@@ -38,7 +38,7 @@ class UserController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-        $query = User::query()->with(['driver', 'roles']);
+        $query = User::query()->with(['roles']);
         $result = $this->indexQuery($request, $query, ['username', 'email'], ['status' => 'status']);
 
         return $this->successResponse($result, 'api.common.ok');
@@ -84,7 +84,7 @@ class UserController extends BaseController
      */
     public function show(string $user): JsonResponse
     {
-        $model = User::with(['driver', 'roles.permissions'])->find($user);
+        $model = User::with(['roles.permissions'])->find($user);
         if (! $model) {
             return $this->notFoundResponse('api.user.not_found');
         }
@@ -142,6 +142,7 @@ class UserController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('api.user.not_found');
         }
+
         $model->delete();
 
         return $this->successResponse(null, 'api.user.deleted');

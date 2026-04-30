@@ -14,6 +14,7 @@ class LeaveRequest extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'driver_id',
         'leave_type_id',
         'from_date',
@@ -32,6 +33,7 @@ class LeaveRequest extends Model
     protected function casts(): array
     {
         return [
+            'company_id'      => 'integer',
             'from_date'       => 'date',
             'to_date'         => 'date',
             'total_days'      => 'decimal:1',
@@ -58,6 +60,11 @@ class LeaveRequest extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function scopePending(Builder $query): Builder

@@ -2,10 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Office;
 use App\Models\Position;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Driver>
@@ -14,7 +16,7 @@ class DriverFactory extends Factory
 {
     public function definition(): array
     {
-        return [
+        $attributes = [
             'code' => strtoupper(fake()->unique()->bothify('DRV#####')),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
@@ -29,9 +31,8 @@ class DriverFactory extends Factory
             'social_insurance_no' => fake()->optional(0.8)->numerify('##########'),
             'health_insurance_no' => fake()->optional(0.8)->numerify('##########'),
             'insurance_registered_at' => fake()->optional(0.8)->date('Y-m-d', '-3 years'),
-            'office_id' => Office::factory(),
-            'department_id' => Department::factory(),
-            'position_id' => Position::factory(),
+            'company_id' => Company::factory(),
+            'team_id' => null,
             'status' => fake()->randomElement(['active', 'inactive', 'resigned']),
             'join_date' => fake()->date('Y-m-d', '-3 years'),
             'resign_date' => null,
@@ -43,5 +44,19 @@ class DriverFactory extends Factory
             'expired_date' => fake()->date('Y-m-d', '+1 year'),
             'available_status' => fake()->randomElement(['available', 'busy', 'offline']),
         ];
+
+        if (Schema::hasColumn('drivers', 'office_id')) {
+            $attributes['office_id'] = Office::factory();
+        }
+
+        if (Schema::hasColumn('drivers', 'department_id')) {
+            $attributes['department_id'] = Department::factory();
+        }
+
+        if (Schema::hasColumn('drivers', 'position_id')) {
+            $attributes['position_id'] = Position::factory();
+        }
+
+        return $attributes;
     }
 }

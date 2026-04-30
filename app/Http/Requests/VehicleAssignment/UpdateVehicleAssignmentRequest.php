@@ -42,7 +42,7 @@ class UpdateVehicleAssignmentRequest extends FormRequest
             $toDate = $toDateInput ?: '9999-12-31';
 
             if ($toDate !== '9999-12-31' && $fromDate > $toDate) {
-                $validator->errors()->add('to_date', __('api.validation.vehicle_assignment_to_date_invalid'));
+                $validator->errors()->add('to_date', 'to_date phải sau hoặc bằng from_date.');
 
                 return;
             }
@@ -57,7 +57,7 @@ class UpdateVehicleAssignmentRequest extends FormRequest
                 ->exists();
 
             if ($vehicleOverlapped) {
-                $validator->errors()->add('vehicle_id', __('api.validation.vehicle_assignment_overlap_vehicle'));
+                $validator->errors()->add('vehicle_id', 'Xe đã có phân công trùng thời gian.');
             }
 
             $driverOverlapped = VehicleAssignment::query()
@@ -70,7 +70,7 @@ class UpdateVehicleAssignmentRequest extends FormRequest
                 ->exists();
 
             if ($driverOverlapped) {
-                $validator->errors()->add('driver_id', __('api.validation.vehicle_assignment_overlap_driver'));
+                $validator->errors()->add('driver_id', 'Tài xế đã có phân công trùng thời gian.');
             }
         });
     }

@@ -12,8 +12,12 @@ final class TripStatusRules
     public static function allowedNextStatuses(string $current): array
     {
         return match ($current) {
-            'pending' => ['pending', 'in_progress', 'cancelled'],
-            'in_progress' => ['in_progress', 'completed', 'cancelled'],
+            // Keep legacy states for backward compatibility while supporting spec states.
+            'pending' => ['pending', 'assigned', 'in_progress', 'cancelled'],
+            'assigned' => ['assigned', 'in_transit', 'in_progress', 'cancelled'],
+            'in_transit' => ['in_transit', 'delivered', 'completed', 'cancelled'],
+            'delivered' => ['delivered', 'completed', 'cancelled'],
+            'in_progress' => ['in_progress', 'delivered', 'completed', 'cancelled'],
             'completed' => ['completed'],
             'cancelled' => ['cancelled'],
             default => [],

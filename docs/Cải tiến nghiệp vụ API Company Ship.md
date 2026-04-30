@@ -1,5 +1,219 @@
 # **Chiến Lược Tái Cấu Trúc Nghiệp Vụ Hệ Thống Quản Trị Vận Tải Và Cơ Chế Lương Tài Xế Tích Hợp: Từ Mô Hình MVP Đến Hệ Sinh Thái Quản Trị Hiệu Suất Thông Minh**
 
+## Phụ lục cập nhật theo trạng thái code hiện tại (2026-04-28)
+
+Phần này là bản đồng bộ nhanh giữa tài liệu nghiệp vụ và mã nguồn đang chạy trong dự án để làm mốc triển khai tiếp theo.
+
+### 1) Quy ước API thực tế đang dùng
+
+- API hiện tại dùng prefix `/api/...`, chưa dùng `/api/v1/...`.
+- Các đoạn trong tài liệu đang ghi `/api/v1/...` cần hiểu là định hướng versioning, chưa phản ánh route hiện hành.
+
+### 2) Những nghiệp vụ đã có trong code (route/controller đã triển khai)
+
+- **Auth**
+  - Public: `POST /api/auth/login`, `POST /api/auth/social/login`, `POST /api/auth/refresh-token`, `POST /api/auth/forgot-password`, `POST /api/auth/check-otp`, `POST /api/auth/reset-password`.
+  - Authenticated: `POST /api/auth/logout`, `POST /api/auth/refresh`, `GET /api/auth/me`, `GET /api/user`, session logs/actions.
+- **Workforce và lịch làm việc**
+  - `driver-schedules`: submit/approve/reject/lock/override + HOS check.
+  - `workforce`: xem lịch, nghỉ phép, vắng mặt; duyệt/lock theo permission `schedule.approve`.
+- **Attendance**
+  - `attendance`: check-in/check-out/adjust/index.
+  - Alias legacy `attendances` vẫn được giữ để tương thích FE.
+- **Leave / Overtime / Violations**
+  - Đã có nhóm route duyệt/từ chối/xử lý tranh chấp cơ bản.
+- **Payroll**
+  - `payrolls`: approve/lock/mark-paid/export + driver monthly salary.
+  - `payroll-adjustments`: CRUD + approve/reject.
+  - `GET /api/payrolls/my-salary` cho user đã đăng nhập.
+- **Reports (đã cập nhật theo code mới)**
+  - `GET /api/reports/dashboard`
+  - `GET /api/reports/payroll-summary`
+  - `GET /api/reports/revenue-summary`
+  - `GET /api/reports/exports/revenue`
+  - `GET /api/reports/exports/trips`
+  - `GET /api/reports/exports/payroll`
+  - Export report đã dùng Form Request riêng và trả CSV (UTF-8 BOM).
+- **Module khác đã có route**
+  - `chat`, `notifications`, `public-holidays`, `ai/business-assist`.
+  - CRUD master data: companies, offices, departments, positions, drivers, vehicles, customers, trips, invoices, roles, users, permissions.
+
+### 3) Các nội dung trong tài liệu đang ở mức định hướng/backlog (chưa thể xem là done)
+
+Các hạng mục dưới đây đang mô tả kiến trúc mục tiêu hoặc backlog nhiều phase; chưa nên coi là nghiệp vụ đã hoàn tất chỉ dựa trên trạng thái code hiện tại:
+
+- SoD (Separation of Duties) ở mức bắt buộc cho toàn bộ luồng tài chính.
+- Pre-lock validation gate liên module trước khi khóa payroll.
+- PIT year-end finalization, BHXH reconciliation chuẩn biểu mẫu.
+- Fuel card reconciliation đầy đủ, GPS offline anti-fraud, route deviation detection, toll reconciliation.
+- Batch payroll nâng cao: checkpoint/resume, stale-data strategy, khóa dữ liệu nguồn khi batch chạy.
+- Multi-employer/outsourced driver, security deposit, PPE, leased vehicle, internal audit workflow mở rộng.
+
+### 4) Điều chỉnh cách đọc tài liệu từ thời điểm này
+
+- Tài liệu hiện gồm 2 lớp:
+  - **Lớp A - Trạng thái hiện tại (as-is):** theo route/controller đang có trong code.
+  - **Lớp B - Mục tiêu triển khai (to-be):** các vòng gap/phương án trong tài liệu.
+- Khi lập kế hoạch sprint, ưu tiên map từ Lớp B sang backlog kỹ thuật, không gắn nhãn "đã triển khai" nếu chưa có endpoint/service/test tương ứng.
+
+### 5) Ghi chú đồng bộ module Reports
+
+- Reports đã được mở rộng export CSV cho `revenue`, `trips`, `payroll`.
+- Các endpoint export nằm trong nhóm admin route (middleware `role:admin`).
+- Validation kỳ dữ liệu đã hỗ trợ linh hoạt `from/to` hoặc `month/year` (tùy endpoint).
+- Nếu cần API versioning (`/api/v1`) thì triển khai ở tầng route prefix/migration plan riêng, không nên sửa tài liệu đơn lẻ mà chưa có kế hoạch tương thích FE.
+
+### 6) Nghiệp vụ hiện tại của dự án (AS-IS baseline để đọc nhanh)
+
+Phần này chốt lại nghiệp vụ đang vận hành theo route/controller hiện có để Product/BA/Dev/QA dùng chung một mốc tham chiếu.
+
+#### A. Public Auth flow
+
+- **Đăng nhập và cấp phiên**
+  - `POST /api/auth/login`
+  - `POST /api/auth/social/login`
+  - `POST /api/auth/refresh-token`
+- **Khôi phục mật khẩu**
+  - `POST /api/auth/forgot-password`
+  - `POST /api/auth/check-otp`
+  - `POST /api/auth/reset-password`
+- **Kiểm soát tần suất**
+  - Các endpoint auth public đã được gắn throttle theo từng ngưỡng.
+
+#### B. Authenticated user flow
+
+- **Thông tin người dùng hiện tại**
+  - `GET /api/auth/me`
+  - `GET /api/user`
+- **Quản lý phiên và thao tác**
+  - `POST /api/auth/logout`
+  - `POST /api/auth/refresh`
+  - `GET /api/auth/logs`
+  - `GET /api/auth/actions`
+  - `GET /api/auth/sessions`
+  - `GET /api/auth/sessions/summary`
+  - `POST /api/auth/sessions/{sessionId}/revoke`
+  - `POST /api/auth/sessions/{sessionId}/lock-account`
+- **Tác vụ cá nhân**
+  - `POST /api/upload`
+  - `GET /api/payrolls/my-salary`
+
+#### C. Workforce, schedule, attendance
+
+- **Workforce read model**
+  - `GET /api/workforce/driver-schedules`
+  - `GET /api/workforce/leave-requests`
+  - `GET /api/workforce/absences`
+- **Workforce duyệt lịch theo quyền**
+  - `PUT /api/workforce/driver-schedules/{id}/approve`
+  - `PUT /api/workforce/driver-schedules/{id}/lock`
+  - Các endpoint mutate này yêu cầu permission `schedule.approve`.
+- **Driver schedule lifecycle**
+  - `POST /api/driver-schedules/{driverWorkSchedule}/submit`
+  - `POST /api/driver-schedules/{driverWorkSchedule}/approve`
+  - `POST /api/driver-schedules/{driverWorkSchedule}/reject`
+  - `POST /api/driver-schedules/{driverWorkSchedule}/lock`
+  - `POST /api/driver-schedules/{driverWorkSchedule}/override`
+  - `GET|POST /api/driver-schedules/{driverWorkSchedule}/hos-check`
+- **Attendance**
+  - `POST /api/attendance/check-in`
+  - `POST /api/attendance/check-out`
+  - `PATCH /api/attendance/{id}/adjust`
+  - `GET /api/attendance`
+  - Legacy alias `attendances/*` vẫn được duy trì.
+
+#### D. Trip, invoice, payroll operations
+
+- **Trip lifecycle**
+  - `assign/start/pickup/transit/arrive/complete/cancel/delay/resume`
+  - Kết hợp với `apiResource trips` cho CRUD nền.
+- **Invoice lifecycle**
+  - `issue/mark-paid/send-cqt/cancel`
+  - Kết hợp với `apiResource invoices`.
+- **Payroll lifecycle**
+  - `POST /api/payrolls/{id}/approve`
+  - `POST /api/payrolls/{id}/lock`
+  - `POST /api/payrolls/{id}/mark-paid`
+  - `GET /api/payrolls/{id}/export`
+  - `GET /api/payrolls/driver/{driverId}`
+  - Kết hợp với `apiResource payrolls`.
+- **Payroll adjustment**
+  - CRUD + `approve/reject` qua nhóm `payroll-adjustments`.
+
+#### E. Reports và export dữ liệu
+
+- **Summary**
+  - `GET /api/reports/dashboard`
+  - `GET /api/reports/payroll-summary`
+  - `GET /api/reports/revenue-summary`
+- **Export CSV**
+  - `GET /api/reports/exports/revenue`
+  - `GET /api/reports/exports/trips`
+  - `GET /api/reports/exports/payroll`
+- **Đặc điểm hiện tại**
+  - Export dùng Form Request riêng để validate input.
+  - CSV stream với BOM UTF-8, phục vụ đọc trực tiếp trên Excel.
+  - `exportPayroll` trả `404` nếu không có bảng lương kỳ tương ứng.
+
+#### F. RBAC, admin domain và compatibility
+
+- **RBAC**
+  - `users`, `roles`, `permissions`, `roles/{role}/permissions`.
+- **Master data và domain vận hành**
+  - companies, offices, departments, positions, drivers, vehicles,
+    vehicle assignments/expenses, customers, trip bonus rules.
+- **Hỗ trợ vận hành**
+  - `chat`, `notifications`, `public-holidays`, `ai/business-assist`.
+- **Legacy compatibility**
+  - `GET /api/documentation`
+  - `GET /api/employees`
+  - `GET /api/allowances`
+  - `GET /api/deductions`
+
+#### G. Ranh giới hiện tại cần lưu ý
+
+- Hệ thống đã có khung nghiệp vụ lõi cho vận hành và payroll/report.
+- Các nội dung nâng cao trong các vòng gap (SoD sâu, tax finalization, fuel card reconciliation toàn diện, batch orchestration nâng cao...) vẫn thuộc lớp `to-be`.
+- Tài liệu này từ đây trở đi nên được đọc theo nguyên tắc:
+  - phần có endpoint/service/test tương ứng trong code => **đã triển khai**
+  - phần mô tả kiến trúc/đề xuất/phase => **kế hoạch triển khai**
+
+### 7) Checklist vận hành cho QA/PO (đồng bộ nhanh theo code hiện tại)
+
+Quy ước mức hoàn thiện:
+
+- **Cao**: Có nhóm endpoint rõ ràng, luồng chính đã chạy ổn định.
+- **Trung bình**: Có endpoint nền tảng nhưng vẫn còn khoảng trống theo nghiệp vụ nâng cao.
+- **Thấp**: Chủ yếu mới ở mức nền/định hướng, cần bổ sung đáng kể.
+
+| Module | Đã có endpoint | Đã có test | Mức hoàn thiện | Ghi chú |
+| :-- | :--: | :--: | :--: | :-- |
+| Auth (login/social/refresh/forgot/reset) | Có | Có (một phần) | Trung bình | Luồng cốt lõi đã có; cần mở rộng coverage theo edge cases và security scenarios. |
+| Session & Me (`auth/me`, sessions, revoke) | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Trung bình | Endpoint quản lý phiên đã đầy đủ mức cơ bản. |
+| Master Data (companies/offices/departments/positions/drivers/vehicles/customers) | Có | Có (một phần) | Trung bình | CRUD đã có; cần checklist business rule theo từng domain nhỏ. |
+| Trips lifecycle (`assign/start/.../complete`) | Có | Có (một phần) | Trung bình | Đủ thao tác vận hành chính; các rule nâng cao còn nằm trong to-be. |
+| Invoices lifecycle (`issue/mark-paid/send-cqt/cancel`) | Có | Có (một phần) | Trung bình | Có endpoint nghiệp vụ chính; cần test sâu cho trạng thái và đối soát. |
+| Driver schedules + HOS check | Có | Có (một phần) | Trung bình | Có submit/approve/reject/lock/override + HOS; cần bổ sung rule conflict/lock chi tiết theo policy. |
+| Workforce (schedules/leave-requests/absences + approve/lock) | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Trung bình | Đã tách read và mutate theo permission `schedule.approve`. |
+| Attendance + legacy aliases (`attendance`, `attendances`) | Có | Có (một phần) | Trung bình | Endpoint đầy đủ mức cơ bản; alias hỗ trợ tương thích FE. |
+| Leave module | Có | Có (một phần) | Trung bình | Có types/approve/reject/cancel + resource cơ bản. |
+| Overtime module | Có | Có (một phần) | Trung bình | Có resource + approve/reject; rule pháp lý nâng cao vẫn là backlog. |
+| Violations + dispute flow cơ bản | Có | Có (một phần) | Trung bình | Có confirm/dispute/resolve-dispute/waive. |
+| Payroll core (`approve/lock/mark-paid/export`) | Có | Có (một phần) | Trung bình | Luồng cốt lõi đã có; pre-lock gate và SoD nâng cao chưa chốt trong code. |
+| Payroll adjustments | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Trung bình | Có CRUD + approve/reject. |
+| Reports summary (`dashboard/payroll-summary/revenue-summary`) | Có | Có | Cao | Đã có test feature cho các endpoint chính. |
+| Reports export CSV (`revenue/trips/payroll`) | Có | Có | Cao | Đã có test trả CSV + validate kết quả đầu ra chính. |
+| Notifications | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Trung bình | Có unread count/read/read-all/index. |
+| Chat module | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Trung bình | Có sessions/messages/stream; cần test thêm cho streaming và phân quyền. |
+| RBAC (`users`, `roles`, `permissions`) | Có | Có (một phần) | Trung bình | Nền RBAC đã có; SoD cấp tài chính chưa hoàn tất. |
+| AI business assist | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Thấp | Endpoint đã mở, cần tiêu chí nghiệm thu nghiệp vụ cụ thể cho QA/PO. |
+| Public holidays | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Trung bình | Đã có endpoint đọc; phần policy holiday nâng cao vẫn ở to-be. |
+| Legacy compatibility (`employees/allowances/deductions/documentation`) | Có | Chưa thấy test chuyên biệt trong bộ hiện tại | Trung bình | Giữ tương thích hệ cũ, cần quản lý deprecation plan rõ ràng. |
+
+> Gợi ý sử dụng cho QA/PO:
+> - Mỗi sprint, lọc các module có mức **Trung bình/Thấp** để bổ sung test và acceptance criteria.
+> - Khi một hạng mục to-be được triển khai, cập nhật lại 3 cột: endpoint, test, mức hoàn thiện để giữ tài liệu luôn phản ánh thực tế.
+
 Sự phát triển của ngành logistics hiện đại đòi hỏi một bước nhảy vọt từ việc số hóa cơ bản sang quản trị dựa trên dữ liệu thông minh. Hệ thống quản trị vận tải (Transportation Management System \- TMS) không còn chỉ là một công cụ ghi chép mà đã trở thành trung tâm điều hành chiến lược, nơi các luồng thông tin về con người, phương tiện và tài chính hội tụ để tối ưu hóa hiệu quả vận hành.1 Trong bối cảnh đó, dự án Company Ship API đại diện cho một nỗ lực thiết lập nền tảng quản trị vận tải nội bộ chuyên sâu. Tuy nhiên, để đáp ứng sự phức tạp của thị trường vận tải và kỳ vọng về sự minh bạch tài chính, mô hình sản phẩm tối thiểu (MVP) hiện tại cần được nâng cấp toàn diện về mặt logic nghiệp vụ. Báo cáo này phân tích các lỗ hổng trong logic hiện tại và đề xuất một kiến trúc nghiệp vụ mới, tập trung vào tính chính xác của dữ liệu, sự công bằng trong thù lao và khả năng kiểm soát chi phí biến động.
 
 ## **Kiến Trúc Tổ Chức Và Quản Trị Thực Thể Đa Tầng**
@@ -292,13 +506,13 @@ Phần này mô tả đầy đủ luồng vận hành theo trình tự thực t�
 ### E. Workflow quên mật khẩu và đăng nhập
 
 1. **Login**
-   - `POST /api/v1/auth/login` với email/password.
+   - `POST /api/auth/login` với email/password.
 2. **Social Login**
-   - `POST /api/v1/auth/social/login` cho Google/Facebook/Apple.
+   - `POST /api/auth/social/login` cho Google/Facebook/Apple.
 3. **Forgot Password**
-   - `POST /api/v1/auth/forgot-password` gửi link reset.
+   - `POST /api/auth/forgot-password` gửi link reset.
 4. **Reset Password**
-   - `POST /api/v1/auth/reset-password` với `email + token + password`.
+   - `POST /api/auth/reset-password` với `email + token + password`.
 5. **Phiên đăng nhập**
    - `refresh`, `logout`, `auth/me` tuân thủ envelope thống nhất.
 

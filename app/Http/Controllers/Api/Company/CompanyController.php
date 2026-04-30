@@ -140,8 +140,14 @@ class CompanyController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('api.company.not_found');
         }
-        $model->delete();
 
-        return $this->successResponse(null, 'api.company.deleted');
+        return $this->errorResponse(
+            'api.company.delete_not_allowed',
+            422,
+            [
+                'code' => __('api.errors.code.operation_not_allowed'),
+                'details' => [__('api.company.delete_not_allowed')],
+            ],
+        );
     }
 }

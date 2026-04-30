@@ -95,8 +95,9 @@ final class ChatDataService
         $context['_intent'] = $intent;
         $context['_user_message'] = $message;
 
-        $driver = $user->driver !== null
-            ? Driver::withoutGlobalScope('tenant')->find($user->driver->id)
+        $driverId = $user->getAttribute('driver_id');
+        $driver = (is_int($driverId) || ctype_digit((string) $driverId))
+            ? Driver::withoutGlobalScope('tenant')->find((int) $driverId)
             : null;
 
         $companyId = $this->tenantContext->getCompanyId()
@@ -216,12 +217,12 @@ final class ChatDataService
             ->where('trips.status', 'completed')
             ->whereYear('trips.end_time', $now->year)
             ->whereMonth('trips.end_time', $now->month)
-            ->select(
+            ->select([
                 'drivers.name',
                 'drivers.code',
                 DB::raw('SUM(invoices.total_amount) as doanh_thu'),
-                DB::raw('COUNT(trips.id) as so_chuyen')
-            )
+                DB::raw('COUNT(trips.id) as so_chuyen'),
+            ])
             ->groupBy('drivers.id', 'drivers.name', 'drivers.code')
             ->orderByDesc('doanh_thu')
             ->limit(5)

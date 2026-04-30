@@ -36,7 +36,7 @@ class PositionController extends BaseController
         $query = Position::query();
         $result = $this->indexQuery($request, $query, ['code', 'name'], []);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -63,7 +63,7 @@ class PositionController extends BaseController
     {
         $position = Position::create($request->validated());
 
-        return $this->successResponse($position, 'api.position.created', 201);
+        return $this->successResponse($position, 'Position created successfully', 201);
     }
 
     /**
@@ -80,10 +80,10 @@ class PositionController extends BaseController
     {
         $model = Position::find($position);
         if (! $model) {
-            return $this->notFoundResponse('api.position.not_found');
+            return $this->notFoundResponse('Position not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -111,11 +111,11 @@ class PositionController extends BaseController
     {
         $model = Position::find($position);
         if (! $model) {
-            return $this->notFoundResponse('api.position.not_found');
+            return $this->notFoundResponse('Position not found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(), 'api.position.updated');
+        return $this->successResponse($model->fresh(), 'Position updated successfully');
     }
 
     /**
@@ -132,10 +132,10 @@ class PositionController extends BaseController
     {
         $model = Position::find($position);
         if (! $model) {
-            return $this->notFoundResponse('api.position.not_found');
+            return $this->notFoundResponse('Position not found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'api.position.deleted');
+        return $this->successResponse(null, 'Position deleted successfully');
     }
 }

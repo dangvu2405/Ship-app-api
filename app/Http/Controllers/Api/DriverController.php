@@ -8,6 +8,9 @@ use App\Http\Requests\Driver\StoreDriverRequest;
 use App\Http\Requests\Driver\UpdateDriverRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Driver;
+use App\Models\PayrollLine;
+use App\Models\Trip;
+use App\Models\VehicleAssignment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -139,8 +142,67 @@ class DriverController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('api.driver.not_found');
         }
-        $model->delete();
 
-        return $this->successResponse(null, 'api.driver.deleted');
+        $errors = [];
+
+        $activeTrips = Trip::query()
+            ->where('driver_id', $model->id)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->pluck('code')
+            ->filter()
+            ->values();
+        if ($activeTrips->isNotEmpty()) {
+            $errors[] = __(
+                'api.driver.delete_blocked_active_trips',
+                [
+                    'count' => $activeTrips->count(),
+                    'codes' => $activeTrips->implode(', '),
+                ]
+            );
+        }
+
+        $unpaidPayrollCount = PayrollLine::query()
+            ->where('driver_id', $model->id)
+            ->whereHas('payroll', static function ($query): void {
+                $query->whereIn('status', ['draft', 'approved', 'locked']);
+            })
+            ->count();
+        if ($unpaidPayrollCount > 0) {
+            $errors[] = __('api.driver.delete_blocked_open_payrolls', ['count' => $unpaidPayrollCount]);
+        }
+
+        $activeAssignments = VehicleAssignment::query()
+            ->where('driver_id', $model->id)
+            ->where(static function ($query): void {
+                $query->whereNull('to_date')->orWhereDate('to_date', '>=', now()->toDateString());
+            })
+            ->count();
+        if ($activeAssignments > 0) {
+            $errors[] = __('api.driver.delete_blocked_active_assignments', ['count' => $activeAssignments]);
+        }
+
+        if ($errors !== []) {
+            return $this->errorResponse(
+                'api.driver.delete_blocked',
+                422,
+                [
+                    'code' => __('api.errors.code.dependency_restriction'),
+                    'details' => $errors,
+                ],
+            );
+        }
+
+        $model->update([
+            'status' => 'inactive',
+            'resign_date' => now()->toDateString(),
+            'available_status' => 'off',
+        ]);
+
+        VehicleAssignment::query()
+            ->where('driver_id', $model->id)
+            ->whereNull('to_date')
+            ->update(['to_date' => now()->toDateString()]);
+
+        return $this->successResponse(null, 'api.driver.marked_resigned');
     }
 }

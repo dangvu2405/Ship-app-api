@@ -37,26 +37,8 @@ class PayrollQueryService
      */
     public function findMySalary(User $user, int $month, int $year): ?array
     {
-        $driverId = $user->driver?->id;
-        if ($driverId === null) {
-            return null;
-        }
-
-        $line = Payroll::query()
-            ->where('month', $month)
-            ->where('year', $year)
-            ->with(['lines' => function ($query) use ($driverId): void {
-                $query->where('driver_id', $driverId)->with('driver');
-            }])
-            ->first();
-
-        if (! $line || $line->lines->isEmpty()) {
-            return null;
-        }
-
-        return [
-            'payroll' => $line,
-            'line' => $line->lines->first(),
-        ];
+        // Driver no longer links to user in the current domain model.
+        // My-salary lookup by authenticated user is intentionally disabled.
+        return null;
     }
 }

@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Requests\DriverDocument;
+
+use App\Http\Requests\AppFormRequest;
+use Illuminate\Validation\Rule;
+
+final class UpdateDriverDocumentRequest extends AppFormRequest
+{
+    public function rules(): array
+    {
+        return [
+            'driver_id' => ['sometimes', 'integer', Rule::exists('drivers', 'id')->where(fn ($query) => $query->where('company_id', $this->tenantCompanyId()))],
+            'doc_type' => ['sometimes', 'in:driver_license,international_license,health_certificate,skill_certificate,id_card,other'],
+            'doc_name' => ['sometimes', 'string', 'max:200'],
+            'doc_number' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'issued_date' => ['sometimes', 'nullable', 'date'],
+            'expiry_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:issued_date'],
+            'issuer' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'file_url' => ['sometimes', 'string', 'max:500', 'regex:/\.(pdf|png|jpg|jpeg|webp)$/i'],
+            'alert_before_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
+            'notes' => ['sometimes', 'nullable', 'string'],
+        ];
+    }
+}

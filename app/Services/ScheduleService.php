@@ -336,14 +336,13 @@ final class ScheduleService
             ->where('driver_id', $driverId)
             ->where('work_date', $workDate)
             ->where('shift_code', $shiftCode)
-            ->whereNotIn('status', ['draft'])
             ->when($excludeId !== null, fn ($q) => $q->where('id', '!=', $excludeId))
             ->first();
 
         if ($driverConflict) {
             throw new InvalidArgumentException(
                 "Driver #{$driverId} already has an active schedule on {$workDate} for shift '{$shiftCode}'.",
-                409,
+                422,
             );
         }
 

@@ -46,15 +46,15 @@ class StoreInvoiceRequest extends FormRequest
                 }
 
                 if ($trip->status !== 'completed') {
-                    $validator->errors()->add('trip_id', __('api.validation.invoice_trip_must_be_completed'));
+                    $validator->errors()->add('trip_id', 'Chỉ được tạo hóa đơn cho chuyến đã completed.');
                 }
 
                 if ((int) $trip->customer_id !== $customerId) {
-                    $validator->errors()->add('customer_id', __('api.validation.invoice_customer_mismatch'));
+                    $validator->errors()->add('customer_id', 'customer_id phải trùng với khách hàng của chuyến đi.');
                 }
 
                 if (Invoice::query()->where('trip_id', $tripId)->exists()) {
-                    $validator->errors()->add('trip_id', __('api.validation.invoice_trip_already_has_invoice'));
+                    $validator->errors()->add('trip_id', 'Chuyến đi này đã có hóa đơn.');
                 }
             }
 
@@ -67,7 +67,7 @@ class StoreInvoiceRequest extends FormRequest
             $inputTotal = round((float) $this->input('total_amount', 0), 2);
 
             if (abs($inputTotal - $expectedTotal) > 0.01) {
-                $validator->errors()->add('total_amount', __('api.validation.invoice_total_mismatch'));
+                $validator->errors()->add('total_amount', 'total_amount phải bằng subtotal + vat_amount.');
             }
         });
     }

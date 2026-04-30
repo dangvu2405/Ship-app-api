@@ -33,7 +33,7 @@ class LeaveService
             // Check for overlapping requests inside transaction to prevent race conditions
             $overlap = LeaveRequest::query()
                 ->where('driver_id', $driverId)
-                ->scopeOverlapping($from, $to)
+                ->overlapping($from, $to)
                 ->exists();
 
             if ($overlap) {

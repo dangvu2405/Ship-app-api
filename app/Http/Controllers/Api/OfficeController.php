@@ -37,7 +37,7 @@ class OfficeController extends BaseController
         $query = Office::query()->with('company');
         $result = $this->indexQuery($request, $query, ['code', 'name'], ['company_id' => 'company_id']);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -65,7 +65,7 @@ class OfficeController extends BaseController
     {
         $office = Office::create($request->validated());
 
-        return $this->successResponse($office->load('company'), 'api.office.created', 201);
+        return $this->successResponse($office->load('company'), 'Office created successfully', 201);
     }
 
     /**
@@ -82,10 +82,10 @@ class OfficeController extends BaseController
     {
         $model = Office::with('company', 'manager')->find($office);
         if (! $model) {
-            return $this->notFoundResponse('api.office.not_found');
+            return $this->notFoundResponse('Office not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -114,11 +114,11 @@ class OfficeController extends BaseController
     {
         $model = Office::find($office);
         if (! $model) {
-            return $this->notFoundResponse('api.office.not_found');
+            return $this->notFoundResponse('Office not found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(['company', 'manager']), 'api.office.updated');
+        return $this->successResponse($model->fresh(['company', 'manager']), 'Office updated successfully');
     }
 
     /**
@@ -135,10 +135,10 @@ class OfficeController extends BaseController
     {
         $model = Office::find($office);
         if (! $model) {
-            return $this->notFoundResponse('api.office.not_found');
+            return $this->notFoundResponse('Office not found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'api.office.deleted');
+        return $this->successResponse(null, 'Office deleted successfully');
     }
 }

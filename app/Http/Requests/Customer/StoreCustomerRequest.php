@@ -28,9 +28,6 @@ class StoreCustomerRequest extends FormRequest
             return;
         }
 
-        if ($this->user()?->driver?->company_id !== null) {
-            $this->merge(['company_id' => $this->user()->driver->company_id]);
-        }
     }
 
     public function rules(): array
@@ -39,7 +36,7 @@ class StoreCustomerRequest extends FormRequest
             'company_id' => ['required', 'integer', 'exists:companies,id'],
             'type' => 'required|in:individual,company',
             'name' => 'required|string|max:255',
-            'tax_code' => ['nullable', 'string', 'max:50', 'required_if:type,company',
+            'tax_code' => ['nullable', 'string', 'max:50',
                 Rule::unique('customers', 'tax_code')->where('company_id', $this->input('company_id'))],
             'phone' => 'nullable|string|max:20',
             'email' => ['nullable', 'email', 'max:255',

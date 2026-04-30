@@ -42,7 +42,7 @@ class VehicleExpenseController extends BaseController
             'type' => 'type',
         ]);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -59,7 +59,8 @@ class VehicleExpenseController extends BaseController
      *             @OA\Property(property="type", type="string", enum={"fuel","maintenance","insurance","other"}, example="fuel"),
      *             @OA\Property(property="amount", type="number", example=500000),
      *             @OA\Property(property="expense_date", type="string", format="date"),
-     *             @OA\Property(property="note", type="string")
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="receipt_no", type="string")
      *         )
      *     ),
      *     @OA\Response(response=201, description="Tạo thành công"),
@@ -70,7 +71,7 @@ class VehicleExpenseController extends BaseController
     {
         $expense = VehicleExpense::create($request->validated());
 
-        return $this->successResponse($expense->load(['vehicle', 'driver']), 'api.vehicle_expense.created', 201);
+        return $this->successResponse($expense->load(['vehicle', 'driver']), 'Vehicle expense created successfully', 201);
     }
 
     /**
@@ -87,10 +88,10 @@ class VehicleExpenseController extends BaseController
     {
         $model = VehicleExpense::with(['vehicle', 'driver'])->find($vehicle_expense);
         if (! $model) {
-            return $this->notFoundResponse('api.vehicle_expense.not_found');
+            return $this->notFoundResponse('Vehicle expense not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -107,7 +108,8 @@ class VehicleExpenseController extends BaseController
      *             @OA\Property(property="type", type="string"),
      *             @OA\Property(property="amount", type="number"),
      *             @OA\Property(property="expense_date", type="string", format="date"),
-     *             @OA\Property(property="note", type="string")
+     *             @OA\Property(property="description", type="string"),
+     *             @OA\Property(property="receipt_no", type="string")
      *         )
      *     ),
      *     @OA\Response(response=200, description="Cập nhật thành công"),
@@ -119,11 +121,11 @@ class VehicleExpenseController extends BaseController
     {
         $model = VehicleExpense::find($vehicle_expense);
         if (! $model) {
-            return $this->notFoundResponse('api.vehicle_expense.not_found');
+            return $this->notFoundResponse('Vehicle expense not found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(['vehicle', 'driver']), 'api.vehicle_expense.updated');
+        return $this->successResponse($model->fresh(['vehicle', 'driver']), 'Vehicle expense updated successfully');
     }
 
     /**
@@ -140,10 +142,10 @@ class VehicleExpenseController extends BaseController
     {
         $model = VehicleExpense::find($vehicle_expense);
         if (! $model) {
-            return $this->notFoundResponse('api.vehicle_expense.not_found');
+            return $this->notFoundResponse('Vehicle expense not found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'api.vehicle_expense.deleted');
+        return $this->successResponse(null, 'Vehicle expense deleted successfully');
     }
 }

@@ -37,7 +37,7 @@ class DepartmentController extends BaseController
         $query = Department::query()->with('office');
         $result = $this->indexQuery($request, $query, ['code', 'name'], ['office_id' => 'office_id']);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -64,7 +64,7 @@ class DepartmentController extends BaseController
     {
         $department = Department::create($request->validated());
 
-        return $this->successResponse($department->load('office'), 'api.department.created', 201);
+        return $this->successResponse($department->load('office'), 'Department created successfully', 201);
     }
 
     /**
@@ -81,10 +81,10 @@ class DepartmentController extends BaseController
     {
         $model = Department::with('office', 'parent')->find($department);
         if (! $model) {
-            return $this->notFoundResponse('api.department.not_found');
+            return $this->notFoundResponse('Department not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -112,11 +112,11 @@ class DepartmentController extends BaseController
     {
         $model = Department::find($department);
         if (! $model) {
-            return $this->notFoundResponse('api.department.not_found');
+            return $this->notFoundResponse('Department not found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(['office', 'parent']), 'api.department.updated');
+        return $this->successResponse($model->fresh(['office', 'parent']), 'Department updated successfully');
     }
 
     /**
@@ -133,10 +133,10 @@ class DepartmentController extends BaseController
     {
         $model = Department::find($department);
         if (! $model) {
-            return $this->notFoundResponse('api.department.not_found');
+            return $this->notFoundResponse('Department not found');
         }
         $model->delete();
 
-        return $this->successResponse(null, 'api.department.deleted');
+        return $this->successResponse(null, 'Department deleted successfully');
     }
 }

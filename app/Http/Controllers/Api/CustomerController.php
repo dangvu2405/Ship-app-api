@@ -8,6 +8,7 @@ use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Customer;
+use App\Models\Trip;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -37,7 +38,7 @@ class CustomerController extends BaseController
         $query = Customer::query();
         $result = $this->indexQuery($request, $query, ['name', 'tax_code', 'email'], ['type' => 'type']);
 
-        return $this->successResponse($result, 'api.common.ok');
+        return $this->successResponse($result, 'OK');
     }
 
     /**
@@ -66,7 +67,7 @@ class CustomerController extends BaseController
     {
         $customer = Customer::create($request->validated());
 
-        return $this->successResponse($customer, 'api.customer.created', 201);
+        return $this->successResponse($customer, 'Customer created successfully', 201);
     }
 
     /**
@@ -83,10 +84,10 @@ class CustomerController extends BaseController
     {
         $model = Customer::find($customer);
         if (! $model) {
-            return $this->notFoundResponse('api.customer.not_found');
+            return $this->notFoundResponse('Customer not found');
         }
 
-        return $this->successResponse($model, 'api.common.ok');
+        return $this->successResponse($model);
     }
 
     /**
@@ -116,11 +117,11 @@ class CustomerController extends BaseController
     {
         $model = Customer::find($customer);
         if (! $model) {
-            return $this->notFoundResponse('api.customer.not_found');
+            return $this->notFoundResponse('Customer not found');
         }
         $model->update($request->validated());
 
-        return $this->successResponse($model->fresh(), 'api.customer.updated');
+        return $this->successResponse($model->fresh(), 'Customer updated successfully');
     }
 
     /**
@@ -137,10 +138,23 @@ class CustomerController extends BaseController
     {
         $model = Customer::find($customer);
         if (! $model) {
-            return $this->notFoundResponse('api.customer.not_found');
+            return $this->notFoundResponse('Customer not found');
         }
+
+        $hasTrips = Trip::query()->where('customer_id', $model->id)->exists();
+        if ($hasTrips) {
+            return $this->errorResponse(
+                'Cannot delete customer with related trips',
+                422,
+                [
+                    'code' => __('api.errors.code.dependency_restriction'),
+                    'details' => ['Customer has related trips and cannot be deleted'],
+                ]
+            );
+        }
+
         $model->delete();
 
-        return $this->successResponse(null, 'api.customer.deleted');
+        return $this->successResponse(null, 'Customer deleted successfully');
     }
 }
