@@ -3,9 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Company;
-use App\Models\Office;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\Schema;
 
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Vehicle>
@@ -27,10 +25,6 @@ class VehicleFactory extends Factory
             'capacity' => fake()->numberBetween(4, 30),
             'status' => fake()->randomElement(['active', 'maintenance', 'inactive']),
         ];
-
-        if (Schema::hasColumn('vehicles', 'office_id')) {
-            $attributes['office_id'] = Office::factory();
-        }
 
         return $attributes;
     }

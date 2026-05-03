@@ -153,33 +153,8 @@ final class EnsureTenantContext
         return null;
     }
 
-    /**
-     * Returns the office_id this user is restricted to within $companyId,
-     * or null if the user can see all offices (admin / company_admin).
-     *
-     * Logic:
-     *  - admin or company_admin (with null office_id in user_roles) → null (no restriction)
-     *  - office_admin → the office_id from their user_roles row for this company
-     */
     private function resolveOfficeId(User $user, int $companyId): ?int
     {
-        // Global admin and company_admin are never restricted to a single office
-        if ($user->hasRole('admin') || $user->hasRole('company_admin', $companyId)) {
-            return null;
-        }
-
-        // Find the office_admin assignment for this company
-        if (! Schema::hasTable('roles') || ! Schema::hasTable('user_roles')) {
-            return null;
-        }
-
-        $pivot = $user->roles()
-            ->where('roles.name', 'office_admin')
-            ->where('user_roles.company_id', $companyId)
-            ->whereNotNull('user_roles.office_id')
-            ->orderBy('user_roles.office_id')
-            ->first();
-
-        return $pivot?->pivot?->office_id;
+        return null;
     }
 }

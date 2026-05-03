@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Invoice extends Model
 {
+    use \App\Models\Concerns\BelongsToTenant;
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
@@ -54,5 +55,10 @@ class Invoice extends Model
     public function customer(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function statusHistories(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(InvoiceStatusHistory::class);
     }
 }

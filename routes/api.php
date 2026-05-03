@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CetaSpecController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,7 +55,6 @@ $registerAuthenticatedRoutes = static function (): void {
     Route::post('/upload', [\App\Http\Controllers\Api\UploadController::class, 'store']);
     Route::post('/upload/image', [\App\Http\Controllers\Api\UploadController::class, 'storeImage']);
     Route::post('/upload/document', [\App\Http\Controllers\Api\UploadController::class, 'storeDocument']);
-    Route::get('payrolls/my-salary', [\App\Http\Controllers\Api\PayrollController::class, 'mySalary']);
 
     Route::prefix('chat')->group(function (): void {
         Route::get('/sessions', [\App\Http\Controllers\Api\ChatController::class, 'sessions']);
@@ -64,41 +64,184 @@ $registerAuthenticatedRoutes = static function (): void {
         Route::post('/messages/stream', [\App\Http\Controllers\Api\ChatController::class, 'stream']);
     });
 
-    Route::prefix('notifications')->group(function (): void {
-        Route::get('/unread-count', [\App\Http\Controllers\Api\NotificationController::class, 'unreadCount']);
-        Route::post('/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
-        Route::patch('/read-all', [\App\Http\Controllers\Api\NotificationController::class, 'markAllReadPatch']);
-        Route::post('/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead'])
-            ->where('id', '[0-9a-fA-F\\-]{36}');
-        Route::patch('/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead'])
-            ->where('id', '[0-9a-fA-F\\-]{36}');
-        Route::delete('/{id}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy'])
-            ->where('id', '[0-9a-fA-F\\-]{36}');
-        Route::get('/', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
-    });
-
-    Route::prefix('workforce')->group(function (): void {
-        Route::get('driver-schedules', [\App\Http\Controllers\Api\WorkforceController::class, 'schedules']);
-        Route::get('leave-requests', [\App\Http\Controllers\Api\WorkforceController::class, 'leaveRequests']);
-        Route::get('absences', [\App\Http\Controllers\Api\WorkforceController::class, 'absences']);
-
-        Route::middleware('permission:schedule.approve')->group(function (): void {
-            Route::put('driver-schedules/{id}/approve', [\App\Http\Controllers\Api\WorkforceController::class, 'approveSchedule']);
-            Route::put('driver-schedules/{id}/lock', [\App\Http\Controllers\Api\WorkforceController::class, 'lockSchedule']);
-        });
-    });
-
-    Route::get('public-holidays', [\App\Http\Controllers\Api\PublicHolidayController::class, 'index']);
 };
 
-$cetaOffice = require __DIR__.'/ceta_office.php';
-$cetaCompany = require __DIR__.'/ceta_company.php';
-$cetaPlatform = require __DIR__.'/ceta_platform.php';
+$registerCetaRoutes = static function (): void {
+    $crud = static function (string $uri, string $resource, bool $show = true): void {
+        Route::get($uri, [CetaSpecController::class, 'index'])->defaults('resource', $resource);
+        Route::post($uri, [CetaSpecController::class, 'store'])->defaults('resource', $resource);
+        if ($show) {
+            Route::get("{$uri}/{id}", [CetaSpecController::class, 'show'])->defaults('resource', $resource);
+        }
+        Route::put("{$uri}/{id}", [CetaSpecController::class, 'update'])->defaults('resource', $resource);
+        Route::patch("{$uri}/{id}", [CetaSpecController::class, 'update'])->defaults('resource', $resource);
+        Route::delete("{$uri}/{id}", [CetaSpecController::class, 'destroy'])->defaults('resource', $resource);
+    };
+
+    $nested = static function (string $parentUri, string $parent, string $childUri, string $child): void {
+        Route::get("{$parentUri}/{id}/{$childUri}", [CetaSpecController::class, 'nestedIndex'])
+            ->defaults('parent', $parent)->defaults('child', $child);
+        Route::post("{$parentUri}/{id}/{$childUri}", [CetaSpecController::class, 'nestedStore'])
+            ->defaults('parent', $parent)->defaults('child', $child);
+        Route::put("{$parentUri}/{id}/{$childUri}/{childId}", [CetaSpecController::class, 'nestedUpdate'])
+            ->defaults('parent', $parent)->defaults('child', $child);
+        Route::patch("{$parentUri}/{id}/{$childUri}/{childId}", [CetaSpecController::class, 'nestedUpdate'])
+            ->defaults('parent', $parent)->defaults('child', $child);
+        Route::delete("{$parentUri}/{id}/{$childUri}/{childId}", [CetaSpecController::class, 'nestedDestroy'])
+            ->defaults('parent', $parent)->defaults('child', $child);
+    };
+
+    $action = static function (string $method, string $uri, string $resource, string $actionName): void {
+        $verb = strtolower($method);
+        Route::{$verb}($uri, [CetaSpecController::class, 'action'])
+            ->defaults('resource', $resource)
+            ->defaults('actionName', $actionName);
+    };
+
+    // Users & permissions
+    $crud('users', 'users');
+    Route::get('users/{id}/permissions', [CetaSpecController::class, 'nestedIndex'])
+        ->defaults('parent', 'users')->defaults('child', 'user-permissions');
+    Route::put('users/{id}/permissions', [CetaSpecController::class, 'nestedStore'])
+        ->defaults('parent', 'users')->defaults('child', 'user-permissions');
+    $action('PATCH', 'users/{id}/status', 'users', 'status');
+    $action('POST', 'users/{id}/reset-password', 'users', 'reset-password');
+
+    // Catalog
+    $action('PATCH', 'vehicle-types/reorder', 'vehicle-types', 'reorder');
+    $crud('vehicle-types', 'vehicle-types', false);
+    $crud('cargo-types', 'cargo-types', false);
+    $crud('cost-categories', 'cost-categories', false);
+    $crud('spare-parts', 'spare-parts', false);
+    Route::get('locations/search', [CetaSpecController::class, 'index'])->defaults('resource', 'locations');
+    $crud('locations', 'locations');
+    $crud('route-templates', 'route-templates');
+    Route::get('order-status-configs', [CetaSpecController::class, 'index'])->defaults('resource', 'order-status-configs');
+    Route::put('order-status-configs', [CetaSpecController::class, 'store'])->defaults('resource', 'order-status-configs');
+
+    // Customers and pricing
+    Route::get('customers/search', [CetaSpecController::class, 'index'])->defaults('resource', 'customers');
+    $crud('customers', 'customers');
+    Route::get('customers/{id}/trips', [CetaSpecController::class, 'nestedIndex'])
+        ->defaults('parent', 'customers')->defaults('child', 'trips');
+    Route::get('customers/{id}/debt', [CetaSpecController::class, 'debtOverview']);
+    $crud('customer-groups', 'customer-groups', false);
+    Route::get('customers/{id}/price-lists', [CetaSpecController::class, 'nestedIndex'])
+        ->defaults('parent', 'customers')->defaults('child', 'price-lists');
+    Route::post('customers/{id}/price-lists', [CetaSpecController::class, 'nestedStore'])
+        ->defaults('parent', 'customers')->defaults('child', 'price-lists');
+    Route::put('price-lists/{id}', [CetaSpecController::class, 'update'])->defaults('resource', 'price-lists');
+    Route::delete('price-lists/{id}', [CetaSpecController::class, 'destroy'])->defaults('resource', 'price-lists');
+    Route::get('price-lists/{id}/items', [CetaSpecController::class, 'nestedIndex'])
+        ->defaults('parent', 'price-lists')->defaults('child', 'price-list-items');
+    Route::post('price-lists/{id}/items', [CetaSpecController::class, 'nestedStore'])
+        ->defaults('parent', 'price-lists')->defaults('child', 'price-list-items');
+    Route::delete('price-lists/{id}/items/{itemId}', [CetaSpecController::class, 'nestedDestroy'])
+        ->defaults('parent', 'price-lists')->defaults('child', 'price-list-items');
+    Route::post('price-lookup', [CetaSpecController::class, 'priceLookup']);
+
+    // Fleet
+    Route::get('vehicles/available', [CetaSpecController::class, 'available'])->defaults('resource', 'vehicles');
+    Route::get('vehicles/expiring-documents', [CetaSpecController::class, 'index'])->defaults('resource', 'vehicle-documents');
+    Route::get('vehicles/maintenance-due', [CetaSpecController::class, 'index'])->defaults('resource', 'maintenance-schedules');
+    $crud('vehicles', 'vehicles');
+    $action('PATCH', 'vehicles/{id}/status', 'vehicles', 'status');
+    $nested('vehicles', 'vehicles', 'documents', 'vehicle-documents');
+    Route::get('vehicles/{id}/assignments', [CetaSpecController::class, 'nestedIndex'])
+        ->defaults('parent', 'vehicles')->defaults('child', 'vehicle-assignments');
+    Route::post('vehicles/{id}/assignments', [CetaSpecController::class, 'nestedStore'])
+        ->defaults('parent', 'vehicles')->defaults('child', 'vehicle-assignments');
+    Route::patch('vehicles/{id}/assignments/release', [CetaSpecController::class, 'releaseVehicleAssignment']);
+    $nested('vehicles', 'vehicles', 'maintenance-schedules', 'maintenance-schedules');
+    $nested('vehicles', 'vehicles', 'maintenance-records', 'maintenance-records');
+    Route::put('maintenance-schedules/{id}', [CetaSpecController::class, 'update'])->defaults('resource', 'maintenance-schedules');
+    $action('PATCH', 'maintenance-records/{id}/complete', 'maintenance-records', 'complete');
+
+    // Drivers
+    Route::get('drivers/available', [CetaSpecController::class, 'available'])->defaults('resource', 'drivers');
+    Route::get('drivers/expiring-documents', [CetaSpecController::class, 'index'])->defaults('resource', 'driver-documents');
+    $crud('drivers', 'drivers');
+    $action('PATCH', 'drivers/{id}/status', 'drivers', 'status');
+    $nested('drivers', 'drivers', 'documents', 'driver-documents');
+    $crud('driver-teams', 'driver-teams', false);
+
+    // Schedules and leave
+    $crud('work-schedules', 'work-schedules', false);
+    Route::post('work-schedules/generate', [CetaSpecController::class, 'store'])->defaults('resource', 'work-schedules');
+    foreach (['submit', 'approve', 'reject'] as $scheduleAction) {
+        $action('PATCH', "work-schedules/{id}/{$scheduleAction}", 'work-schedules', $scheduleAction);
+    }
+    $crud('leave-requests', 'leave-requests');
+    foreach (['approve', 'reject', 'cancel'] as $leaveAction) {
+        $action('PATCH', "leave-requests/{id}/{$leaveAction}", 'leave-requests', $leaveAction);
+    }
+    $crud('leave-types', 'leave-types', false);
+    $action('PATCH', 'leave-types/{id}/status', 'leave-types', 'status');
+
+    // Trips core
+    $crud('transport-requests', 'transport-requests');
+    $crud('trips', 'trips');
+    foreach (['assign', 'start', 'deliver', 'complete', 'cancel', 'change-vehicle', 'change-driver'] as $tripAction) {
+        $action('PATCH', "trips/{id}/{$tripAction}", 'trips', $tripAction);
+    }
+    $nested('trips', 'trips', 'stops', 'trip-stops');
+    $action('PATCH', 'trips/{id}/stops/{childId}/arrive', 'trip-stops', 'arrive');
+    $action('PATCH', 'trips/{id}/stops/{childId}/complete', 'trip-stops', 'complete');
+    $nested('trips', 'trips', 'surcharges', 'trip-surcharges');
+    $nested('trips', 'trips', 'documents', 'trip-documents');
+
+    // Costs and approvals
+    $nested('trips', 'trips', 'costs', 'trip-costs');
+    Route::put('trip-costs/{id}', [CetaSpecController::class, 'update'])->defaults('resource', 'trip-costs');
+    Route::delete('trip-costs/{id}', [CetaSpecController::class, 'destroy'])->defaults('resource', 'trip-costs');
+    Route::get('cost-approvals', [CetaSpecController::class, 'index'])->defaults('resource', 'cost-approvals');
+    Route::get('cost-approvals/{id}', [CetaSpecController::class, 'show'])->defaults('resource', 'cost-approvals');
+    $action('PATCH', 'cost-approvals/{id}/approve', 'cost-approvals', 'approve');
+    $action('PATCH', 'cost-approvals/{id}/reject', 'cost-approvals', 'reject');
+
+    // Accounting
+    $crud('reconciliations', 'reconciliations');
+    Route::put('reconciliations/{id}/items/{itemId}', [CetaSpecController::class, 'nestedUpdate'])
+        ->defaults('parent', 'reconciliations')->defaults('child', 'reconciliation-items');
+    $action('PATCH', 'reconciliations/{id}/confirm', 'reconciliations', 'confirm');
+    Route::get('reconciliations/{id}/export', [CetaSpecController::class, 'show'])->defaults('resource', 'reconciliations');
+    Route::get('customers/{id}/payments', [CetaSpecController::class, 'nestedIndex'])
+        ->defaults('parent', 'customers')->defaults('child', 'payments');
+    Route::post('customers/{id}/payments', [CetaSpecController::class, 'nestedStore'])
+        ->defaults('parent', 'customers')->defaults('child', 'payments');
+    Route::delete('payments/{id}', [CetaSpecController::class, 'destroy'])->defaults('resource', 'payments');
+    Route::get('debt-overview', [CetaSpecController::class, 'debtOverview']);
+
+    // Invoices
+    $crud('invoices', 'invoices');
+    $action('PATCH', 'invoices/{id}/issue', 'invoices', 'issue');
+    $action('PATCH', 'invoices/{id}/mark-paid', 'invoices', 'mark-paid');
+    $action('PATCH', 'invoices/{id}/cancel', 'invoices', 'cancel');
+    Route::get('invoices/{id}/status-histories', [CetaSpecController::class, 'nestedIndex'])
+        ->defaults('parent', 'invoices')->defaults('child', 'invoice-status-histories');
+
+    // Notifications
+    Route::get('notifications', [CetaSpecController::class, 'index'])->defaults('resource', 'notifications');
+    Route::get('notifications/unread-count', [CetaSpecController::class, 'report'])->defaults('reportType', 'notifications-unread');
+    $action('PATCH', 'notifications/{id}/read', 'notifications', 'read');
+    Route::patch('notifications/read-all', [CetaSpecController::class, 'action'])
+        ->defaults('resource', 'notifications')->defaults('id', 'all')->defaults('actionName', 'read');
+    Route::delete('notifications/{id}', [CetaSpecController::class, 'destroy'])->defaults('resource', 'notifications');
+
+    // Reports and dispatch
+    foreach (['dashboard', 'revenue', 'costs', 'profit', 'trips', 'vehicles', 'drivers', 'debt', 'maintenance'] as $reportType) {
+        Route::get("reports/{$reportType}", [CetaSpecController::class, 'report'])->defaults('reportType', $reportType);
+    }
+    Route::post('reports/export', [CetaSpecController::class, 'report'])->defaults('reportType', 'export');
+    Route::get('dispatch/board', [CetaSpecController::class, 'dispatch']);
+    Route::get('dispatch/unassigned-trips', [CetaSpecController::class, 'dispatch']);
+    Route::get('dispatch/daily-summary', [CetaSpecController::class, 'dispatch']);
+
+    // Upload
+    Route::delete('upload', [CetaSpecController::class, 'uploadDelete']);
+};
 
 $mAuth = ['auth:sanctum', 'tenant.context', 'track.actions'];
-$mOffice = array_merge($mAuth, ['role:office_admin']);
-$mCompany = array_merge($mAuth, ['role:company_admin']);
-$mAdmin = array_merge($mAuth, ['role:admin']);
 
 Route::get('/', function () {
     return response()->json([
@@ -114,8 +257,4 @@ $registerPublicAuthRoutes();
 
 Route::middleware($mAuth)->group($registerAuthenticatedRoutes);
 
-Route::middleware($mOffice)->group($cetaOffice);
-
-Route::middleware($mCompany)->group($cetaCompany);
-
-Route::middleware($mAdmin)->group($cetaPlatform);
+Route::middleware($mAuth)->group($registerCetaRoutes);

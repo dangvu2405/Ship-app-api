@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Models\Concerns\BelongsToOffice;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +12,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 final class DriverWorkSchedule extends Model
 {
-    use BelongsToOffice;
     use BelongsToTenant;
     use SoftDeletes;
 
@@ -25,7 +23,6 @@ final class DriverWorkSchedule extends Model
     protected $fillable = [
         'driver_id',
         'company_id',
-        'office_id',
         'work_date',
         'shift_code',
         'start_time',
@@ -85,11 +82,6 @@ final class DriverWorkSchedule extends Model
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
-    }
-
-    public function office(): BelongsTo
-    {
-        return $this->belongsTo(Office::class);
     }
 
     public function submitter(): BelongsTo

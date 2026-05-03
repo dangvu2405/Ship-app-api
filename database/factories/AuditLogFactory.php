@@ -12,7 +12,7 @@ class AuditLogFactory extends Factory
 {
     public function definition(): array
     {
-        $tables = ['users', 'employees', 'trips', 'vehicles', 'customers', 'invoices', 'payrolls'];
+        $tables = ['users', 'drivers', 'trips', 'vehicles', 'customers', 'invoices', 'reconciliation_sessions'];
         
         return [
             'user_id' => null,

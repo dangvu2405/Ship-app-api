@@ -28,15 +28,7 @@ final class NotificationAlertService
 
         return $users->filter(function (User $user): bool {
             $role = strtolower((string) ($user->role ?? ''));
-            if (in_array($role, ['admin', 'dispatcher'], true)) {
-                return true;
-            }
-
-            if (method_exists($user, 'roles')) {
-                return $user->roles()->whereIn('name', ['admin', 'dispatcher'])->exists();
-            }
-
-            return false;
+            return in_array($role, ['super_admin', 'admin', 'dispatcher'], true);
         })->values();
     }
 

@@ -11,7 +11,7 @@ class ReportCacheFactory extends Factory
 {
     public function definition(): array
     {
-        $types = ['revenue', 'expense', 'payroll', 'trip', 'vehicle', 'employee'];
+        $types = ['revenue', 'expense', 'trip', 'vehicle', 'driver', 'debt', 'maintenance'];
         
         return [
             'type' => fake()->randomElement($types),

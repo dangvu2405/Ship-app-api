@@ -30,9 +30,13 @@ class User extends Authenticatable
     protected $fillable = [
         'username',
         'email',
+        'full_name',
+        'phone',
         'social_provider',
         'social_provider_id',
         'avatar_url',
+        'role',
+        'must_change_password',
         'password',
         'status',
         'driver_id',
@@ -95,30 +99,6 @@ class User extends Authenticatable
 
     // Relationships
 
-    /**
-     * All roles across all companies.
-     * Use rolesForCompany() when you need tenant-scoped access checks.
-     */
-    public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(Role::class, 'user_roles')
-            ->withTimestamps();
-    }
-
-    /**
-     * Roles for a specific company, plus any global roles (roles.company_id IS NULL).
-     * This is the correct method to use during a tenant session.
-     */
-    public function rolesForCompany(int $companyId): \Illuminate\Database\Eloquent\Relations\BelongsToMany
-    {
-        return $this->belongsToMany(Role::class, 'user_roles')
-            ->withTimestamps()
-            ->where(function ($q) use ($companyId) {
-                $q->where('roles.company_id', $companyId)
-                    ->orWhereNull('roles.company_id');
-            });
-    }
-
     public function loginLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(LoginLog::class);
@@ -173,10 +153,9 @@ class User extends Authenticatable
      */
     public function resolveTenants(): array
     {
-        // Admin sees all active companies (no need for explicit user_companies rows)
-        $companies = $this->hasRole('admin')
+        $companies = $this->hasRole('admin') || $this->hasRole('super_admin')
             ? Company::query()->where('status', 'active')->orderBy('name')->get()
-            : $this->companies()->get();
+            : $this->resolveAssignedCompanies();
 
         if ($companies->isEmpty()) {
             return [];
@@ -203,23 +182,7 @@ class User extends Authenticatable
             return $this->role === $roleName;
         }
 
-        if (! Schema::hasTable('roles') || ! Schema::hasTable('user_roles')) {
-            return false;
-        }
-
-        $query = $this->roles()->where('roles.name', $roleName);
-
-        if ($companyId !== null) {
-            if ($roleName === 'admin') {
-                // 'admin' is a global role stored with roles.company_id=NULL.
-                $query->whereNull('roles.company_id');
-            } else {
-                // company_admin, office_admin, and custom roles are scoped to a company.
-                $query->where('roles.company_id', $companyId);
-            }
-        }
-
-        return $query->exists();
+        return false;
     }
 
     /**
@@ -232,13 +195,54 @@ class User extends Authenticatable
             return true;
         }
 
-        $rolesQuery = $companyId !== null
-            ? $this->rolesForCompany($companyId)
-            : $this->roles();
+        if (! Schema::hasTable('user_permissions')) {
+            return false;
+        }
 
-        return $rolesQuery
-            ->whereHas('permissions', fn ($q) => $q->where('code', $permissionCode))
-            ->exists();
+        $permission = UserPermission::query()
+            ->where('user_id', $this->id)
+            ->where('module', $permissionCode);
+
+        if ($companyId !== null) {
+            $permission->where('company_id', $companyId);
+        }
+
+        return $permission->where(function ($query): void {
+            $query->where('can_view', true)
+                ->orWhere('can_create', true)
+                ->orWhere('can_edit', true)
+                ->orWhere('can_delete', true)
+                ->orWhere('can_approve', true)
+                ->orWhere('can_export', true);
+        })->exists();
+    }
+
+    public function permissions(): HasMany
+    {
+        return $this->hasMany(UserPermission::class);
+    }
+
+    private function resolveAssignedCompanies(): \Illuminate\Support\Collection
+    {
+        if (Schema::hasTable('user_permissions')) {
+            $ids = UserPermission::query()
+                ->where('user_id', $this->id)
+                ->distinct()
+                ->pluck('company_id');
+
+            if ($ids->isNotEmpty()) {
+                return Company::query()->whereIn('id', $ids)->where('status', 'active')->orderBy('name')->get();
+            }
+        }
+
+        if ($this->driver_id !== null) {
+            $companyId = Driver::withoutGlobalScopes()->whereKey($this->driver_id)->value('company_id');
+            if ($companyId !== null) {
+                return Company::query()->whereKey($companyId)->get();
+            }
+        }
+
+        return collect();
     }
 
     /**

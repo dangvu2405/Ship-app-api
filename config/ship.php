@@ -58,8 +58,8 @@ return [
     */
     'audit_read_path_patterns' => [
         '#^api/drivers(\b|/)#',
-        '#^api/payrolls(\b|/)#',
-        '#^api/positions(\b|/)#',
+        '#^api/users(\b|/)#',
+        '#^api/reconciliations(\b|/)#',
     ],
 
     /*

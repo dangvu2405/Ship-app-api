@@ -5,12 +5,8 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\Driver;
-use App\Models\Payroll;
-use App\Models\PayrollLine;
 use App\Models\Trip;
 use App\Observers\DriverRagObserver;
-use App\Observers\PayrollLineObserver;
-use App\Observers\PayrollObserver;
 use App\Observers\TripObserver;
 use App\Observers\TripRagObserver;
 use App\Tenancy\TenantContext;
@@ -40,8 +36,6 @@ class AppServiceProvider extends ServiceProvider
         Trip::observe(TripObserver::class);
         Trip::observe(TripRagObserver::class);
         Driver::observe(DriverRagObserver::class);
-        Payroll::observe(PayrollObserver::class);
-        PayrollLine::observe(PayrollLineObserver::class);
 
         // Ghi lại Log Login (listener optional in some deployments).
         if (class_exists(\App\Listeners\LogSuccessfulLogin::class)) {

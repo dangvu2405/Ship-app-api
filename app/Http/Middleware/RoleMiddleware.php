@@ -12,15 +12,12 @@ use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Role-based access guard, tenant-aware.
+ * Role-based access guard using the CETA `users.role` enum.
  *
  * Usage in routes:
  *   ->middleware('role:admin')           // global admin only
- *   ->middleware('role:company_admin')   // company_admin OR admin at current company
- *   ->middleware('role:office_admin')    // office_admin OR company_admin OR admin
- *
- * Hierarchy (each level includes roles above it):
- *   admin > company_admin > office_admin
+ *   ->middleware('role:dispatcher')      // dispatcher OR admin
+ *   ->middleware('role:accountant')      // accountant OR admin
  */
 class RoleMiddleware
 {
@@ -40,8 +37,7 @@ class RoleMiddleware
         $companyId = $this->tenantContext->getCompanyId();
 
         // Sentinel -1 means authenticated but no company resolved.
-        // Pass null so hasRole() does a global (unscoped) check instead of
-        // looking for company_id = -1, which never exists in user_roles.
+        // Pass null so hasRole() checks only the users.role enum.
         $roleCompanyId = ($companyId !== null && $companyId > 0) ? $companyId : null;
 
         $allowed = match ($role) {

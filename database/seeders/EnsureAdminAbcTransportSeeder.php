@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
-use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -43,34 +42,6 @@ final class EnsureAdminAbcTransportSeeder extends Seeder
                 $user->restore();
             }
             $user->save();
-        }
-
-        if (Schema::hasTable('roles') && Schema::hasTable('user_roles')) {
-            if (! Role::query()->where('name', 'admin')->exists()) {
-                $this->call(RolesAndPermissionsSeeder::class);
-            }
-
-            $adminRole = Role::query()
-                ->where('name', 'admin')
-                ->whereNull('company_id')
-                ->first()
-                ?? Role::query()->where('name', 'admin')->first();
-
-            if ($adminRole !== null) {
-                $pivot = [];
-                if (Schema::hasColumn('user_roles', 'company_id')) {
-                    $pivot['company_id'] = null;
-                }
-                if (Schema::hasColumn('user_roles', 'office_id')) {
-                    $pivot['office_id'] = null;
-                }
-
-                if ($pivot === []) {
-                    $user->roles()->syncWithoutDetaching([$adminRole->id]);
-                } else {
-                    $user->roles()->syncWithoutDetaching([$adminRole->id => $pivot]);
-                }
-            }
         }
 
         $this->command?->info('Admin ready: admin@abctransport.com / password');

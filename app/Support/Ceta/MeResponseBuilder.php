@@ -19,9 +19,7 @@ final class MeResponseBuilder
      */
     public static function payload(User $user, TenantContext $tenant): array
     {
-        if (Schema::hasTable('roles') && Schema::hasTable('user_roles')) {
-            $user->load(['roles.permissions']);
-        }
+        $user->loadMissing(['permissions']);
 
         $companyId = $tenant->getCompanyId();
         $company = ($companyId !== null && $companyId > 0)
@@ -82,11 +80,6 @@ final class MeResponseBuilder
         };
 
         if (Schema::hasColumn('users', 'role') && ($user->role === 'admin' || $user->role === 'super_admin')) {
-            return $grantAll();
-        }
-
-        if (Schema::hasTable('roles') && Schema::hasTable('user_roles')
-            && ($user->hasRole('admin') || $user->hasRole('super_admin'))) {
             return $grantAll();
         }
 

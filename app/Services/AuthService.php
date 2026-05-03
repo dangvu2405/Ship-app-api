@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Mail\PasswordResetMail;
-use App\Models\Role;
 use App\Models\AuditLog;
 use App\Models\LoginLog;
 use App\Models\RefreshToken;
@@ -165,12 +164,8 @@ class AuthService
             'email' => $payload['email'],
             'password' => Hash::make($payload['password']),
             'status' => 'active',
+            'role' => $this->normalizeRole((string) config('ship.default_register_role', 'dispatcher')),
         ]);
-
-        $defaultRole = config('ship.default_register_role', 'admin');
-        $role = Role::firstOrCreate(['name' => $defaultRole]);
-        $user->roles()->syncWithoutDetaching([$role->id]);
-        $user->load(['roles.permissions']);
 
         return $user;
     }
@@ -716,14 +711,12 @@ class AuthService
             'email' => $email,
             'password' => Hash::make(Str::random(32)),
             'status' => 'active',
+            'role' => 'dispatcher',
             'avatar_url' => $profile['avatar_url'] ?? null,
             'social_provider' => $provider,
             'social_provider_id' => $profile['provider_id'],
             'last_login_at' => now(),
         ]);
-
-        $staffRole = Role::firstOrCreate(['name' => 'staff']);
-        $user->roles()->syncWithoutDetaching([$staffRole->id]);
 
         return $user;
     }
@@ -824,14 +817,18 @@ class AuthService
         }
     }
 
-    /**
-     * Legacy RBAC tables may be dropped (e.g. after org cleanup migrations); avoid failing login.
-     */
     private function eagerLoadRolesForAuthResponse(User $user): void
     {
-        if (Schema::hasTable('roles') && Schema::hasTable('user_roles')) {
-            $user->load(['roles.permissions']);
-        }
+        $user->loadMissing(['permissions']);
+    }
+
+    private function normalizeRole(string $role): string
+    {
+        return match ($role) {
+            'super_admin', 'admin', 'dispatcher', 'accountant', 'viewer' => $role,
+            'staff', 'driver', 'office_admin', 'company_admin', '' => 'dispatcher',
+            default => 'viewer',
+        };
     }
 
     /**

@@ -12,7 +12,7 @@ class ExportLogFactory extends Factory
 {
     public function definition(): array
     {
-        $types = ['employees', 'trips', 'vehicles', 'customers', 'invoices', 'payrolls', 'attendance'];
+        $types = ['drivers', 'trips', 'vehicles', 'customers', 'invoices', 'reconciliations', 'payments'];
         
         return [
             'user_id' => null,
