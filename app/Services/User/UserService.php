@@ -29,4 +29,20 @@ class UserService
 
         return $user->fresh(['roles']);
     }
+
+    public function updateStatus(User $user, string $status): User
+    {
+        $user->update(['status' => $status]);
+
+        return $user->fresh(['roles']);
+    }
+
+    public function resetPassword(User $user, string $plainPassword): User
+    {
+        $user->forceFill([
+            'password' => Hash::make($plainPassword),
+        ])->save();
+
+        return $user->fresh(['roles']);
+    }
 }

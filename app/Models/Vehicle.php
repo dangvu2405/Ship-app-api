@@ -20,7 +20,6 @@ class Vehicle extends Model
 
     protected $fillable = [
         'company_id',
-        'vehicle_type_id',
         'office_id',
         'plate_number',
         'type',
@@ -28,23 +27,13 @@ class Vehicle extends Model
         'model',
         'year',
         'capacity',
-        'max_load_ton',
-        'volume_m3',
-        'fuel_type',
-        'fuel_consumption',
-        'current_odometer_km',
         'status',
     ];
 
     protected $casts = [
         'company_id' => 'integer',
-        'vehicle_type_id' => 'integer',
         'year' => 'integer',
         'capacity' => 'integer',
-        'max_load_ton' => 'decimal:2',
-        'volume_m3' => 'decimal:2',
-        'fuel_consumption' => 'decimal:2',
-        'current_odometer_km' => 'decimal:2',
     ];
 
     protected static function booted(): void
@@ -72,29 +61,9 @@ class Vehicle extends Model
         return $this->belongsTo(Office::class);
     }
 
-    public function vehicleType(): BelongsTo
-    {
-        return $this->belongsTo('App\\Models\\VehicleType', 'vehicle_type_id');
-    }
-
     public function assignments(): HasMany
     {
         return $this->hasMany(VehicleAssignment::class);
-    }
-
-    public function documents(): HasMany
-    {
-        return $this->hasMany('App\\Models\\VehicleDocument');
-    }
-
-    public function maintenanceSchedules(): HasMany
-    {
-        return $this->hasMany('App\\Models\\MaintenanceSchedule');
-    }
-
-    public function maintenanceRecords(): HasMany
-    {
-        return $this->hasMany('App\\Models\\MaintenanceRecord');
     }
 
     public function trips(): HasMany

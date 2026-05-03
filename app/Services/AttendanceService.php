@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Attendance;
 use App\Models\AuditLog;
-use App\Models\Driver;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -19,12 +19,13 @@ class AttendanceService
      */
     public function getList(array $filters): LengthAwarePaginator
     {
-        $useLegacy  = Schema::hasTable('attendances');
+        $useLegacy = Schema::hasTable('attendances');
         $dateColumn = $useLegacy ? 'date' : 'work_date';
 
-        $query = $useLegacy
-            ? DB::table('attendances')
-            : DB::table('driver_work_schedules')->select([
+        if ($useLegacy) {
+            $query = Attendance::query();
+        } else {
+            $query = DB::table('driver_work_schedules')->select([
                 'id',
                 'driver_id',
                 DB::raw('work_date as date'),
@@ -36,6 +37,7 @@ class AttendanceService
                 'created_at',
                 'updated_at',
             ]);
+        }
 
         if (! empty($filters['driver_id'])) {
             $query->where('driver_id', (int) $filters['driver_id']);
@@ -56,7 +58,7 @@ class AttendanceService
     }
 
     /**
-     * @return LengthAwarePaginator
+     * @return LengthAwarePaginator<int, mixed>
      */
     public function getLateList(array $filters): LengthAwarePaginator
     {
@@ -72,7 +74,7 @@ class AttendanceService
                 ->paginate(50);
         }
 
-        $query = DB::table('attendances')->where('status', 'late');
+        $query = Attendance::query()->where('status', 'late');
 
         if (! empty($filters['driver_id'])) {
             $query->where('driver_id', (int) $filters['driver_id']);
@@ -91,33 +93,35 @@ class AttendanceService
      */
     public function checkIn(int $driverId, string $checkInTime, User $actor): array
     {
+        if (! Schema::hasTable('attendances')) {
+            throw new InvalidArgumentException('Attendances table is not available in this deployment.');
+        }
+
         $date = substr($checkInTime, 0, 10);
 
-        $existing = DB::table('attendances')
+        $existing = Attendance::query()
             ->where('driver_id', $driverId)
-            ->where('date', $date)
+            ->whereDate('date', $date)
             ->first();
 
-        if ($existing) {
+        if ($existing !== null) {
             throw new InvalidArgumentException("Driver #{$driverId} has already checked in on {$date}.");
         }
 
-        $id = DB::table('attendances')->insertGetId([
-            'driver_id'  => $driverId,
-            'date'       => $date,
-            'check_in'   => $checkInTime,
-            'status'     => 'present',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $this->writeAuditLog($actor, 'attendance.check_in', 'attendances', $id, null, [
+        $attendance = Attendance::query()->create([
             'driver_id' => $driverId,
-            'date'      => $date,
-            'check_in'  => $checkInTime,
+            'date' => $date,
+            'check_in' => $checkInTime,
+            'status' => 'present',
         ]);
 
-        return (array) DB::table('attendances')->where('id', $id)->first();
+        $this->writeAuditLog($actor, 'attendance.check_in', 'attendances', $attendance->id, null, [
+            'driver_id' => $driverId,
+            'date' => $date,
+            'check_in' => $checkInTime,
+        ]);
+
+        return $attendance->fresh()->toArray();
     }
 
     /**
@@ -127,45 +131,46 @@ class AttendanceService
      */
     public function checkOut(int $driverId, string $checkOutTime, User $actor): array
     {
+        if (! Schema::hasTable('attendances')) {
+            throw new InvalidArgumentException('Attendances table is not available in this deployment.');
+        }
+
         $date = substr($checkOutTime, 0, 10);
 
-        $record = DB::table('attendances')
+        $record = Attendance::query()
             ->where('driver_id', $driverId)
-            ->where('date', $date)
+            ->whereDate('date', $date)
             ->first();
 
-        if (! $record) {
+        if ($record === null) {
             throw new InvalidArgumentException("No check-in found for driver #{$driverId} on {$date}.");
         }
 
-        if (! empty($record->check_out)) {
+        if ($record->check_out !== null && (string) $record->check_out !== '') {
             throw new InvalidArgumentException("Driver #{$driverId} has already checked out on {$date}.");
         }
 
-        $checkIn  = strtotime((string) $record->check_in);
-        $checkOut = strtotime($checkOutTime);
-        $workHours = round(($checkOut - $checkIn) / 3600, 2);
+        $checkInTs = strtotime((string) $record->check_in);
+        $checkOutTs = strtotime($checkOutTime);
+        $workHours = round(($checkOutTs - $checkInTs) / 3600, 2);
         $standardHours = 8.0;
         $overtimeHours = max(0, $workHours - $standardHours);
 
-        DB::table('attendances')
-            ->where('id', $record->id)
-            ->update([
-                'check_out'      => $checkOutTime,
-                'work_hours'     => $workHours,
-                'overtime_hours' => $overtimeHours,
-                'updated_at'     => now(),
-            ]);
-
-        $this->writeAuditLog($actor, 'attendance.check_out', 'attendances', (int) $record->id, null, [
-            'driver_id'      => $driverId,
-            'date'           => $date,
-            'check_out'      => $checkOutTime,
-            'work_hours'     => $workHours,
+        $record->update([
+            'check_out' => $checkOutTime,
+            'work_hours' => $workHours,
             'overtime_hours' => $overtimeHours,
         ]);
 
-        return (array) DB::table('attendances')->where('id', $record->id)->first();
+        $this->writeAuditLog($actor, 'attendance.check_out', 'attendances', $record->id, null, [
+            'driver_id' => $driverId,
+            'date' => $date,
+            'check_out' => $checkOutTime,
+            'work_hours' => $workHours,
+            'overtime_hours' => $overtimeHours,
+        ]);
+
+        return $record->fresh()->toArray();
     }
 
     /**
@@ -176,24 +181,27 @@ class AttendanceService
      */
     public function adjust(int $attendanceId, array $data, User $actor): array
     {
-        $record = DB::table('attendances')->where('id', $attendanceId)->first();
+        if (! Schema::hasTable('attendances')) {
+            throw new InvalidArgumentException('Attendances table is not available in this deployment.');
+        }
 
-        if (! $record) {
+        $record = Attendance::query()->find($attendanceId);
+
+        if ($record === null) {
             throw new InvalidArgumentException("Attendance record #{$attendanceId} not found.");
         }
 
-        $before = (array) $record;
+        $before = $record->toArray();
 
-        DB::table('attendances')
-            ->where('id', $attendanceId)
-            ->update([
-                ...$data,
-                'updated_at' => now(),
-            ]);
+        $payload = collect($data)
+            ->only(['check_in', 'check_out', 'work_hours', 'overtime_hours', 'status'])
+            ->all();
+
+        $record->update($payload);
 
         $this->writeAuditLog($actor, 'attendance.adjust', 'attendances', $attendanceId, $before, $data);
 
-        return (array) DB::table('attendances')->where('id', $attendanceId)->first();
+        return $record->fresh()->toArray();
     }
 
     /** @param array<string, mixed>|null $before @param array<string, mixed> $after */
@@ -207,12 +215,12 @@ class AttendanceService
     ): void {
         try {
             AuditLog::create([
-                'user_id'    => $actor->id,
-                'action'     => $action,
+                'user_id' => $actor->id,
+                'action' => $action,
                 'table_name' => $table,
-                'record_id'  => $recordId,
-                'old_data'   => $before,
-                'new_data'   => $after,
+                'record_id' => $recordId,
+                'old_data' => $before,
+                'new_data' => $after,
                 'ip_address' => request()->ip(),
             ]);
         } catch (\Throwable) {

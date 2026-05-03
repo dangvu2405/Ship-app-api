@@ -16,6 +16,10 @@ class NotificationController extends BaseController
 {
     public function index(Request $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $perPage = min(100, max(1, (int) $request->query('per_page', 15)));
             $page = max(1, (int) $request->query('page', 1));
@@ -45,6 +49,10 @@ class NotificationController extends BaseController
 
     public function unreadCount(Request $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $count = $request->user()->unreadNotifications()->count();
 
@@ -56,6 +64,10 @@ class NotificationController extends BaseController
 
     public function markRead(Request $request, string $id): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             /** @var DatabaseNotification|null $notification */
             $notification = $request->user()->notifications()->where('id', $id)->first();
@@ -76,10 +88,39 @@ class NotificationController extends BaseController
 
     public function markAllRead(Request $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $request->user()->unreadNotifications->markAsRead();
 
             return $this->successResponse(null, 'api.notification.all_marked_read');
+        } catch (Throwable $e) {
+            return $this->handleException($e);
+        }
+    }
+
+    public function markAllReadPatch(Request $request): JsonResponse
+    {
+        return $this->markAllRead($request);
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
+        try {
+            /** @var DatabaseNotification|null $notification */
+            $notification = $request->user()->notifications()->where('id', $id)->first();
+            if ($notification === null) {
+                return $this->notFoundResponse('api.notification.not_found');
+            }
+            $notification->delete();
+
+            return $this->successResponse(null, 'api.common.ok');
         } catch (Throwable $e) {
             return $this->handleException($e);
         }

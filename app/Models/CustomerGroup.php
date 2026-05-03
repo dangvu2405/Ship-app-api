@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\BelongsToTenant;
+use App\Tenancy\TenantContext;
 
-final class CustomerGroup extends Model
+class CustomerGroup extends Model
 {
-    use BelongsToTenant;
-    use HasFactory;
-    use SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToTenant;
 
     protected $fillable = [
         'company_id',
@@ -25,27 +24,33 @@ final class CustomerGroup extends Model
         'is_active',
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'company_id' => 'integer',
-            'assigned_dispatcher_id' => 'integer',
-            'is_active' => 'boolean',
-        ];
-    }
+    protected $casts = [
+        'company_id' => 'integer',
+        'assigned_dispatcher_id' => 'integer',
+        'is_active' => 'boolean',
+    ];
 
-    public function company(): BelongsTo
+    protected static function booted(): void
     {
-        return $this->belongsTo(Company::class);
-    }
+        static::saving(function (CustomerGroup $customerGroup): void {
+            if ($customerGroup->company_id !== null) {
+                return;
+            }
 
-    public function assignedDispatcher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assigned_dispatcher_id');
+            $companyId = app(TenantContext::class)->getCompanyId();
+            if ($companyId !== null) {
+                $customerGroup->company_id = $companyId;
+            }
+        });
     }
 
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class, 'group_id');
+    }
+
+    public function assignedDispatcher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_dispatcher_id');
     }
 }

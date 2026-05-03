@@ -15,11 +15,7 @@ use Throwable;
 
 class ChatService
 {
-    public function __construct(
-        private readonly GeminiService $geminiService,
-        private readonly ChatDataService $chatDataService,
-        private readonly ?RagAgentService $ragAgentService = null,
-    ) {}
+    public function __construct(private readonly GeminiService $geminiService) {}
 
     /**
      * @param array<string, mixed> $payload
@@ -57,9 +53,6 @@ class ChatService
             ];
         }
 
-        // Enrich context with tenant/domain snapshot before cache + prompt.
-        $context = $this->chatDataService->resolve($user, $message, $task, $context);
-
         $cacheKey = $this->buildCacheKey($user->id, $message, $task, $context, $resolvedModel);
         $cachedText = Cache::get($cacheKey);
         if (is_string($cachedText) && $cachedText !== '') {
@@ -94,31 +87,6 @@ class ChatService
         $prompt = $this->buildPrompt($history, $message, $context, $task);
 
         try {
-            if ($task === 'chat' && config('services.rag.agent_enabled', false) && $this->ragAgentService !== null) {
-                $rag = $this->ragAgentService->ask($message, null);
-                $responseText = trim((string) ($rag['answer'] ?? ''));
-                $resolvedModel = 'rag-agent/'.(config('services.groq.model') ?? 'default');
-                Cache::put($cacheKey, $responseText, now()->addMinutes(5));
-
-                $chat = ChatMessage::create([
-                    'user_id' => $user->id,
-                    'session_id' => $sessionId,
-                    'message' => $message,
-                    'response' => $responseText,
-                    'context' => $context,
-                    'model' => $resolvedModel,
-                    'status' => 'success',
-                ]);
-
-                return [
-                    'session_id' => $sessionId,
-                    'message' => $chat,
-                    'response_text' => (string) $chat->response,
-                    'cached' => false,
-                    'guarded' => false,
-                ];
-            }
-
             $result = $this->geminiService->generateContent($prompt, [
                 'model' => $payload['model'] ?? null,
                 'generation_config' => [
@@ -129,9 +97,6 @@ class ChatService
             ]);
 
             $responseText = trim((string) ($result['text'] ?? ''));
-            if (($context['task'] ?? null) === 'payroll_query' && isset($context['payroll']) && is_array($context['payroll']) && $context['payroll'] === []) {
-                $responseText = 'Trạng thái dữ liệu: chưa đủ dữ liệu payroll. Vui lòng nhập kỳ lương.';
-            }
             Cache::put($cacheKey, $responseText, now()->addMinutes(5));
 
             $chat = ChatMessage::create([

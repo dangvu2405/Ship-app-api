@@ -147,6 +147,7 @@ return [
         'delay_recorded' => 'Delay recorded.',
         'resumed' => 'Trip resumed.',
         'delete_not_allowed' => 'Trip deletion is not allowed. Use state transition actions instead.',
+        'feature_not_available' => 'This feature is not available on the current database schema (additional migrations required).',
     ],
     'transport_request' => [
         'created' => 'Transport request created successfully.',

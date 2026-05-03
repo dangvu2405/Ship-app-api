@@ -6,15 +6,39 @@ namespace App\Services;
 
 use App\Models\Company;
 use App\Models\Driver;
+use App\Models\Invoice;
 use App\Models\Payroll;
 use App\Models\Trip;
 use App\Models\Vehicle;
-use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
+    private function invoicesInMonth(?int $companyId, int $month, int $year): Builder
+    {
+        $q = Invoice::query()
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month);
+        if ($companyId !== null && $companyId > 0) {
+            $q->where('company_id', $companyId);
+        }
+
+        return $q;
+    }
+
+    private function tripsInMonth(?int $companyId, int $month, int $year): Builder
+    {
+        $q = Trip::query()
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month);
+        if ($companyId !== null && $companyId > 0) {
+            $q->where('company_id', $companyId);
+        }
+
+        return $q;
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -26,8 +50,8 @@ class ReportService
         $data = Cache::remember($key, 3600, function () use ($month, $year): array {
             $companiesTotal = Company::count();
             $companiesActive = Company::where('status', 'active')->count();
-            $employeesTotal = Driver::count();
-            $employeesActive = Driver::where('status', 'active')->count();
+            $driversTotal = Driver::count();
+            $driversActive = Driver::where('status', 'active')->count();
             $vehiclesTotal = Vehicle::count();
             $vehiclesActive = Vehicle::where('status', 'active')->count();
             $tripsTotal = Trip::whereMonth('created_at', $month)
@@ -43,11 +67,12 @@ class ReportService
                 ->count();
 
             $payrollsTotal = Payroll::where('month', $month)->where('year', $year)->count();
-            $payrollsPending = Payroll::whereIn('status', ['draft', 'pending'])
+            // DB enum (e.g. ship_db dump): draft | approved | locked | paid — no pending/completed
+            $payrollsPending = Payroll::where('status', 'draft')
                 ->where('month', $month)
                 ->where('year', $year)
                 ->count();
-            $payrollsCompleted = Payroll::whereIn('status', ['approved', 'locked', 'completed'])
+            $payrollsCompleted = Payroll::whereIn('status', ['approved', 'locked', 'paid'])
                 ->where('month', $month)
                 ->where('year', $year)
                 ->count();
@@ -59,9 +84,9 @@ class ReportService
                     'total' => $companiesTotal,
                     'active' => $companiesActive,
                 ],
-                'employees' => [
-                    'total' => $employeesTotal,
-                    'active' => $employeesActive,
+                'drivers' => [
+                    'total' => $driversTotal,
+                    'active' => $driversActive,
                 ],
                 'vehicles' => [
                     'total' => $vehiclesTotal,
@@ -92,7 +117,7 @@ class ReportService
 
         /** @var array<string, mixed>|null $data */
         $data = Cache::remember($key, 86400, function () use ($companyId, $month, $year): ?array {
-            $payroll = Payroll::with('lines.driver')
+            $payroll = Payroll::with('lines')
                 ->where('company_id', $companyId)
                 ->where('month', $month)
                 ->where('year', $year)
@@ -102,10 +127,13 @@ class ReportService
                 return null;
             }
 
+            $lines = $payroll->lines;
+
             return [
                 'payroll' => $payroll,
-                'total_net' => $payroll->lines->sum('net_salary'),
-                'employees_count' => $payroll->lines->count(),
+                'total_net' => $lines->sum('net_salary'),
+                'drivers_count' => $lines->pluck('driver_id')->unique()->count(),
+                'lines_count' => $lines->count(),
             ];
         });
 
@@ -113,31 +141,130 @@ class ReportService
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array<string, mixed>
      */
-    public function getVehiclePerformanceData(int $companyId, Carbon $from, Carbon $to): array
+    public function getRevenueSnapshot(?int $companyId, int $month, int $year): array
     {
-        return DB::table('trips')
-            ->join('vehicles', 'vehicles.id', '=', 'trips.vehicle_id')
-            ->where('trips.company_id', $companyId)
-            ->whereBetween('trips.created_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
-            ->groupBy('trips.vehicle_id', 'vehicles.plate_number')
-            ->selectRaw('
-                trips.vehicle_id,
-                vehicles.plate_number,
-                COUNT(*) as trips_count,
-                SUM(COALESCE(trips.actual_distance_km, trips.distance_km, 0)) as total_distance_km,
-                SUM(COALESCE(trips.total_revenue, 0)) as total_revenue
-            ')
-            ->orderByDesc('total_revenue')
-            ->get()
-            ->map(static fn ($row): array => [
-                'vehicle_id' => (int) $row->vehicle_id,
-                'plate_number' => (string) $row->plate_number,
-                'trips_count' => (int) $row->trips_count,
-                'total_distance_km' => (float) $row->total_distance_km,
-                'total_revenue' => (float) $row->total_revenue,
-            ])
-            ->all();
+        $base = $this->invoicesInMonth($companyId, $month, $year);
+
+        return [
+            'month' => $month,
+            'year' => $year,
+            'invoiced_total' => (string) (clone $base)->sum('total_amount'),
+            'paid_total' => (string) (clone $base)->where('status', 'paid')->sum('total_amount'),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getCostsSnapshot(?int $companyId, int $month, int $year): array
+    {
+        $tripQuery = $this->tripsInMonth($companyId, $month, $year);
+
+        return [
+            'month' => $month,
+            'year' => $year,
+            'trips_count' => $tripQuery->count(),
+            'note' => 'Extend with trip-level cost allocation when available',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getProfitSnapshot(?int $companyId, int $month, int $year): array
+    {
+        $rev = $this->getRevenueSnapshot($companyId, $month, $year);
+        $cost = $this->getCostsSnapshot($companyId, $month, $year);
+
+        return [
+            'month' => $month,
+            'year' => $year,
+            'revenue' => $rev,
+            'costs' => $cost,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getTripsReport(?int $companyId, int $month, int $year): array
+    {
+        $q = $this->tripsInMonth($companyId, $month, $year);
+
+        return [
+            'by_status' => $q->clone()
+                ->selectRaw('status, COUNT(*) as c')
+                ->groupBy('status')
+                ->pluck('c', 'status')
+                ->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getDriversReport(?int $companyId): array
+    {
+        $q = Driver::query()->where('status', 'active');
+        if ($companyId !== null && $companyId > 0) {
+            $q->where('company_id', $companyId);
+        }
+
+        return [
+            'active_drivers' => $q->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getDebtReport(?int $companyId): array
+    {
+        $q = Invoice::query()->whereIn('status', ['draft', 'issued']);
+        if ($companyId !== null && $companyId > 0) {
+            $q->where('company_id', $companyId);
+        }
+        $row = $q->selectRaw('COUNT(*) as cnt, COALESCE(SUM(total_amount),0) as total')->first();
+
+        return [
+            'unpaid_invoices' => (int) ($row?->cnt ?? 0),
+            'unpaid_total' => (string) ($row?->total ?? '0.00'),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getMaintenanceReport(?int $companyId): array
+    {
+        return ['schedules_due_within_30_days' => 0];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getVehiclePerformance(?int $companyId, int $month, int $year): array
+    {
+        $q = $this->tripsInMonth($companyId, $month, $year)->whereNotNull('vehicle_id');
+
+        return [
+            'trips_with_vehicle' => $q->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function exportPayload(string $kind, ?int $companyId, int $month, int $year): array
+    {
+        return [
+            'kind' => $kind,
+            'month' => $month,
+            'year' => $year,
+            'company_id' => $companyId,
+            'message' => 'Export queued / file generation not wired; use matching GET report for tabular JSON.',
+        ];
     }
 }

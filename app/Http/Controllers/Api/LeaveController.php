@@ -101,6 +101,10 @@ class LeaveController extends BaseController
      */
     public function store(StoreLeaveRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $leave = $this->leaveService->create($request->validated(), $request->user());
 
@@ -125,6 +129,10 @@ class LeaveController extends BaseController
      */
     public function approve(ApproveLeaveRequest $request, LeaveRequest $leaveRequest): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $leave = $this->leaveService->approve($leaveRequest, $request->user());
 
@@ -140,6 +148,10 @@ class LeaveController extends BaseController
 
     public function reject(RejectLeaveRequest $request, LeaveRequest $leaveRequest): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $leave = $this->leaveService->reject(
                 $leaveRequest,
@@ -157,6 +169,10 @@ class LeaveController extends BaseController
 
     public function cancel(CancelLeaveRequest $request, LeaveRequest $leaveRequest): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $leave = $this->leaveService->cancel($leaveRequest, $request->user());
 

@@ -59,7 +59,12 @@ final class ScheduleService
 
         $schedule->update($data);
 
-        return $schedule->fresh();
+        $refreshed = $schedule->fresh();
+        if ($refreshed === null) {
+            throw new InvalidArgumentException('Driver work schedule could not be reloaded after update.', 404);
+        }
+
+        return $refreshed;
     }
 
     public function submit(DriverWorkSchedule $schedule, User $actor): DriverWorkSchedule

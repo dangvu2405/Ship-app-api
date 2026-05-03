@@ -88,6 +88,10 @@ class ViolationController extends BaseController
      */
     public function store(StoreViolationRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $violation = $this->violationService->create($request->validated(), $request->user());
 
@@ -110,6 +114,10 @@ class ViolationController extends BaseController
      */
     public function confirm(Request $request, Violation $violation): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $v = $this->violationService->confirm($violation, $request->user());
 
@@ -128,6 +136,10 @@ class ViolationController extends BaseController
      */
     public function dispute(DisputeViolationRequest $request, Violation $violation): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $dispute = $this->violationService->dispute($violation, $request->validated(), $request->user());
 
@@ -144,6 +156,10 @@ class ViolationController extends BaseController
      */
     public function resolveDispute(ResolveViolationDisputeRequest $request, Violation $violation): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $dispute = $violation->dispute;
             if (! $dispute) {
@@ -164,6 +180,10 @@ class ViolationController extends BaseController
      */
     public function waive(WaiveViolationRequest $request, Violation $violation): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $v = $this->violationService->waive(
                 $violation,

@@ -2,7 +2,7 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Company Ship API",
-        "description": "API quản lý vận tải - công ty, nhân sự, xe, chuyến đi, lương",
+        "description": "API quản lý vận tải - công ty, nhân sự, xe, chuyến đi, lương. Hầu hết endpoint yêu cầu đăng nhập Sanctum và role admin.",
         "version": "1.0"
     },
     "servers": [
@@ -26,157 +26,59 @@
                 }
             }
         },
-        "/api/allowances": {
-            "get": {
-                "tags": [
-                    "Allowances"
-                ],
-                "summary": "Danh sách phụ cấp",
-                "operationId": "23877daf5c4bdb5d0bc80dbea7633268",
-                "parameters": [
-                    {
-                        "name": "search",
-                        "in": "query",
-                        "description": "Tìm theo code, name",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "sort",
-                        "in": "query",
-                        "description": "Sắp xếp",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "description": "Số bản ghi/trang",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Thành công"
-                    }
-                }
-            },
+        "/api/ai/business-assist": {
             "post": {
                 "tags": [
-                    "Allowances"
+                    "AI"
                 ],
-                "summary": "Tạo phụ cấp mới",
-                "operationId": "e928cfcb072ed5ff528e1f3902f47c68",
+                "summary": "AI tư vấn nghiệp vụ vận hành",
+                "operationId": "2d036f24b78f3bbadc648c1ef007ab4e",
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "code",
-                                    "name"
+                                    "task"
                                 ],
                                 "properties": {
-                                    "code": {
+                                    "task": {
                                         "type": "string",
-                                        "example": "ALW001"
+                                        "example": "dashboard_insight"
                                     },
-                                    "name": {
+                                    "company_id": {
+                                        "type": "integer",
+                                        "example": 1,
+                                        "nullable": true
+                                    },
+                                    "month": {
+                                        "type": "integer",
+                                        "example": 4,
+                                        "nullable": true
+                                    },
+                                    "year": {
+                                        "type": "integer",
+                                        "example": 2026,
+                                        "nullable": true
+                                    },
+                                    "language": {
                                         "type": "string",
-                                        "example": "Phụ cấp ăn trưa"
+                                        "example": "vi",
+                                        "nullable": true
                                     },
-                                    "default_amount": {
-                                        "type": "number",
-                                        "example": 500000
+                                    "tone": {
+                                        "type": "string",
+                                        "example": "executive",
+                                        "nullable": true
                                     },
-                                    "description": {
-                                        "type": "string"
+                                    "question": {
+                                        "type": "string",
+                                        "example": "Nên ưu tiên tối ưu điểm nào tuần này?",
+                                        "nullable": true
                                     },
-                                    "is_taxable": {
-                                        "type": "boolean"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Tạo thành công"
-                    },
-                    "422": {
-                        "description": "Validation lỗi"
-                    }
-                }
-            }
-        },
-        "/api/allowances/{id}": {
-            "get": {
-                "tags": [
-                    "Allowances"
-                ],
-                "summary": "Chi tiết phụ cấp",
-                "operationId": "e2782e561ab2d604842919f22e075e48",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Allowances"
-                ],
-                "summary": "Cập nhật phụ cấp",
-                "operationId": "a6d04d8b2a33dcceeb949ed7f12d4f17",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "code": {
-                                        "type": "string"
-                                    },
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "default_amount": {
-                                        "type": "number"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    },
-                                    "is_taxable": {
-                                        "type": "boolean"
+                                    "context": {
+                                        "type": "object",
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -186,80 +88,56 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Cập nhật thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
+                        "description": "Phân tích thành công"
                     },
                     "422": {
-                        "description": "Validation lỗi"
+                        "description": "Validation error"
                     }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Allowances"
-                ],
-                "summary": "Xóa phụ cấp",
-                "operationId": "b4cdd440962afddbb18a43de9fdcae5c",
-                "parameters": [
+                },
+                "security": [
                     {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "bearerAuth": []
                     }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Xóa thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    }
-                }
+                ]
             }
         },
-        "/api/attendances": {
+        "/api/attendance": {
             "get": {
                 "tags": [
-                    "Attendances"
+                    "Attendance"
                 ],
                 "summary": "Danh sách chấm công",
-                "operationId": "57cd91ddd513b3298d731adc13ba7560",
+                "operationId": "fcce37cb482b4ecd4b2acf07711fbadf",
                 "parameters": [
                     {
-                        "name": "employee_id",
+                        "name": "driver_id",
                         "in": "query",
-                        "description": "Lọc theo nhân viên",
                         "schema": {
                             "type": "integer"
                         }
                     },
                     {
-                        "name": "status",
+                        "name": "date",
                         "in": "query",
-                        "description": "Lọc theo trạng thái",
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "format": "date"
                         }
                     },
                     {
-                        "name": "sort",
+                        "name": "from",
                         "in": "query",
-                        "description": "Sắp xếp",
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "format": "date"
                         }
                     },
                     {
-                        "name": "per_page",
+                        "name": "to",
                         "in": "query",
-                        "description": "Số bản ghi/trang",
                         "schema": {
-                            "type": "integer"
+                            "type": "string",
+                            "format": "date"
                         }
                     }
                 ],
@@ -267,58 +145,37 @@
                     "200": {
                         "description": "Thành công"
                     }
-                }
-            },
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/attendance/check-in": {
             "post": {
                 "tags": [
-                    "Attendances"
+                    "Attendance"
                 ],
-                "summary": "Tạo bản ghi chấm công mới",
-                "operationId": "08e56584b4a6d69e1fe594ef32c733cd",
+                "summary": "Ghi nhận check-in",
+                "operationId": "7b62c3fc92480dbb475750f05e926859",
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "employee_id",
-                                    "date"
+                                    "driver_id",
+                                    "check_in_time"
                                 ],
                                 "properties": {
-                                    "employee_id": {
-                                        "type": "integer",
-                                        "example": 1
+                                    "driver_id": {
+                                        "type": "integer"
                                     },
-                                    "date": {
+                                    "check_in_time": {
                                         "type": "string",
-                                        "format": "date",
-                                        "example": "2026-02-28"
-                                    },
-                                    "check_in": {
-                                        "type": "string",
-                                        "format": "time",
-                                        "example": "08:00:00"
-                                    },
-                                    "check_out": {
-                                        "type": "string",
-                                        "format": "time",
-                                        "example": "17:00:00"
-                                    },
-                                    "status": {
-                                        "type": "string",
-                                        "enum": [
-                                            "present",
-                                            "absent",
-                                            "late",
-                                            "leave"
-                                        ],
-                                        "example": "present"
-                                    },
-                                    "overtime_hours": {
-                                        "type": "number"
-                                    },
-                                    "note": {
-                                        "type": "string"
+                                        "example": "2026-05-01 07:05:00"
                                     }
                                 },
                                 "type": "object"
@@ -328,128 +185,14 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Tạo thành công"
-                    },
-                    "422": {
-                        "description": "Validation lỗi"
-                    }
-                }
-            }
-        },
-        "/api/attendances/{id}": {
-            "get": {
-                "tags": [
-                    "Attendances"
-                ],
-                "summary": "Chi tiết chấm công",
-                "operationId": "a71023f5c8c3443d5396f2dd0af2d0dd",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Attendances"
-                ],
-                "summary": "Cập nhật chấm công",
-                "operationId": "5403d8c6b80f4d3ae3df2bc0a6111f3c",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "employee_id": {
-                                        "type": "integer"
-                                    },
-                                    "date": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "check_in": {
-                                        "type": "string",
-                                        "format": "time"
-                                    },
-                                    "check_out": {
-                                        "type": "string",
-                                        "format": "time"
-                                    },
-                                    "status": {
-                                        "type": "string"
-                                    },
-                                    "overtime_hours": {
-                                        "type": "number"
-                                    },
-                                    "note": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
+                        "description": "Ghi nhận thành công"
                     }
                 },
-                "responses": {
-                    "200": {
-                        "description": "Cập nhật thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    },
-                    "422": {
-                        "description": "Validation lỗi"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Attendances"
-                ],
-                "summary": "Xóa chấm công",
-                "operationId": "ecd5b1f0cc806724682136b1fb032c96",
-                "parameters": [
+                "security": [
                     {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "sanctum": []
                     }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Xóa thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    }
-                }
+                ]
             }
         },
         "/api/auth/login": {
@@ -458,7 +201,6 @@
                     "Auth"
                 ],
                 "summary": "Đăng nhập",
-                "description": "Đăng nhập - lấy token",
                 "operationId": "dd51a484b7fa0f97c7680fdbde14cf5f",
                 "requestBody": {
                     "required": true,
@@ -496,7 +238,8 @@
                     "422": {
                         "description": "Validation lỗi"
                     }
-                }
+                },
+                "security": []
             }
         },
         "/api/auth/logout": {
@@ -505,7 +248,6 @@
                     "Auth"
                 ],
                 "summary": "Đăng xuất",
-                "description": "Đăng xuất - thu hồi token hiện tại",
                 "operationId": "df9bdc6c7a6d9f20b983526b2ec0f698",
                 "responses": {
                     "200": {
@@ -527,8 +269,7 @@
                 "tags": [
                     "Auth"
                 ],
-                "summary": "Đăng ký tài khoản",
-                "description": "Đăng ký tài khoản mới",
+                "summary": "Đăng ký tài khoản (chỉ admin)",
                 "operationId": "c7bb21a0d87049e161b8e4c9b0d909f2",
                 "requestBody": {
                     "required": true,
@@ -571,10 +312,18 @@
                     "201": {
                         "description": "Đăng ký thành công"
                     },
+                    "403": {
+                        "description": "Chỉ admin được phép"
+                    },
                     "422": {
                         "description": "Validation lỗi"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/auth/refresh": {
@@ -583,7 +332,6 @@
                     "Auth"
                 ],
                 "summary": "Làm mới token",
-                "description": "Làm mới token",
                 "operationId": "30c20c52f5f72828d8c531fd7c9ea3e7",
                 "responses": {
                     "200": {
@@ -600,13 +348,119 @@
                 ]
             }
         },
+        "/api/chat/messages": {
+            "get": {
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Lịch sử chat theo session",
+                "operationId": "2c0d658500b26823999cc2d1e1caaa95",
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Gửi tin nhắn chat và nhận phản hồi AI",
+                "operationId": "8db90c7bd7629c8a01201d3b1c6602d0",
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/chat/sessions": {
+            "get": {
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Danh sách session chat",
+                "operationId": "202c212ea765f770007e1a19cfa9e4df",
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/chat/sessions/{sessionId}": {
+            "delete": {
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Xóa toàn bộ tin nhắn trong một session chat",
+                "operationId": "59af3bedc88b4755a6d3f10b91d2f8e1",
+                "parameters": [
+                    {
+                        "name": "sessionId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    },
+                    "404": {
+                        "description": "Không tìm thấy session"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/chat/messages/stream": {
+            "post": {
+                "tags": [
+                    "Chat"
+                ],
+                "summary": "Stream phản hồi chat theo SSE",
+                "operationId": "d814b9446383fad8174e250b68bd39f7",
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/companies": {
             "get": {
                 "tags": [
                     "Companies"
                 ],
                 "summary": "Danh sách công ty",
-                "operationId": "a261a49d113a2af2a5ccb5798c6aae7e",
+                "operationId": "74394a339f4bbbe8949d62232276281c",
                 "parameters": [
                     {
                         "name": "search",
@@ -652,7 +506,7 @@
                     "Companies"
                 ],
                 "summary": "Tạo công ty mới",
-                "operationId": "4ba2fab8115d4cb8d481328838cb4bba",
+                "operationId": "6dec9d4f3cf25acd1221ec3cbca3ce32",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -717,7 +571,7 @@
                     "Companies"
                 ],
                 "summary": "Chi tiết công ty",
-                "operationId": "50805cb17562834cb99c0477437c5221",
+                "operationId": "52453c73db066e1ee18957aac042c6a7",
                 "parameters": [
                     {
                         "name": "id",
@@ -742,7 +596,7 @@
                     "Companies"
                 ],
                 "summary": "Cập nhật công ty",
-                "operationId": "b7f9d0719d086647ab3ae195220c1e0a",
+                "operationId": "f8da3a3c5151f22f94da58fb4197c7c4",
                 "parameters": [
                     {
                         "name": "id",
@@ -807,7 +661,7 @@
                     "Companies"
                 ],
                 "summary": "Xóa công ty",
-                "operationId": "1ac24859e93bfa251a6d0c57ef1ca184",
+                "operationId": "aa214ee85e0a08c40194b7459e43b23d",
                 "parameters": [
                     {
                         "name": "id",
@@ -1028,201 +882,6 @@
                 ],
                 "summary": "Xóa khách hàng",
                 "operationId": "e9f16ac94d63309225711a1f3dfb245a",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Xóa thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    }
-                }
-            }
-        },
-        "/api/deductions": {
-            "get": {
-                "tags": [
-                    "Deductions"
-                ],
-                "summary": "Danh sách khoản khấu trừ",
-                "operationId": "27404344315045931199bfe57968cb93",
-                "parameters": [
-                    {
-                        "name": "search",
-                        "in": "query",
-                        "description": "Tìm theo code, name",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "sort",
-                        "in": "query",
-                        "description": "Sắp xếp",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "description": "Số bản ghi/trang",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Thành công"
-                    }
-                }
-            },
-            "post": {
-                "tags": [
-                    "Deductions"
-                ],
-                "summary": "Tạo khoản khấu trừ mới",
-                "operationId": "22eb3a896d6ba1b170dae52e641d3976",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "required": [
-                                    "code",
-                                    "name"
-                                ],
-                                "properties": {
-                                    "code": {
-                                        "type": "string",
-                                        "example": "DED001"
-                                    },
-                                    "name": {
-                                        "type": "string",
-                                        "example": "Bảo hiểm xã hội"
-                                    },
-                                    "default_amount": {
-                                        "type": "number"
-                                    },
-                                    "percentage": {
-                                        "type": "number"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Tạo thành công"
-                    },
-                    "422": {
-                        "description": "Validation lỗi"
-                    }
-                }
-            }
-        },
-        "/api/deductions/{id}": {
-            "get": {
-                "tags": [
-                    "Deductions"
-                ],
-                "summary": "Chi tiết khoản khấu trừ",
-                "operationId": "d20d03224ff06581a16b1481e70bd6a4",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Deductions"
-                ],
-                "summary": "Cập nhật khoản khấu trừ",
-                "operationId": "7d88ec04950739b65fed2112b6f3c465",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "code": {
-                                        "type": "string"
-                                    },
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "default_amount": {
-                                        "type": "number"
-                                    },
-                                    "percentage": {
-                                        "type": "number"
-                                    },
-                                    "description": {
-                                        "type": "string"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Cập nhật thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    },
-                    "422": {
-                        "description": "Validation lỗi"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Deductions"
-                ],
-                "summary": "Xóa khoản khấu trừ",
-                "operationId": "8ac62ce22193e9306545dd498e793759",
                 "parameters": [
                     {
                         "name": "id",
@@ -1668,68 +1327,63 @@
                 }
             }
         },
-        "/api/employees": {
+        "/api/driver-schedules": {
             "get": {
                 "tags": [
-                    "Employees"
+                    "Driver Schedules"
                 ],
-                "summary": "Danh sách nhân viên",
-                "operationId": "b9b73e1873c5fe36b951f014f711e4fa",
+                "summary": "Danh sách lịch làm việc",
+                "operationId": "e4a1ab2e6bbbcc926c3409254bd92187",
                 "parameters": [
                     {
-                        "name": "search",
+                        "name": "driver_id",
                         "in": "query",
-                        "description": "Tìm theo code, name, email",
                         "schema": {
-                            "type": "string"
+                            "type": "integer"
                         }
                     },
                     {
                         "name": "office_id",
                         "in": "query",
-                        "description": "Lọc theo văn phòng",
                         "schema": {
                             "type": "integer"
                         }
                     },
                     {
-                        "name": "department_id",
+                        "name": "work_date",
                         "in": "query",
-                        "description": "Lọc theo phòng ban",
                         "schema": {
-                            "type": "integer"
+                            "type": "string",
+                            "format": "date"
                         }
                     },
                     {
-                        "name": "type",
+                        "name": "from",
                         "in": "query",
-                        "description": "Lọc theo loại",
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
                         }
                     },
                     {
                         "name": "status",
                         "in": "query",
-                        "description": "Lọc theo trạng thái",
                         "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "sort",
-                        "in": "query",
-                        "description": "Sắp xếp",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "description": "Số bản ghi/trang",
-                        "schema": {
-                            "type": "integer"
+                            "type": "string",
+                            "enum": [
+                                "draft",
+                                "submitted",
+                                "approved",
+                                "locked"
+                            ]
                         }
                     }
                 ],
@@ -1737,71 +1391,66 @@
                     "200": {
                         "description": "Thành công"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
-                    "Employees"
+                    "Driver Schedules"
                 ],
-                "summary": "Tạo nhân viên mới",
-                "operationId": "781d9d682a574c5e2c1dab17f782b5cd",
+                "summary": "Tạo lịch làm việc mới",
+                "operationId": "451a0432417acfdf0845b40e81bc2410",
                 "requestBody": {
                     "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "code",
-                                    "name",
-                                    "office_id"
+                                    "driver_id",
+                                    "office_id",
+                                    "work_date",
+                                    "start_time",
+                                    "end_time"
                                 ],
                                 "properties": {
-                                    "code": {
-                                        "type": "string",
-                                        "example": "EMP001"
-                                    },
-                                    "name": {
-                                        "type": "string",
-                                        "example": "Nguyễn Văn A"
-                                    },
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "phone": {
-                                        "type": "string"
+                                    "driver_id": {
+                                        "type": "integer"
                                     },
                                     "office_id": {
-                                        "type": "integer",
-                                        "example": 1
-                                    },
-                                    "department_id": {
                                         "type": "integer"
                                     },
-                                    "position_id": {
-                                        "type": "integer"
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "full_time",
-                                            "part_time",
-                                            "contract"
-                                        ]
-                                    },
-                                    "status": {
-                                        "type": "string",
-                                        "enum": [
-                                            "active",
-                                            "inactive"
-                                        ]
-                                    },
-                                    "join_date": {
+                                    "work_date": {
                                         "type": "string",
                                         "format": "date"
                                     },
-                                    "base_salary": {
-                                        "type": "number"
+                                    "shift_code": {
+                                        "type": "string",
+                                        "enum": [
+                                            "day",
+                                            "night",
+                                            "split",
+                                            "custom"
+                                        ]
+                                    },
+                                    "start_time": {
+                                        "type": "string",
+                                        "example": "07:00"
+                                    },
+                                    "end_time": {
+                                        "type": "string",
+                                        "example": "17:00"
+                                    },
+                                    "vehicle_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -1813,140 +1462,15 @@
                     "201": {
                         "description": "Tạo thành công"
                     },
-                    "422": {
-                        "description": "Validation lỗi"
-                    }
-                }
-            }
-        },
-        "/api/employees/{id}": {
-            "get": {
-                "tags": [
-                    "Employees"
-                ],
-                "summary": "Chi tiết nhân viên",
-                "operationId": "de09c8d9afb3f7114d227ad0645940ac",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    }
-                }
-            },
-            "put": {
-                "tags": [
-                    "Employees"
-                ],
-                "summary": "Cập nhật nhân viên",
-                "operationId": "55e1ceec679a0d1436c869735e984a83",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "code": {
-                                        "type": "string"
-                                    },
-                                    "name": {
-                                        "type": "string"
-                                    },
-                                    "email": {
-                                        "type": "string",
-                                        "format": "email"
-                                    },
-                                    "phone": {
-                                        "type": "string"
-                                    },
-                                    "office_id": {
-                                        "type": "integer"
-                                    },
-                                    "department_id": {
-                                        "type": "integer"
-                                    },
-                                    "position_id": {
-                                        "type": "integer"
-                                    },
-                                    "type": {
-                                        "type": "string"
-                                    },
-                                    "status": {
-                                        "type": "string"
-                                    },
-                                    "join_date": {
-                                        "type": "string",
-                                        "format": "date"
-                                    },
-                                    "base_salary": {
-                                        "type": "number"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
+                    "409": {
+                        "description": "Xung đột lịch"
                     }
                 },
-                "responses": {
-                    "200": {
-                        "description": "Cập nhật thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    },
-                    "422": {
-                        "description": "Validation lỗi"
-                    }
-                }
-            },
-            "delete": {
-                "tags": [
-                    "Employees"
-                ],
-                "summary": "Xóa nhân viên",
-                "operationId": "dc1326c2f6b4bed0201d62396ddfd970",
-                "parameters": [
+                "security": [
                     {
-                        "name": "id",
-                        "in": "path",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
+                        "sanctum": []
                     }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Xóa thành công"
-                    },
-                    "404": {
-                        "description": "Không tìm thấy"
-                    },
-                    "422": {
-                        "description": "Không thể xóa do có liên kết payroll"
-                    }
-                }
+                ]
             }
         },
         "/api/invoices": {
@@ -2198,6 +1722,142 @@
                 }
             }
         },
+        "/api/leave/types": {
+            "get": {
+                "tags": [
+                    "Leave"
+                ],
+                "summary": "Danh sách loại nghỉ phép",
+                "operationId": "1db942d50da082788e41631da67e3a17",
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/leave": {
+            "get": {
+                "tags": [
+                    "Leave"
+                ],
+                "summary": "Danh sách đơn nghỉ phép",
+                "operationId": "7f0e7a757dd4c93e32df89462c7cbea4",
+                "parameters": [
+                    {
+                        "name": "driver_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "approved",
+                                "rejected",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Leave"
+                ],
+                "summary": "Tạo đơn nghỉ phép",
+                "operationId": "9361ae0f07b73d892f19387342c3dcbc",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "driver_id",
+                                    "leave_type_id",
+                                    "from_date",
+                                    "to_date",
+                                    "total_days"
+                                ],
+                                "properties": {
+                                    "driver_id": {
+                                        "type": "integer"
+                                    },
+                                    "leave_type_id": {
+                                        "type": "integer"
+                                    },
+                                    "from_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "to_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "total_days": {
+                                        "type": "number"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tạo thành công"
+                    },
+                    "422": {
+                        "description": "Không đủ số ngày phép hoặc trùng lịch"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
         "/api/offices": {
             "get": {
                 "tags": [
@@ -2407,6 +2067,119 @@
                         "description": "Không tìm thấy"
                     }
                 }
+            }
+        },
+        "/api/overtime": {
+            "get": {
+                "tags": [
+                    "Overtime"
+                ],
+                "summary": "Danh sách yêu cầu làm thêm giờ",
+                "operationId": "6596393f7c81323c66dd608402896d6c",
+                "parameters": [
+                    {
+                        "name": "driver_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "company_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "approved",
+                                "rejected"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Overtime"
+                ],
+                "summary": "Tạo yêu cầu làm thêm giờ",
+                "operationId": "3de0e61582f31018ca725a10c1cd2a2a",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "driver_id",
+                                    "company_id",
+                                    "work_date",
+                                    "start_time",
+                                    "end_time",
+                                    "ot_hours"
+                                ],
+                                "properties": {
+                                    "driver_id": {
+                                        "type": "integer"
+                                    },
+                                    "company_id": {
+                                        "type": "integer"
+                                    },
+                                    "work_date": {
+                                        "type": "string",
+                                        "format": "date"
+                                    },
+                                    "start_time": {
+                                        "type": "string",
+                                        "example": "17:00"
+                                    },
+                                    "end_time": {
+                                        "type": "string",
+                                        "example": "20:00"
+                                    },
+                                    "ot_hours": {
+                                        "type": "number",
+                                        "example": 3
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tạo thành công"
+                    },
+                    "422": {
+                        "description": "Vượt giới hạn 40h/tháng"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/payrolls": {
@@ -3589,13 +3362,224 @@
                 }
             }
         },
+        "/trips/{id}/documents": {
+            "post": {
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "Upload tài liệu chuyến xe",
+                "operationId": "f88bbabda74e7cce86d665a5b1bf9e6e",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Trip ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "doc_type",
+                                    "doc_name",
+                                    "file_url"
+                                ],
+                                "properties": {
+                                    "doc_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "dispatch_note",
+                                            "delivery_receipt",
+                                            "epod",
+                                            "invoice",
+                                            "other"
+                                        ]
+                                    },
+                                    "doc_name": {
+                                        "type": "string",
+                                        "example": "Phiếu giao hàng"
+                                    },
+                                    "file_url": {
+                                        "type": "string",
+                                        "example": "https://cdn.example.com/doc.pdf"
+                                    },
+                                    "file_size_kb": {
+                                        "type": "integer",
+                                        "example": 512
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Upload thành công"
+                    },
+                    "404": {
+                        "description": "Không tìm thấy chuyến xe"
+                    },
+                    "422": {
+                        "description": "Validation lỗi"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/trips/{id}/stops/{stopId}/status": {
+            "patch": {
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "Cập nhật trạng thái điểm dừng",
+                "operationId": "88d105ebd517eff082c949b2aa636b5e",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Trip ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "stopId",
+                        "in": "path",
+                        "description": "Stop ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "description": "Chuyển trạng thái: pending→arrived→completed",
+                                        "type": "string",
+                                        "enum": [
+                                            "pending",
+                                            "arrived",
+                                            "completed"
+                                        ]
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Cập nhật thành công"
+                    },
+                    "404": {
+                        "description": "Không tìm thấy chuyến xe hoặc điểm dừng"
+                    },
+                    "422": {
+                        "description": "Trạng thái chuyển không hợp lệ"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/trips/{id}/details": {
+            "patch": {
+                "tags": [
+                    "Trips"
+                ],
+                "summary": "Cập nhật thông tin bổ sung chuyến xe",
+                "operationId": "814bcfe4a57aca681d54ddf50f2a2545",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Trip ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "internal_notes": {
+                                        "type": "string",
+                                        "maxLength": 2000,
+                                        "nullable": true
+                                    },
+                                    "actual_distance_km": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "minimum": 0,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Cập nhật thành công"
+                    },
+                    "404": {
+                        "description": "Không tìm thấy chuyến xe"
+                    },
+                    "422": {
+                        "description": "Validation lỗi"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/users": {
             "get": {
                 "tags": [
                     "Users"
                 ],
                 "summary": "Danh sách người dùng",
-                "operationId": "566aed8efb436ca506e0ef51a032ecd9",
+                "operationId": "9ca0519acc62bbc6bcd53f7a1ea7dc25",
                 "parameters": [
                     {
                         "name": "search",
@@ -3641,7 +3625,7 @@
                     "Users"
                 ],
                 "summary": "Tạo người dùng mới",
-                "operationId": "be551c1d694a01c164966f58bfa77013",
+                "operationId": "6a26cd22c584bb4ca6cf588b92ff1042",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -3698,7 +3682,7 @@
                     "Users"
                 ],
                 "summary": "Chi tiết người dùng",
-                "operationId": "6f51bd5fa2dddcd25e44cfa53dcbd10a",
+                "operationId": "12316fe226a6b0fb803e53faa3500383",
                 "parameters": [
                     {
                         "name": "id",
@@ -3723,7 +3707,7 @@
                     "Users"
                 ],
                 "summary": "Cập nhật người dùng",
-                "operationId": "070e37fc9aff78ae73860751bc990ed3",
+                "operationId": "853f49b48bea9d322eec3fa66d9e5014",
                 "parameters": [
                     {
                         "name": "id",
@@ -3780,7 +3764,7 @@
                     "Users"
                 ],
                 "summary": "Xóa người dùng",
-                "operationId": "0b4133ed462528a5e648b88ead11e929",
+                "operationId": "bc9e9922b8d00cc44e5eca9a1dc29863",
                 "parameters": [
                     {
                         "name": "id",
@@ -4483,13 +4467,152 @@
                     }
                 }
             }
+        },
+        "/api/violations": {
+            "get": {
+                "tags": [
+                    "Violations"
+                ],
+                "summary": "Danh sách vi phạm",
+                "operationId": "1a1161d97aa213bbb803f24124383de9",
+                "parameters": [
+                    {
+                        "name": "driver_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "company_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "confirmed",
+                                "disputed",
+                                "waived"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Violations"
+                ],
+                "summary": "Ghi nhận vi phạm mới",
+                "operationId": "47d736f9eb4f8be25fb3f724c66f2edc",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "driver_id",
+                                    "company_id",
+                                    "type",
+                                    "occurred_at",
+                                    "description",
+                                    "penalty_amount"
+                                ],
+                                "properties": {
+                                    "driver_id": {
+                                        "type": "integer"
+                                    },
+                                    "company_id": {
+                                        "type": "integer"
+                                    },
+                                    "trip_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "speeding",
+                                            "route_deviation",
+                                            "fuel_misuse",
+                                            "behavior",
+                                            "accident",
+                                            "other"
+                                        ]
+                                    },
+                                    "occurred_at": {
+                                        "type": "string",
+                                        "format": "date-time"
+                                    },
+                                    "description": {
+                                        "type": "string"
+                                    },
+                                    "penalty_amount": {
+                                        "type": "number"
+                                    },
+                                    "evidence_urls": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uri"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tạo thành công"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
         }
     },
     "components": {
         "securitySchemes": {
             "sanctum": {
                 "type": "http",
-                "description": "Dùng token trả về từ POST /api/login",
+                "description": "Dùng token Bearer trả về từ POST /api/auth/login (email + password)",
                 "bearerFormat": "JWT",
                 "scheme": "bearer"
             }
@@ -4497,16 +4620,20 @@
     },
     "tags": [
         {
-            "name": "Allowances",
-            "description": "Quản lý phụ cấp"
+            "name": "AI",
+            "description": "AI phân tích nghiệp vụ"
         },
         {
-            "name": "Attendances",
-            "description": "Quản lý chấm công"
+            "name": "Attendance",
+            "description": "Chấm công tài xế"
         },
         {
             "name": "Auth",
-            "description": "Đăng nhập, đăng xuất, token"
+            "description": "Authentication endpoints"
+        },
+        {
+            "name": "Chat",
+            "description": "API chat app"
         },
         {
             "name": "Companies",
@@ -4517,10 +4644,6 @@
             "description": "Quản lý khách hàng"
         },
         {
-            "name": "Deductions",
-            "description": "Quản lý khoản khấu trừ"
-        },
-        {
             "name": "Departments",
             "description": "Quản lý phòng ban"
         },
@@ -4529,16 +4652,24 @@
             "description": "Quản lý tài xế"
         },
         {
-            "name": "Employees",
-            "description": "Quản lý nhân viên"
+            "name": "Driver Schedules",
+            "description": "Quản lý lịch làm việc tài xế"
         },
         {
             "name": "Invoices",
             "description": "Quản lý hóa đơn"
         },
         {
+            "name": "Leave",
+            "description": "Quản lý nghỉ phép tài xế"
+        },
+        {
             "name": "Offices",
             "description": "Quản lý văn phòng/chi nhánh"
+        },
+        {
+            "name": "Overtime",
+            "description": "Quản lý làm thêm giờ"
         },
         {
             "name": "Payrolls",
@@ -4579,6 +4710,10 @@
         {
             "name": "Vehicle Expenses",
             "description": "Quản lý chi phí xe"
+        },
+        {
+            "name": "Violations",
+            "description": "Quản lý vi phạm và khiếu nại tài xế"
         },
         {
             "name": "System",

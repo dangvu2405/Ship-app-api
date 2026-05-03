@@ -10,6 +10,7 @@ use App\Http\Requests\Overtime\StoreOvertimeRequest;
 use App\Models\OvertimeRequest;
 use App\Services\OvertimeService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use InvalidArgumentException;
 use Throwable;
 
@@ -81,6 +82,10 @@ class OvertimeController extends BaseController
      */
     public function store(StoreOvertimeRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $ot = $this->overtimeService->request($request->validated(), $request->user());
 
@@ -105,6 +110,10 @@ class OvertimeController extends BaseController
      */
     public function approve(ApproveOvertimeRequest $request, OvertimeRequest $overtimeRequest): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $ot = $this->overtimeService->approve($overtimeRequest, $request->user());
 
@@ -120,6 +129,10 @@ class OvertimeController extends BaseController
 
     public function reject(RejectOvertimeRequest $request, OvertimeRequest $overtimeRequest): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $ot = $this->overtimeService->reject(
                 $overtimeRequest,

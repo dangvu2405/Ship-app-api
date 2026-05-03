@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\User\UserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rules\Password;
 
 /**
  * @OA\Tag(name="Users", description="Quản lý người dùng")
@@ -146,5 +147,55 @@ class UserController extends BaseController
         $model->delete();
 
         return $this->successResponse(null, 'api.user.deleted');
+    }
+
+    public function patchStatus(Request $request, string $user): JsonResponse
+    {
+        $model = User::find($user);
+        if (! $model) {
+            return $this->notFoundResponse('api.user.not_found');
+        }
+        $data = $request->validate([
+            'status' => ['required', 'in:active,inactive'],
+        ]);
+        $updated = $this->userService->updateStatus($model, $data['status']);
+        $updated->makeHidden(['password']);
+
+        return $this->successResponse($updated, 'api.user.updated');
+    }
+
+    public function permissions(Request $request, string $user): JsonResponse
+    {
+        $model = User::find($user);
+        if (! $model) {
+            return $this->notFoundResponse('api.user.not_found');
+        }
+
+        return $this->successResponse([], 'api.common.ok');
+    }
+
+    public function syncPermissions(Request $request, string $user): JsonResponse
+    {
+        $model = User::find($user);
+        if (! $model) {
+            return $this->notFoundResponse('api.user.not_found');
+        }
+
+        return $this->errorResponse('api.resource_not_found', 501);
+    }
+
+    public function resetPassword(Request $request, string $user): JsonResponse
+    {
+        $model = User::find($user);
+        if (! $model) {
+            return $this->notFoundResponse('api.user.not_found');
+        }
+        $data = $request->validate([
+            'password' => ['required', 'confirmed', Password::defaults()],
+        ]);
+        $updated = $this->userService->resetPassword($model, $data['password']);
+        $updated->makeHidden(['password']);
+
+        return $this->successResponse($updated, 'api.user.updated');
     }
 }

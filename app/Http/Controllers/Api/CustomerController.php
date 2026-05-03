@@ -8,6 +8,7 @@ use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Trip;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -124,6 +125,55 @@ class CustomerController extends BaseController
         return $this->successResponse($model->fresh(), 'Customer updated successfully');
     }
 
+    public function search(Request $request): JsonResponse
+    {
+        $q = trim((string) $request->query('q', ''));
+        $query = Customer::query();
+        if ($q !== '') {
+            $query->where(function ($x) use ($q): void {
+                $x->where('name', 'like', '%'.$q.'%')
+                    ->orWhere('tax_code', 'like', '%'.$q.'%')
+                    ->orWhere('email', 'like', '%'.$q.'%');
+            });
+        }
+        $rows = $query->limit(50)->get(['id', 'name', 'type', 'tax_code', 'email', 'phone']);
+
+        return $this->successResponse($rows, 'OK');
+    }
+
+    public function trips(Request $request, string $customer): JsonResponse
+    {
+        $model = Customer::find($customer);
+        if (! $model) {
+            return $this->notFoundResponse('Customer not found');
+        }
+        $perPage = min(100, max(1, (int) $request->query('per_page', 15)));
+        $paginator = Trip::query()
+            ->where('customer_id', $customer)
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        return $this->successResponse($paginator, 'OK');
+    }
+
+    public function debt(string $customer): JsonResponse
+    {
+        $model = Customer::find($customer);
+        if (! $model) {
+            return $this->notFoundResponse('Customer not found');
+        }
+        $row = Invoice::query()
+            ->where('customer_id', $customer)
+            ->whereIn('status', ['draft', 'issued'])
+            ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(total_amount),0) as total')
+            ->first();
+
+        return $this->successResponse([
+            'unpaid_invoices' => (int) ($row?->cnt ?? 0),
+            'unpaid_total' => (string) ($row?->total ?? '0.00'),
+        ], 'OK');
+    }
+
     /**
      * @OA\Delete(
      *     path="/api/customers/{id}",
@@ -140,19 +190,6 @@ class CustomerController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('Customer not found');
         }
-
-        $hasTrips = Trip::query()->where('customer_id', $model->id)->exists();
-        if ($hasTrips) {
-            return $this->errorResponse(
-                'Cannot delete customer with related trips',
-                422,
-                [
-                    'code' => __('api.errors.code.dependency_restriction'),
-                    'details' => ['Customer has related trips and cannot be deleted'],
-                ]
-            );
-        }
-
         $model->delete();
 
         return $this->successResponse(null, 'Customer deleted successfully');

@@ -149,14 +149,20 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Create Users (driver_id removed — FK now lives on drivers.user_id)
-        $adminUser = User::create([
+        // Users: ship_db links driver via `users.driver_id` (not `drivers.user_id`).
+        $adminAttributes = [
             'username' => 'admin',
             'email' => 'admin@abctransport.com',
             'password' => Hash::make('password'),
             'status' => 'active',
-        ]);
-        $managerDriver->update(['user_id' => $adminUser->id]);
+        ];
+        if (Schema::hasColumn('users', 'role')) {
+            $adminAttributes['role'] = 'admin';
+        }
+        $adminUser = User::create($adminAttributes);
+        if (Schema::hasColumn('users', 'driver_id')) {
+            $adminUser->update(['driver_id' => $managerDriver->id]);
+        }
 
         $driverUser = User::create([
             'username' => 'driver1',
@@ -164,7 +170,9 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password'),
             'status' => 'active',
         ]);
-        $driver1->update(['user_id' => $driverUser->id]);
+        if (Schema::hasColumn('users', 'driver_id')) {
+            $driverUser->update(['driver_id' => $driver1->id]);
+        }
 
         // Roles and permissions
         $this->call(RolesAndPermissionsSeeder::class);

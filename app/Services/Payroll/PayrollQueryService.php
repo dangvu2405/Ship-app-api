@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Payroll;
 
 use App\Models\Payroll;
+use App\Models\PayrollLine;
 use App\Models\User;
 
 class PayrollQueryService
@@ -26,19 +27,24 @@ class PayrollQueryService
         return [
             'payroll' => $payroll,
             'summary' => [
-                'employees_count' => $payroll->lines->pluck('driver_id')->filter()->unique()->count(),
+                'drivers_count' => $payroll->lines->pluck('driver_id')->filter()->unique()->count(),
                 'total_net_salary' => $payroll->lines->sum('net_salary'),
             ],
         ];
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
-    public function findMySalary(User $user, int $month, int $year): ?array
+    public function findMySalary(User $user, int $month, int $year): ?PayrollLine
     {
-        // Driver no longer links to user in the current domain model.
-        // My-salary lookup by authenticated user is intentionally disabled.
-        return null;
+        if ($user->driver_id === null) {
+            return null;
+        }
+
+        return PayrollLine::query()
+            ->with(['payroll.company', 'driver'])
+            ->where('driver_id', $user->driver_id)
+            ->whereHas('payroll', static function ($q) use ($month, $year): void {
+                $q->where('month', $month)->where('year', $year);
+            })
+            ->first();
     }
 }

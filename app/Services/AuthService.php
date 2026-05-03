@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -27,6 +28,16 @@ class AuthService
     /**
      * @return array{user: User, token: string, refreshToken: string}
      */
+    public function changePassword(\App\Models\User $user, string $currentPassword, string $newPassword): void
+    {
+        if (! Hash::check($currentPassword, $user->password)) {
+            throw new AuthenticationException('INVALID_PASSWORD');
+        }
+
+        $user->password = $newPassword;
+        $user->save();
+    }
+
     public function login(string $email, string $password): array
     {
         $user = User::where('email', $email)->first();
@@ -63,7 +74,7 @@ class AuthService
             ]);
         }
 
-        $user->load(['roles.permissions']);
+        $this->eagerLoadRolesForAuthResponse($user);
 
         return [
             'user'         => $user,
@@ -137,7 +148,7 @@ class AuthService
             'action' => 'social_login',
             'performed_by' => $user->username,
         ]);
-        $user->load(['roles.permissions']);
+        $this->eagerLoadRolesForAuthResponse($user);
 
         return [
             'user'         => $user,
@@ -810,6 +821,16 @@ class AuthService
                 ->orderByDesc('id')
                 ->limit(1)
                 ->update(['is_revoked' => true]);
+        }
+    }
+
+    /**
+     * Legacy RBAC tables may be dropped (e.g. after org cleanup migrations); avoid failing login.
+     */
+    private function eagerLoadRolesForAuthResponse(User $user): void
+    {
+        if (Schema::hasTable('roles') && Schema::hasTable('user_roles')) {
+            $user->load(['roles.permissions']);
         }
     }
 

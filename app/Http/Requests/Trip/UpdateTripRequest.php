@@ -30,10 +30,7 @@ class UpdateTripRequest extends FormRequest
             'start_time' => 'nullable|date',
             'end_time' => 'nullable|date|after_or_equal:start_time',
             'price' => 'nullable|numeric|min:0',
-            'base_price' => 'nullable|numeric|min:0',
-            'surcharge_amount' => 'nullable|numeric|min:0',
-            'total_revenue' => 'nullable|numeric|min:0',
-            'status' => 'sometimes|in:pending,assigned,in_progress,in_transit,delivered,completed,cancelled',
+            'status' => 'sometimes|in:pending,in_progress,completed,cancelled',
         ];
     }
 
@@ -55,11 +52,8 @@ class UpdateTripRequest extends FormRequest
 
             $newStatus = (string) $this->input('status', $trip->status);
             $allowedTransitions = [
-                'pending' => ['pending', 'assigned', 'cancelled'],
-                'assigned' => ['assigned', 'in_progress', 'in_transit', 'cancelled'],
-                'in_progress' => ['in_progress', 'in_transit', 'delivered', 'completed', 'cancelled'],
-                'in_transit' => ['in_transit', 'delivered', 'completed', 'cancelled'],
-                'delivered' => ['delivered', 'completed', 'cancelled'],
+                'pending' => ['pending', 'in_progress', 'cancelled'],
+                'in_progress' => ['in_progress', 'completed', 'cancelled'],
                 'completed' => ['completed'],
                 'cancelled' => ['cancelled'],
             ];

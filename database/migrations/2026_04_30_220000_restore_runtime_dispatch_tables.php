@@ -14,7 +14,12 @@ return new class extends Migration
             Schema::create('pricing_rules', function (Blueprint $table): void {
                 $table->id();
                 $table->foreignId('company_id')->constrained()->cascadeOnDelete();
-                $table->foreignId('office_id')->nullable()->constrained('offices')->nullOnDelete();
+                // `offices` may already be dropped by 2026_05_01_090000_drop_legacy_org_rbac_tables on some DBs.
+                if (Schema::hasTable('offices')) {
+                    $table->foreignId('office_id')->nullable()->constrained('offices')->nullOnDelete();
+                } else {
+                    $table->unsignedBigInteger('office_id')->nullable();
+                }
                 $table->foreignId('customer_id')->nullable()->constrained('customers')->nullOnDelete();
                 $table->string('name', 120);
                 $table->decimal('base_freight', 15, 2)->default(0);
@@ -111,7 +116,11 @@ return new class extends Migration
 
         Schema::table('trips', function (Blueprint $table): void {
             if (! Schema::hasColumn('trips', 'office_id')) {
-                $table->foreignId('office_id')->nullable()->after('company_id')->constrained('offices')->nullOnDelete();
+                if (Schema::hasTable('offices')) {
+                    $table->foreignId('office_id')->nullable()->after('company_id')->constrained('offices')->nullOnDelete();
+                } else {
+                    $table->unsignedBigInteger('office_id')->nullable()->after('company_id');
+                }
             }
             if (! Schema::hasColumn('trips', 'transport_request_id')) {
                 $table->foreignId('transport_request_id')->nullable()->after('customer_id')->constrained('transport_requests')->nullOnDelete();

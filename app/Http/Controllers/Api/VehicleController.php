@@ -130,6 +130,43 @@ class VehicleController extends BaseController
         return $this->successResponse($model->fresh('office'), 'Vehicle updated successfully');
     }
 
+    public function available(Request $request): JsonResponse
+    {
+        $query = Vehicle::query()->where('status', 'active');
+        if ($request->filled('office_id')) {
+            $query->where('office_id', $request->integer('office_id'));
+        }
+        $rows = $query->orderBy('plate_number')->limit(100)->get(['id', 'plate_number', 'office_id', 'company_id', 'status', 'type']);
+
+        return $this->successResponse($rows, 'OK');
+    }
+
+    public function releaseAssignments(Request $request, string $vehicle): JsonResponse
+    {
+        $model = Vehicle::find($vehicle);
+        if (! $model) {
+            return $this->notFoundResponse('Vehicle not found');
+        }
+        $request->validate([
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+        $assignment = VehicleAssignment::query()
+            ->where('vehicle_id', $vehicle)
+            ->where(static function ($q): void {
+                $q->whereNull('to_date')->orWhereDate('to_date', '>=', now()->toDateString());
+            })
+            ->orderByDesc('from_date')
+            ->first();
+        if ($assignment === null) {
+            return $this->errorResponse('No active assignment for this vehicle', 422);
+        }
+        $assignment->update([
+            'to_date' => now()->toDateString(),
+        ]);
+
+        return $this->successResponse($assignment->fresh(['vehicle', 'driver']), 'OK');
+    }
+
     /**
      * @OA\Delete(
      *     path="/api/vehicles/{id}",
@@ -150,9 +187,8 @@ class VehicleController extends BaseController
         if (VehicleAssignment::where('vehicle_id', $vehicle)->exists()) {
             return $this->errorResponse('Cannot delete vehicle that is assigned', 422);
         }
+        $model->delete();
 
-        $model->update(['status' => 'out_of_service']);
-
-        return $this->successResponse($model->fresh(), 'Vehicle marked as out_of_service');
+        return $this->successResponse(null, 'Vehicle deleted successfully');
     }
 }

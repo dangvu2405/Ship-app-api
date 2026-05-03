@@ -63,6 +63,10 @@ class AttendanceController extends BaseController
      */
     public function checkIn(CheckInRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $record = $this->attendanceService->checkIn(
                 $request->integer('driver_id'),
@@ -80,6 +84,10 @@ class AttendanceController extends BaseController
 
     public function checkOut(CheckOutAttendanceRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         $validated = $request->validated();
 
         try {
@@ -99,6 +107,10 @@ class AttendanceController extends BaseController
 
     public function adjust(AdjustAttendanceRequest $request, int $id): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $record = $this->attendanceService->adjust($id, $request->validated(), $request->user());
 

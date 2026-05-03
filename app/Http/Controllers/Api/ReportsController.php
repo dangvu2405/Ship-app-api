@@ -6,35 +6,21 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Report\DashboardRequest;
 use App\Http\Requests\Report\PayrollSummaryRequest;
-use App\Services\ReportExportService;
 use App\Services\ReportService;
-use Carbon\Carbon;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * @OA\Tag(name="Reports", description="Báo cáo tổng hợp")
  */
-final class ReportsController extends BaseController
+class ReportsController extends BaseController
 {
     public function __construct(
         private readonly ReportService $reportService,
-        private readonly ReportExportService $reportExportService,
+        private readonly TenantContext $tenantContext,
     ) {}
 
-    /**
-     * @OA\Get(
-     *     path="/api/reports/dashboard",
-     *     tags={"Reports"},
-     *     summary="Dashboard tổng hợp",
-     *     description="Trả về số liệu tổng hợp (cached 1 giờ)",
-     *     @OA\Parameter(name="month", in="query", description="Tháng", @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="year", in="query", description="Năm", @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="Thành công")
-     * )
-     */
     public function dashboard(DashboardRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -45,18 +31,6 @@ final class ReportsController extends BaseController
         return $this->successResponse($data, 'OK');
     }
 
-    /**
-     * @OA\Get(
-     *     path="/api/reports/payroll-summary",
-     *     tags={"Reports"},
-     *     summary="Tổng hợp bảng lương theo công ty",
-     *     description="Trả về chi tiết bảng lương công ty theo tháng/năm (cached 24h)",
-     *     @OA\Parameter(name="company_id", in="query", required=true, description="ID công ty", @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="month", in="query", description="Tháng", @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="year", in="query", description="Năm", @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="Thành công")
-     * )
-     */
     public function payrollSummary(PayrollSummaryRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -70,135 +44,131 @@ final class ReportsController extends BaseController
 
     public function revenueSummary(Request $request): JsonResponse
     {
-        $companyId = (int) $request->integer('company_id');
-        $from = Carbon::parse((string) $request->query('from', now()->startOfMonth()->toDateString()))->startOfDay();
-        $to = Carbon::parse((string) $request->query('to', now()->endOfMonth()->toDateString()))->endOfDay();
-
-        $totalInvoiced = (float) DB::table('invoices')
-            ->join('trips', 'trips.id', '=', 'invoices.trip_id')
-            ->where('trips.company_id', $companyId)
-            ->whereBetween('invoices.issued_at', [$from, $to])
-            ->sum('total_amount');
-
-        $totalCollected = (float) DB::table('invoices')
-            ->join('trips', 'trips.id', '=', 'invoices.trip_id')
-            ->where('trips.company_id', $companyId)
-            ->where('invoices.status', 'paid')
-            ->whereBetween('invoices.paid_at', [$from, $to])
-            ->sum('total_amount');
-
-        $crossMonthAllocated = $totalCollected;
-
-        $totalNetSalary = (float) DB::table('payroll_lines')
-            ->where('company_id', $companyId)
-            ->sum('net_salary');
-
-        $totalVehicleFuel = (float) DB::table('vehicle_expenses')
-            ->where('company_id', $companyId)
-            ->where('type', 'fuel')
-            ->whereBetween('expense_date', [$from->toDateString(), $to->toDateString()])
-            ->sum('amount');
-
-        $totalVehicleMaintenance = (float) DB::table('vehicle_expenses')
-            ->where('company_id', $companyId)
-            ->where('type', 'maintenance')
-            ->whereBetween('expense_date', [$from->toDateString(), $to->toDateString()])
-            ->sum('amount');
-
-        $totalOverhead = 0.0;
-        $operatingMargin = $crossMonthAllocated - $totalNetSalary - $totalVehicleFuel - $totalVehicleMaintenance - $totalOverhead;
-
-        return $this->successResponse([
-            'revenue' => [
-                'total_invoiced' => $totalInvoiced,
-                'total_collected' => $totalCollected,
-                'cross_month_allocated' => $crossMonthAllocated,
-            ],
-            'costs' => [
-                'total_net_salary' => $totalNetSalary,
-                'total_vehicle_fuel' => $totalVehicleFuel,
-                'total_vehicle_maintenance' => $totalVehicleMaintenance,
-                'total_overhead' => $totalOverhead,
-            ],
-            'company_take_home_revenue' => $operatingMargin,
-            'operating_margin' => $operatingMargin,
-            '_deprecation_notice' => 'operating_margin will be removed in v2. Use company_take_home_revenue',
-            'company_take_home_analysis' => [
-                'actual' => $operatingMargin,
-                'budget' => 0,
-                'variance' => $operatingMargin,
-                'variance_pct' => null,
-            ],
-            '_meta' => [
-                'formula' => 'cross_month_allocated - total_net_salary - total_vehicle_fuel - total_vehicle_maintenance - total_overhead',
-            ],
-        ], 'OK');
-    }
-
-    public function exportRevenue(Request $request): StreamedResponse
-    {
-        $companyId = $request->query('company_id') !== null ? (int) $request->query('company_id') : null;
         $month = (int) $request->query('month', now()->month);
         $year = (int) $request->query('year', now()->year);
-        $from = Carbon::create($year, $month, 1)->startOfMonth();
-        $to = Carbon::create($year, $month, 1)->endOfMonth();
+        $cid = $this->tenantContext->getCompanyId();
 
-        return $this->reportExportService->streamRevenueCsv($companyId, $from, $to);
+        return $this->successResponse(
+            $this->reportService->getRevenueSnapshot($cid > 0 ? $cid : null, $month, $year),
+            'OK'
+        );
     }
 
-    public function exportRevenueExcel(Request $request): StreamedResponse
+    public function revenue(Request $request): JsonResponse
     {
-        $companyId = $request->query('company_id') !== null ? (int) $request->query('company_id') : null;
+        return $this->revenueSummary($request);
+    }
+
+    public function costs(Request $request): JsonResponse
+    {
         $month = (int) $request->query('month', now()->month);
         $year = (int) $request->query('year', now()->year);
-        $from = Carbon::create($year, $month, 1)->startOfMonth();
-        $to = Carbon::create($year, $month, 1)->endOfMonth();
+        $cid = $this->tenantContext->getCompanyId();
 
-        return $this->reportExportService->streamRevenueExcel($companyId, $from, $to);
+        return $this->successResponse(
+            $this->reportService->getCostsSnapshot($cid > 0 ? $cid : null, $month, $year),
+            'OK'
+        );
     }
 
-    public function exportTrips(Request $request): StreamedResponse
+    public function profit(Request $request): JsonResponse
     {
-        $companyId = $request->query('company_id') !== null ? (int) $request->query('company_id') : null;
-        $from = Carbon::parse((string) $request->query('from', now()->startOfMonth()->toDateString()));
-        $to = Carbon::parse((string) $request->query('to', now()->endOfMonth()->toDateString()));
-        $status = $request->query('status');
-        $statuses = is_string($status) && $status !== '' ? [$status] : null;
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+        $cid = $this->tenantContext->getCompanyId();
 
-        return $this->reportExportService->streamTripsCsv($companyId, $from, $to, $statuses);
+        return $this->successResponse(
+            $this->reportService->getProfitSnapshot($cid > 0 ? $cid : null, $month, $year),
+            'OK'
+        );
     }
 
-    public function exportPayroll(Request $request): StreamedResponse|JsonResponse
+    public function tripsReport(Request $request): JsonResponse
     {
-        $companyId = (int) $request->integer('company_id');
-        $month = (int) $request->integer('month', now()->month);
-        $year = (int) $request->integer('year', now()->year);
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+        $cid = $this->tenantContext->getCompanyId();
 
-        $exists = DB::table('payrolls')
-            ->where('company_id', $companyId)
-            ->where('month', $month)
-            ->where('year', $year)
-            ->exists();
+        return $this->successResponse(
+            $this->reportService->getTripsReport($cid > 0 ? $cid : null, $month, $year),
+            'OK'
+        );
+    }
 
-        if (! $exists) {
-            return $this->notFoundResponse('Payroll not found');
-        }
+    public function driversReport(Request $request): JsonResponse
+    {
+        $cid = $this->tenantContext->getCompanyId();
 
-        return $this->reportExportService->streamPayrollCsv($companyId, $month, $year);
+        return $this->successResponse(
+            $this->reportService->getDriversReport($cid > 0 ? $cid : null),
+            'OK'
+        );
+    }
+
+    public function debt(Request $request): JsonResponse
+    {
+        $cid = $this->tenantContext->getCompanyId();
+
+        return $this->successResponse(
+            $this->reportService->getDebtReport($cid > 0 ? $cid : null),
+            'OK'
+        );
+    }
+
+    public function maintenance(Request $request): JsonResponse
+    {
+        $cid = $this->tenantContext->getCompanyId();
+
+        return $this->successResponse(
+            $this->reportService->getMaintenanceReport($cid > 0 ? $cid : null),
+            'OK'
+        );
     }
 
     public function vehiclePerformance(Request $request): JsonResponse
     {
-        $companyId = (int) $request->integer('company_id');
-        $from = Carbon::parse((string) $request->query('from', now()->startOfMonth()->toDateString()));
-        $to = Carbon::parse((string) $request->query('to', now()->endOfMonth()->toDateString()));
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+        $cid = $this->tenantContext->getCompanyId();
 
-        $rows = $this->reportService->getVehiclePerformanceData($companyId, $from, $to);
+        return $this->successResponse(
+            $this->reportService->getVehiclePerformance($cid > 0 ? $cid : null, $month, $year),
+            'OK'
+        );
+    }
 
-        return $this->successResponse([
-            'from' => $from->toDateString(),
-            'to' => $to->toDateString(),
-            'rows' => $rows,
-        ], 'OK');
+    public function export(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'kind' => ['required', 'string', 'max:64'],
+            'month' => ['sometimes', 'integer', 'min:1', 'max:12'],
+            'year' => ['sometimes', 'integer', 'min:2000', 'max:2100'],
+        ]);
+        $month = (int) ($data['month'] ?? now()->month);
+        $year = (int) ($data['year'] ?? now()->year);
+        $cid = $this->tenantContext->getCompanyId();
+        $payload = $this->reportService->exportPayload($data['kind'], $cid > 0 ? $cid : null, $month, $year);
+
+        return $this->successResponse($payload, 'OK', 202);
+    }
+
+    public function exportRevenue(Request $request): JsonResponse
+    {
+        return $this->export($request->merge(['kind' => 'revenue']));
+    }
+
+    public function exportRevenueExcel(Request $request): JsonResponse
+    {
+        return $this->export($request->merge(['kind' => 'revenue_excel']));
+    }
+
+    public function exportTrips(Request $request): JsonResponse
+    {
+        return $this->export($request->merge(['kind' => 'trips']));
+    }
+
+    public function exportPayroll(Request $request): JsonResponse
+    {
+        return $this->export($request->merge(['kind' => 'payroll']));
     }
 }

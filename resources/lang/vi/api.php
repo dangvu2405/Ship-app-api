@@ -147,6 +147,7 @@ return [
         'delay_recorded' => 'Đã ghi nhận trì hoãn.',
         'resumed' => 'Chuyến đã tiếp tục.',
         'delete_not_allowed' => 'Không cho phép xóa chuyến xe. Vui lòng dùng luồng chuyển trạng thái.',
+        'feature_not_available' => 'Tính năng không có trên schema cơ sở dữ liệu hiện tại (cần migration bổ sung).',
     ],
     'transport_request' => [
         'created' => 'Tạo yêu cầu vận chuyển thành công.',

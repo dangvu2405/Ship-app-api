@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Exception;
 use Throwable;
@@ -77,6 +78,20 @@ class BaseController extends Controller
     protected function unauthorizedResponse(string $message = 'api.unauthorized'): JsonResponse
     {
         return $this->errorResponse($message, 401);
+    }
+
+    /**
+     * Use when Sanctum may be bypassed (tests) or a client omits credentials — avoids 500 from null $request->user().
+     *
+     * @return JsonResponse|null JSON 401 when guest, null when authenticated
+     */
+    protected function unauthorizedIfGuest(Request $request): ?JsonResponse
+    {
+        if ($request->user() === null) {
+            return $this->unauthorizedResponse('api.unauthenticated');
+        }
+
+        return null;
     }
 
     /**

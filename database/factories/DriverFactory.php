@@ -32,7 +32,6 @@ class DriverFactory extends Factory
             'health_insurance_no' => fake()->optional(0.8)->numerify('##########'),
             'insurance_registered_at' => fake()->optional(0.8)->date('Y-m-d', '-3 years'),
             'company_id' => Company::factory(),
-            'team_id' => null,
             'status' => fake()->randomElement(['active', 'inactive', 'resigned']),
             'join_date' => fake()->date('Y-m-d', '-3 years'),
             'resign_date' => null,

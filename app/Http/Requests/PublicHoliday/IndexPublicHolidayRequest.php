@@ -13,6 +13,13 @@ final class IndexPublicHolidayRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('year') || $this->input('year') === '' || $this->input('year') === null) {
+            $this->merge(['year' => (int) now()->year]);
+        }
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {

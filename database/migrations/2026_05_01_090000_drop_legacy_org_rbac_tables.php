@@ -11,10 +11,6 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (app()->runningUnitTests() || Schema::getConnection()->getDriverName() === 'sqlite') {
-            return;
-        }
-
         $this->dropForeignKeySafe('drivers', 'drivers_office_id_foreign');
         $this->dropForeignKeySafe('drivers', 'drivers_department_id_foreign');
         $this->dropForeignKeySafe('drivers', 'drivers_position_id_foreign');
@@ -44,7 +40,6 @@ return new class extends Migration
             'offices',
             'login_logs',
             'export_logs',
-            'refresh_tokens',
             'user_companies',
         ];
 

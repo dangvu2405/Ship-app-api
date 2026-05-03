@@ -9,6 +9,7 @@ use App\Http\Requests\Chat\GetChatSessionsRequest;
 use App\Http\Requests\Chat\StoreChatMessageRequest;
 use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -31,6 +32,10 @@ final class ChatController extends BaseController
      */
     public function store(StoreChatMessageRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $result = $this->chatService->send($request->user(), $request->validated());
 
@@ -52,6 +57,10 @@ final class ChatController extends BaseController
      */
     public function index(GetChatMessagesRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         $validated = $request->validated();
 
         $result = $this->chatService->listMessages(
@@ -75,6 +84,10 @@ final class ChatController extends BaseController
      */
     public function sessions(GetChatSessionsRequest $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         $validated = $request->validated();
 
         $sessions = $this->chatService->listSessions($request->user(), (int) ($validated['limit'] ?? 20));
@@ -95,10 +108,14 @@ final class ChatController extends BaseController
      *     @OA\Response(response=404, description="Không tìm thấy session")
      * )
      */
-    public function destroySession(string $sessionId): JsonResponse
+    public function destroySession(Request $request, string $sessionId): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
-            $result = $this->chatService->deleteSession(request()->user(), $sessionId);
+            $result = $this->chatService->deleteSession($request->user(), $sessionId);
 
             return $this->successResponse($result, 'api.chat.session_deleted');
         } catch (Throwable $e) {
@@ -118,6 +135,10 @@ final class ChatController extends BaseController
      */
     public function stream(StoreChatMessageRequest $request): StreamedResponse|JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $user = $request->user();
             $payload = $request->validated();

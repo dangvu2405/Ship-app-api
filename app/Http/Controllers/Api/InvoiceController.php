@@ -8,8 +8,10 @@ use App\Http\Requests\Invoice\StoreInvoiceRequest;
 use App\Http\Requests\Invoice\UpdateInvoiceRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Invoice;
+use App\Services\InvoiceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 
 /**
  * @OA\Tag(name="Invoices", description="Quản lý hóa đơn")
@@ -19,6 +21,8 @@ class InvoiceController extends BaseController
     use HasIndexQuery;
 
     protected array $allowedSortColumns = ['id', 'code', 'customer_id', 'trip_id', 'status', 'total_amount', 'issued_at', 'created_at'];
+
+    public function __construct(private readonly InvoiceService $invoiceService) {}
 
     /**
      * @OA\Get(
@@ -59,7 +63,7 @@ class InvoiceController extends BaseController
      *             @OA\Property(property="customer_id", type="integer", example=1),
      *             @OA\Property(property="trip_id", type="integer"),
      *             @OA\Property(property="total_amount", type="number", example=5000000),
-     *             @OA\Property(property="tax_amount", type="number"),
+     *             @OA\Property(property="vat_amount", type="number"),
      *             @OA\Property(property="issued_at", type="string", format="date"),
      *             @OA\Property(property="due_date", type="string", format="date"),
      *             @OA\Property(property="status", type="string", enum={"draft","sent","paid","cancelled"})
@@ -109,7 +113,7 @@ class InvoiceController extends BaseController
      *             @OA\Property(property="customer_id", type="integer"),
      *             @OA\Property(property="trip_id", type="integer"),
      *             @OA\Property(property="total_amount", type="number"),
-     *             @OA\Property(property="tax_amount", type="number"),
+     *             @OA\Property(property="vat_amount", type="number"),
      *             @OA\Property(property="issued_at", type="string", format="date"),
      *             @OA\Property(property="due_date", type="string", format="date"),
      *             @OA\Property(property="status", type="string")
@@ -147,14 +151,72 @@ class InvoiceController extends BaseController
         if (! $model) {
             return $this->notFoundResponse('Invoice not found');
         }
+        $model->delete();
 
-        return $this->errorResponse(
-            'Invoice deletion is not allowed',
-            422,
-            [
-                'code' => __('api.errors.code.operation_not_allowed'),
-                'details' => ['Invoice cannot be deleted'],
-            ]
-        );
+        return $this->successResponse(null, 'Invoice deleted successfully');
+    }
+
+    public function issue(string $id): JsonResponse
+    {
+        $model = Invoice::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+
+        try {
+            $model = $this->invoiceService->issue($model);
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
+
+        return $this->successResponse($model, 'Invoice issued successfully');
+    }
+
+    public function markPaid(string $id): JsonResponse
+    {
+        $model = Invoice::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+
+        try {
+            $model = $this->invoiceService->markPaid($model);
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
+
+        return $this->successResponse($model, 'Invoice marked as paid');
+    }
+
+    public function sendCqt(string $id): JsonResponse
+    {
+        $model = Invoice::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+
+        try {
+            $model = $this->invoiceService->sendCqt($model);
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
+
+        return $this->successResponse($model, 'OK');
+    }
+
+    public function cancel(string $id): JsonResponse
+    {
+        $model = Invoice::find($id);
+        if (! $model) {
+            return $this->notFoundResponse('Invoice not found');
+        }
+
+        try {
+            $model = $this->invoiceService->cancel($model);
+        } catch (InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
+
+        return $this->successResponse($model, 'Invoice cancelled');
     }
 }

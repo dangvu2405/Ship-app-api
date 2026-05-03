@@ -99,6 +99,10 @@ final class DriverScheduleController extends BaseController
 
     public function update(UpdateScheduleRequest $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $schedule = $this->schedule_service->update($driverWorkSchedule, $request->validated());
 
@@ -114,6 +118,10 @@ final class DriverScheduleController extends BaseController
 
     public function submit(Request $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $schedule = $this->schedule_service->submit($driverWorkSchedule, $request->user());
 
@@ -127,6 +135,10 @@ final class DriverScheduleController extends BaseController
 
     public function approve(ApproveScheduleRequest $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         $validated = $request->validated();
 
         try {
@@ -147,6 +159,10 @@ final class DriverScheduleController extends BaseController
 
     public function reject(Request $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $schedule = $this->schedule_service->reject($driverWorkSchedule, $request->user());
 
@@ -163,6 +179,10 @@ final class DriverScheduleController extends BaseController
      */
     public function lock(Request $request, DriverWorkSchedule $driverWorkSchedule): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $schedule = $this->schedule_service->lockSingleRow($driverWorkSchedule, $request->user());
 

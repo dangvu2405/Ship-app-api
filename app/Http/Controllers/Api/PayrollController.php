@@ -9,10 +9,9 @@ use App\Http\Requests\Payroll\MySalaryRequest;
 use App\Http\Requests\Payroll\UpdatePayrollRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Payroll;
-use App\Models\PayrollLine;
 use App\Services\Payroll\PayrollQueryService;
-use App\Services\PayrollService;
 use App\Services\Payroll\PayrollWorkflowService;
+use App\Services\PayrollService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -97,10 +96,7 @@ class PayrollController extends BaseController
                 (int) $validated['year']
             );
         } catch (\Exception $e) {
-            $status = $e->getCode();
-            $statusCode = is_int($status) && $status >= 400 && $status <= 499 ? $status : 422;
-
-            return $this->errorResponse($e->getMessage(), $statusCode);
+            return $this->errorResponse($e->getMessage(), 422);
         }
 
         return $this->successResponse($payroll->load(['company', 'lines.driver']), 'Payroll generated successfully', 201);
@@ -239,6 +235,38 @@ class PayrollController extends BaseController
     }
 
     /**
+     * @OA\Post(
+     *     path="/api/payrolls/{id}/mark-paid",
+     *     tags={"Payrolls"},
+     *     summary="Đánh dấu bảng lương đã chi trả",
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Thành công"),
+     *     @OA\Response(response=404, description="Không tìm thấy"),
+     *     @OA\Response(response=422, description="Trạng thái không hợp lệ")
+     * )
+     */
+    public function markPaid(string $id, Request $request): JsonResponse
+    {
+        $payroll = Payroll::find($id);
+        if (! $payroll) {
+            return $this->notFoundResponse('Payroll not found');
+        }
+
+        $user = $request->user();
+        if ($user === null) {
+            return $this->errorResponse('Unauthenticated', 401);
+        }
+
+        try {
+            $payroll = $this->payrollWorkflowService->markPaid((int) $id, (int) $user->id);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        }
+
+        return $this->successResponse($payroll->fresh(['company', 'lines.driver']), 'Payroll marked as paid successfully');
+    }
+
+    /**
      * @OA\Get(
      *     path="/api/payrolls/{id}/export",
      *     tags={"Payrolls"},
@@ -262,6 +290,31 @@ class PayrollController extends BaseController
 
     /**
      * @OA\Get(
+     *     path="/api/payrolls/driver/{driverId}",
+     *     tags={"Payrolls"},
+     *     summary="Chi tiết dòng lương theo tài xế và kỳ",
+     *     @OA\Parameter(name="driverId", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="month", in="query", @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="year", in="query", @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Thành công"),
+     *     @OA\Response(response=404, description="Không có dòng lương")
+     * )
+     */
+    public function driverMonthlySalary(Request $request, string $driverId): JsonResponse
+    {
+        $month = (int) $request->query('month', now()->month);
+        $year = (int) $request->query('year', now()->year);
+        $payload = $this->payrollService->getDriverMonthlyPayroll((int) $driverId, $month, $year);
+
+        if ($payload === null) {
+            return $this->notFoundResponse('No payroll line for this driver and period');
+        }
+
+        return $this->successResponse($payload, 'OK');
+    }
+
+    /**
+     * @OA\Get(
      *     path="/api/payrolls/my-salary",
      *     tags={"Payrolls"},
      *     summary="Xem lương cá nhân",
@@ -274,46 +327,20 @@ class PayrollController extends BaseController
     public function mySalary(MySalaryRequest $request): JsonResponse
     {
         $user = $request->user();
-        if (! isset($user->driver_id) || $user->driver_id === null) {
-            return $this->successResponse(null, 'No employee linked to your account');
+        if ($user === null || $user->driver_id === null) {
+            return $this->successResponse(null, 'No driver linked to your account');
         }
 
         $validated = $request->validated();
         $month = (int) ($validated['month'] ?? now()->month);
         $year = (int) ($validated['year'] ?? now()->year);
 
-        $payroll = $this->payrollQueryService->findMySalary($user, $month, $year);
+        $line = $this->payrollQueryService->findMySalary($user, $month, $year);
 
-        if (! $payroll) {
+        if ($line === null) {
             return $this->successResponse(null, 'No payroll found for this period');
         }
 
-        return $this->successResponse($payroll);
-    }
-
-    public function driverMonthlySalary(Request $request, int $driverId): JsonResponse
-    {
-        $month = (int) $request->query('month', now()->month);
-        $year = (int) $request->query('year', now()->year);
-
-        $line = PayrollLine::query()
-            ->with(['driver', 'payroll'])
-            ->where('driver_id', $driverId)
-            ->whereHas('payroll', function ($query) use ($month, $year): void {
-                $query->where('month', $month)->where('year', $year);
-            })
-            ->latest('id')
-            ->first();
-
-        if ($line === null) {
-            return $this->notFoundResponse('Payroll line not found');
-        }
-
-        return $this->successResponse([
-            'driver_id' => $driverId,
-            'month' => $month,
-            'year' => $year,
-            'line' => $line,
-        ]);
+        return $this->successResponse($line);
     }
 }

@@ -8,6 +8,7 @@ namespace App\Models;
 use App\Models\Company;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -34,7 +35,6 @@ class User extends Authenticatable
         'avatar_url',
         'password',
         'status',
-        'role',
         'driver_id',
         'last_login_at',
         'emergency_contact_name',
@@ -102,22 +102,20 @@ class User extends Authenticatable
     public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles')
-            ->withPivot(['company_id', 'office_id'])
             ->withTimestamps();
     }
 
     /**
-     * Roles for a specific company, plus any global roles (company_id IS NULL).
+     * Roles for a specific company, plus any global roles (roles.company_id IS NULL).
      * This is the correct method to use during a tenant session.
      */
     public function rolesForCompany(int $companyId): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles')
-            ->withPivot(['company_id', 'office_id'])
             ->withTimestamps()
             ->where(function ($q) use ($companyId) {
-                $q->where('user_roles.company_id', $companyId)
-                    ->orWhereNull('user_roles.company_id');
+                $q->where('roles.company_id', $companyId)
+                    ->orWhereNull('roles.company_id');
             });
     }
 
@@ -146,9 +144,9 @@ class User extends Authenticatable
         return $this->hasMany(ChatMessage::class);
     }
 
-    public function userPermissions(): HasMany
+    public function driver(): BelongsTo
     {
-        return $this->hasMany(UserPermission::class);
+        return $this->belongsTo(Driver::class, 'driver_id');
     }
 
     /**
@@ -213,14 +211,11 @@ class User extends Authenticatable
 
         if ($companyId !== null) {
             if ($roleName === 'admin') {
-                // 'admin' is a global role stored with company_id=NULL.
-                // Passing companyId here just means "is this user admin in the context
-                // of this company?" — the answer is yes if they have the global admin role.
-                $query->whereNull('user_roles.company_id');
+                // 'admin' is a global role stored with roles.company_id=NULL.
+                $query->whereNull('roles.company_id');
             } else {
-                // company_admin, office_admin, and custom roles are always scoped
-                // to an exact company. Never fall back to NULL to prevent escalation.
-                $query->where('user_roles.company_id', $companyId);
+                // company_admin, office_admin, and custom roles are scoped to a company.
+                $query->where('roles.company_id', $companyId);
             }
         }
 
@@ -235,31 +230,6 @@ class User extends Authenticatable
     {
         if ($this->hasRole('admin', $companyId) || $this->hasRole('super_admin', $companyId)) {
             return true;
-        }
-
-        // Support module-level permission matrix (user_permissions) from business spec.
-        if (Schema::hasTable('user_permissions')) {
-            $module = explode('.', $permissionCode, 2)[0];
-            $action = explode('.', $permissionCode, 2)[1] ?? 'view';
-            $column = match ($action) {
-                'view' => 'can_view',
-                'create' => 'can_create',
-                'edit', 'update' => 'can_edit',
-                'delete' => 'can_delete',
-                'approve' => 'can_approve',
-                'export' => 'can_export',
-                default => null,
-            };
-
-            if ($column !== null) {
-                $userPermissionQuery = $this->userPermissions()->where('module', $module);
-                if ($companyId !== null) {
-                    $userPermissionQuery->where('company_id', $companyId);
-                }
-                if ($userPermissionQuery->where($column, true)->exists()) {
-                    return true;
-                }
-            }
         }
 
         $rolesQuery = $companyId !== null

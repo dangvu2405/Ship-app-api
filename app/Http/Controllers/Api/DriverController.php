@@ -126,6 +126,25 @@ class DriverController extends BaseController
         return $this->successResponse($model->fresh(['office', 'department', 'position']), 'api.driver.updated');
     }
 
+    public function available(Request $request): JsonResponse
+    {
+        $busyDriverIds = Trip::query()
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereNotNull('driver_id')
+            ->pluck('driver_id');
+
+        $query = Driver::query()
+            ->where('status', 'active')
+            ->where('available_status', 'available')
+            ->when($busyDriverIds->isNotEmpty(), static fn ($q) => $q->whereNotIn('id', $busyDriverIds->all()));
+        if ($request->filled('office_id')) {
+            $query->where('office_id', $request->integer('office_id'));
+        }
+        $rows = $query->orderBy('name')->limit(100)->get(['id', 'code', 'name', 'office_id', 'available_status']);
+
+        return $this->successResponse($rows, 'api.common.ok');
+    }
+
     /**
      * @OA\Delete(
      *     path="/api/drivers/{id}",

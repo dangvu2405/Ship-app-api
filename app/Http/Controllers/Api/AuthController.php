@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\Auth\AuthActionsRequest;
 use App\Http\Requests\Auth\AuthLogsRequest;
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\CheckOtpRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
@@ -14,6 +15,8 @@ use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\SocialLoginRequest;
 use App\Services\AuthService;
+use App\Support\Ceta\MeResponseBuilder;
+use App\Tenancy\TenantContext;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
@@ -63,6 +66,41 @@ class AuthController extends BaseController
             return $this->authLoginErrorResponse($e);
         } catch (Throwable $e) {
             return $this->handleException($e, 'api.auth.login_failed');
+        }
+    }
+
+    public function me(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if ($user === null) {
+            return $this->unauthorizedResponse('api.unauthenticated');
+        }
+
+        $data = MeResponseBuilder::payload($user, app(TenantContext::class));
+
+        return $this->successResponse($data, 'api.common.ok');
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
+        $validated = $request->validated();
+
+        try {
+            $this->authService->changePassword(
+                $request->user(),
+                $validated['current_password'],
+                $validated['password']
+            );
+
+            return $this->successResponse(null, 'api.common.ok');
+        } catch (AuthenticationException $e) {
+            return $this->authLoginErrorResponse($e);
+        } catch (Throwable $e) {
+            return $this->handleException($e, 'api.auth.reset_password_failed');
         }
     }
 
@@ -162,6 +200,10 @@ class AuthController extends BaseController
      */
     public function logout(Request $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $this->authService->logout($request->user());
 
@@ -222,6 +264,10 @@ class AuthController extends BaseController
      */
     public function refresh(Request $request): JsonResponse
     {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
         try {
             $tokens = $this->authService->refresh($request->user());
 
