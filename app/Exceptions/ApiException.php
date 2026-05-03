@@ -29,21 +29,17 @@ class ApiException extends Exception
         return $this->errors;
     }
 
-    public function render($request)
+    public function render(): ?\Illuminate\Http\JsonResponse
     {
-        if ($request->is('api/*') || $request->expectsJson()) {
-            $response = [
-                'success' => false,
-                'message' => $this->getMessage(),
-            ];
+        $response = [
+            'success' => false,
+            'message' => $this->getMessage(),
+        ];
 
-            if ($this->errors !== null) {
-                $response['errors'] = $this->errors;
-            }
-
-            return response()->json($response, $this->statusCode);
+        if ($this->errors !== null) {
+            $response['errors'] = $this->errors;
         }
 
-        return parent::render($request);
+        return response()->json($response, $this->statusCode);
     }
 }

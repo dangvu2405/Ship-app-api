@@ -166,24 +166,13 @@ function defaultVariableValue(string $key): string
 {
     return match ($key) {
         'baseUrl' => 'http://localhost:8080',
-        'loginEmail' => 'admin@abctransport.com',
+        'loginEmail' => 'admin@example.com',
         'loginPassword' => 'password',
         'accessToken', 'refreshToken', 'chatSessionId' => '',
-        'tenantId', 'companyId' => '',
-        'driverId',
-        'vehicleId',
-        'vehicleTypeId',
-        'sparePartId',
-        'customerId',
-        'customerGroupId',
-        'tripId',
-        'invoiceId',
-        'leaveRequestId',
-        'leaveTypeId',
-        'vehicleAssignmentId',
-        'driverWorkScheduleId',
-        'transportRequestId',
-        'userId' => '1',
+        'tenantId', 'companyId', 'driverId', 'vehicleId', 'vehicleTypeId',
+        'sparePartId', 'customerId', 'customerGroupId', 'tripId', 'invoiceId',
+        'leaveRequestId', 'leaveTypeId', 'vehicleAssignmentId', 'driverWorkScheduleId',
+        'transportRequestId', 'userId', 'sessionId', 'childId' => '1',
         'notificationId' => '00000000-0000-0000-0000-000000000000',
         default => str_ends_with($key, 'Id') ? '1' : '',
     };
@@ -636,10 +625,9 @@ function requestHeaders(bool $usesTenant, ?array $body, bool $usesAuth): array
 
     if ($usesTenant) {
         $headers[] = [
-            'key' => 'X-Tenant-ID',
-            'value' => '{{tenantId}}',
-            'disabled' => true,
-            'description' => 'Optional. Enable only when you want to force a specific tenant/company.',
+            'key' => 'X-Tenant-Id',
+            'value' => '{{companyId}}',
+            'type' => 'text',
         ];
     }
 
@@ -932,14 +920,11 @@ function smokeFolder(array $itemsByKey): array
         ['POST', 'api/auth/login', 'Login - save token'],
         ['GET', 'api/auth/me', 'Me - verify token'],
         ['GET', 'api/health', 'Health'],
-        ['GET', 'api/companies', 'Companies list'],
-        ['GET', 'api/offices', 'Offices list'],
-        ['GET', 'api/departments', 'Departments list'],
-        ['GET', 'api/positions', 'Positions list'],
         ['GET', 'api/drivers', 'Drivers list'],
         ['GET', 'api/vehicles', 'Vehicles list'],
         ['GET', 'api/customers', 'Customers list'],
         ['GET', 'api/trips', 'Trips list'],
+        ['GET', 'api/invoices', 'Invoices list'],
         ['GET', 'api/notifications/unread-count', 'Notifications unread count'],
     ];
 
@@ -957,7 +942,7 @@ function smokeFolder(array $itemsByKey): array
 
     return [
         'name' => '00 Smoke Run',
-        'description' => 'Run this folder after import. It logs in with admin@abctransport.com / password, saves tokens, then checks safe read-only endpoints.',
+        'description' => 'Run this folder after import. It logs in with admin@example.com / password, saves tokens, then checks safe read-only endpoints.',
         'item' => $items,
     ];
 }

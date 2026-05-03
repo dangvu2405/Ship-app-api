@@ -11,8 +11,6 @@ use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Src\Domain\Shared\Exceptions\DomainException;
-use Src\Domain\Shared\Exceptions\EntityNotFoundException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
@@ -54,11 +52,11 @@ final class Handler extends ExceptionHandler
     {
         return match (true) {
             $e instanceof ValidationException => $this->validationError($e),
-            $e instanceof AuthenticationException => $this->unauthenticated(),
+            $e instanceof AuthenticationException => $this->buildUnauthenticatedResponse(),
             $e instanceof AuthorizationException => $this->forbidden($e),
-            $e instanceof EntityNotFoundException => $this->entityNotFound($e),
+            $e instanceof \Src\Domain\Shared\Exceptions\EntityNotFoundException => $this->entityNotFound($e),
             $e instanceof ModelNotFoundException => $this->modelNotFound(),
-            $e instanceof DomainException => $this->domainError($e),
+            $e instanceof \Src\Domain\Shared\Exceptions\DomainException => $this->domainError($e),
             $e instanceof HttpException => $this->httpError($e),
             default => $this->serverError($e),
         };
@@ -73,13 +71,22 @@ final class Handler extends ExceptionHandler
         ], 422);
     }
 
-    private function unauthenticated(): JsonResponse
+    private function buildUnauthenticatedResponse(): JsonResponse
     {
         return response()->json([
             'success' => false,
             'message' => 'Unauthenticated',
             'errors' => null,
         ], 401);
+    }
+
+    private function entityNotFound(\Src\Domain\Shared\Exceptions\EntityNotFoundException $e): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'errors' => ['code' => $e->getErrorCode()],
+        ], 404);
     }
 
     private function forbidden(AuthorizationException $e): JsonResponse
@@ -91,15 +98,6 @@ final class Handler extends ExceptionHandler
         ], 403);
     }
 
-    private function entityNotFound(EntityNotFoundException $e): JsonResponse
-    {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-            'errors' => ['code' => $e->getErrorCode()],
-        ], 404);
-    }
-
     private function modelNotFound(): JsonResponse
     {
         return response()->json([
@@ -109,7 +107,7 @@ final class Handler extends ExceptionHandler
         ], 404);
     }
 
-    private function domainError(DomainException $e): JsonResponse
+    private function domainError(\Src\Domain\Shared\Exceptions\DomainException $e): JsonResponse
     {
         return response()->json([
             'success' => false,

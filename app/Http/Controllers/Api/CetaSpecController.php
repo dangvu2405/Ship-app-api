@@ -112,6 +112,9 @@ final class CetaSpecController extends BaseController
         $id = (string) $request->route('id');
         $payload = $this->payload($request, $table, partial: true);
 
+        // R11: Prevent updating auto-generated codes
+        $this->preventCodeUpdate($table, $payload);
+
         if ($payload !== []) {
             $payload['updated_at'] = now();
             $this->scopedQuery($table)->where('id', $id)->update($payload);
@@ -124,6 +127,19 @@ final class CetaSpecController extends BaseController
     {
         $table = $this->table((string) $request->route('resource'));
         $id = (string) $request->route('id');
+
+        // R08: Cannot delete customer if has active trips
+        if ($table === 'customers') {
+            $hasTrips = DB::table('trips')
+                ->where('customer_id', $id)
+                ->where('company_id', $this->companyId())
+                ->where('status', '!=', 'completed')
+                ->where('status', '!=', 'cancelled')
+                ->exists();
+            if ($hasTrips) {
+                abort(422, 'Cannot delete customer with active trips');
+            }
+        }
 
         if (Schema::hasColumn($table, 'deleted_at')) {
             $this->scopedQuery($table)->where('id', $id)->update(['deleted_at' => now(), 'updated_at' => now()]);
@@ -164,6 +180,18 @@ final class CetaSpecController extends BaseController
         $child = (string) $request->route('child');
         $table = $this->table($child);
         $id = (string) ($request->route('childId') ?? $request->route('itemId') ?? $request->route('docId') ?? $request->route('stopId') ?? $request->route('surId'));
+
+        // R07: Prevent updating locked reconciliations
+        if ($table === 'reconciliation_items') {
+            $locked = DB::table('reconciliation_sessions')
+                ->where('id', DB::table('reconciliation_items')->where('id', $id)->value('reconciliation_session_id'))
+                ->where('locked_at', '!=', null)
+                ->exists();
+            if ($locked) {
+                abort(422, 'Cannot update items in locked reconciliation');
+            }
+        }
+
         $payload = $this->payload($request, $table, partial: true);
         $payload['updated_at'] = now();
         $this->scopedQuery($table)->where('id', $id)->update($payload);
@@ -200,6 +228,11 @@ final class CetaSpecController extends BaseController
 
         if ($table === 'trips') {
             $this->assertTripTransition($id, $action);
+            
+            // R02, R03, R12: Validate trip assignment constraints
+            if ($action === 'assign') {
+                $this->validateTripAssignment($id, $request);
+            }
         }
 
         $updates = $this->actionUpdates($table, $action, $request);
@@ -555,7 +588,9 @@ final class CetaSpecController extends BaseController
             'submit' => $this->statusUpdate($table, 'submitted', $request),
             'lock' => $this->statusUpdate($table, 'locked', $request),
             'start' => $this->statusUpdate($table, 'in_progress', $request) + ['start_time' => now()],
-            'deliver', 'complete' => $this->statusUpdate($table, 'completed', $request) + ['end_time' => now(), 'actual_delivered_at' => now()],
+            'assign' => $this->statusUpdate($table, 'assigned', $request) + (Schema::hasColumn($table, 'assigned_at') ? ['assigned_at' => now()] : []),
+            'deliver' => $this->statusUpdate($table, 'delivered', $request) + (Schema::hasColumn($table, 'end_time') ? ['end_time' => now()] : []) + (Schema::hasColumn($table, 'actual_delivered_at') ? ['actual_delivered_at' => now()] : []),
+            'complete' => $this->statusUpdate($table, 'completed', $request) + (Schema::hasColumn($table, 'end_time') ? ['end_time' => now()] : []),
             'arrive' => $this->statusUpdate($table, 'arrived', $request) + ['actual_time' => now()],
             'read' => Schema::hasColumn($table, 'read_at') ? ['read_at' => now()] : [],
             'status' => ['status' => $request->input('status', 'active')],
@@ -646,10 +681,14 @@ final class CetaSpecController extends BaseController
     {
         $current = (string) $this->scopedQuery('trips')->where('id', $id)->value('status');
         $allowed = [
+            // pending -> assign
             'assign' => ['pending'],
-            'start' => ['pending'],
+            // assigned -> start
+            'start' => ['assigned', 'pending'],
+            // in_progress -> deliver
             'deliver' => ['in_progress'],
-            'complete' => ['in_progress'],
+            // delivered -> complete
+            'complete' => ['delivered', 'in_progress'],
             'cancel' => ['pending', 'in_progress'],
             'change-vehicle' => ['pending', 'in_progress'],
             'change-driver' => ['pending', 'in_progress'],
@@ -657,6 +696,57 @@ final class CetaSpecController extends BaseController
 
         if (isset($allowed[$action]) && ! in_array($current, $allowed[$action], true)) {
             abort(422, "Invalid trip transition from {$current} by {$action}");
+        }
+    }
+
+    private function validateTripAssignment(string $tripId, Request $request): void
+    {
+        $trip = DB::table('trips')->where('id', $tripId)->first();
+        $vehicleId = $request->input('vehicle_id') ?? $trip?->vehicle_id;
+        $driverId = $request->input('driver_id') ?? $trip?->driver_id;
+        $date = $trip?->scheduled_date ?? now()->toDateString();
+
+        if ($vehicleId) {
+            $vehicleStatus = DB::table('vehicles')
+                ->where('id', $vehicleId)
+                ->where('company_id', $this->companyId())
+                ->value('status');
+            if ($vehicleStatus !== 'active') {
+                abort(422, "Vehicle is not active (status: {$vehicleStatus})");
+            }
+        }
+
+        if ($vehicleId) {
+            $conflict = DB::table('trips')
+                ->where('vehicle_id', $vehicleId)
+                ->where('company_id', $this->companyId())
+                ->where('id', '!=', $tripId)
+                ->whereDate('scheduled_date', $date)
+                ->whereIn('status', ['in_transit'])
+                ->exists();
+            if ($conflict) {
+                abort(422, 'Vehicle is in transit on this date. Cannot assign.');
+            }
+        }
+
+        if ($driverId) {
+            $expiredDate = DB::table('driver_documents')
+                ->where('driver_id', $driverId)
+                ->where('document_type', 'license')
+                ->value('expiry_date');
+            if ($expiredDate && $expiredDate < now()->toDateString()) {
+                abort(422, 'Driver license is expired.');
+            }
+        }
+    }
+
+    private function preventCodeUpdate(string $table, array &$payload): void
+    {
+        $codeFields = ['code', 'order_code'];
+        foreach ($codeFields as $field) {
+            if (isset($payload[$field])) {
+                unset($payload[$field]);
+            }
         }
     }
 }
