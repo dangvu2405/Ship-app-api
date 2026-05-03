@@ -1,6 +1,6 @@
 {
     "info": {
-        "_postman_id": "8fb0d1183cc077ae-23404395",
+        "_postman_id": "7dd27967602bec1e-c717702c",
         "name": "Company Ship API",
         "description": "Auto-generated from `php artisan route:list --json --path=api`.\n\nRun folder `00 Smoke Run` first. It logs in with `admin@abctransport.com / password`, saves `accessToken`, `refreshToken`, `tenantId`, then checks safe endpoints.\n\nAuthenticated requests use Postman Bearer Auth with token `{{accessToken}}` and also include an explicit `Authorization: Bearer {{accessToken}}` header. The exporter pre-fills `accessToken` when `localhost:8080` is reachable.\n\nAll `01 API Reference / ...` folders include sample bodies for POST/PUT/PATCH requests and reusable collection variables.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
@@ -177,7 +177,7 @@
         },
         {
             "key": "companyId",
-            "value": ""
+            "value": "1"
         },
         {
             "key": "costApprovalId",
@@ -225,7 +225,7 @@
         },
         {
             "key": "loginEmail",
-            "value": "admin@abctransport.com"
+            "value": "admin@example.com"
         },
         {
             "key": "loginPassword",
@@ -273,7 +273,7 @@
         },
         {
             "key": "tenantId",
-            "value": ""
+            "value": "1"
         },
         {
             "key": "transportRequestId",
@@ -307,7 +307,7 @@
     "item": [
         {
             "name": "00 Smoke Run",
-            "description": "Run this folder after import. It logs in with admin@abctransport.com / password, saves tokens, then checks safe read-only endpoints.",
+            "description": "Run this folder after import. It logs in with admin@example.com / password, saves tokens, then checks safe read-only endpoints.",
             "item": [
                 {
                     "name": "Login - save token",
@@ -402,10 +402,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/me",
@@ -466,10 +465,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers",
@@ -501,10 +499,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles",
@@ -536,10 +533,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers",
@@ -571,13 +567,46 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips",
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [
+                                {
+                                    "key": "token",
+                                    "value": "{{accessToken}}",
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "description": "App\\Http\\Controllers\\Api\\CetaSpecController@index\napi, App\\Http\\Middleware\\Authenticate:sanctum, App\\Http\\Middleware\\EnsureTenantContext, App\\Http\\Middleware\\TrackUserActions"
+                    }
+                },
+                {
+                    "name": "Invoices list",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{accessToken}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/invoices",
                         "auth": {
                             "type": "bearer",
                             "bearer": [
@@ -606,10 +635,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/notifications/unread-count",
@@ -646,10 +674,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/actions",
@@ -681,10 +708,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/logs",
@@ -716,10 +742,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/me",
@@ -751,10 +776,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/sessions",
@@ -786,10 +810,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/sessions/summary",
@@ -825,10 +848,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/password",
@@ -1035,10 +1057,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/logout",
@@ -1083,10 +1104,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/refresh",
@@ -1215,10 +1235,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/sessions/{{sessionId}}/lock-account",
@@ -1263,10 +1282,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/auth/sessions/{{sessionId}}/revoke",
@@ -1354,10 +1372,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cargo-types/{{cargoTypeId}}",
@@ -1389,10 +1406,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cargo-types",
@@ -1428,10 +1444,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cargo-types/{{cargoTypeId}}",
@@ -1476,10 +1491,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cargo-types",
@@ -1524,10 +1538,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cargo-types/{{cargoTypeId}}",
@@ -1573,10 +1586,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/chat/sessions/{{sessionId}}",
@@ -1608,10 +1620,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/chat/messages",
@@ -1643,10 +1654,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/chat/sessions",
@@ -1682,10 +1692,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/chat/messages",
@@ -1730,10 +1739,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/chat/messages/stream",
@@ -1779,10 +1787,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-approvals",
@@ -1814,10 +1821,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-approvals/{{costApprovalId}}",
@@ -1853,10 +1859,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-approvals/{{costApprovalId}}/approve",
@@ -1901,10 +1906,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-approvals/{{costApprovalId}}/reject",
@@ -1950,10 +1954,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-categories/{{costCategoryId}}",
@@ -1985,10 +1988,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-categories",
@@ -2024,10 +2026,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-categories/{{costCategoryId}}",
@@ -2072,10 +2073,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-categories",
@@ -2120,10 +2120,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/cost-categories/{{costCategoryId}}",
@@ -2169,10 +2168,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customer-groups/{{customerGroupId}}",
@@ -2204,10 +2202,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customer-groups",
@@ -2243,10 +2240,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customer-groups/{{customerGroupId}}",
@@ -2291,10 +2287,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customer-groups",
@@ -2339,10 +2334,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customer-groups/{{customerGroupId}}",
@@ -2388,10 +2382,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}",
@@ -2423,10 +2416,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers",
@@ -2458,10 +2450,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/search",
@@ -2493,10 +2484,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}",
@@ -2528,10 +2518,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}/debt",
@@ -2563,10 +2552,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}/payments",
@@ -2598,10 +2586,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}/price-lists",
@@ -2633,10 +2620,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}/trips",
@@ -2672,10 +2658,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}",
@@ -2720,10 +2705,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers",
@@ -2768,10 +2752,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}/payments",
@@ -2816,10 +2799,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}/price-lists",
@@ -2864,10 +2846,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/customers/{{customerId}}",
@@ -2913,10 +2894,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/debt-overview",
@@ -2953,10 +2933,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/dispatch/board",
@@ -2988,10 +2967,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/dispatch/daily-summary",
@@ -3023,10 +3001,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/dispatch/unassigned-trips",
@@ -3063,10 +3040,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/driver-teams/{{driverTeamId}}",
@@ -3098,10 +3074,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/driver-teams",
@@ -3137,10 +3112,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/driver-teams/{{driverTeamId}}",
@@ -3185,10 +3159,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/driver-teams",
@@ -3233,10 +3206,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/driver-teams/{{driverTeamId}}",
@@ -3282,10 +3254,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}",
@@ -3317,10 +3288,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}/documents/{{childId}}",
@@ -3352,10 +3322,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers",
@@ -3387,10 +3356,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/available",
@@ -3422,10 +3390,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/expiring-documents",
@@ -3457,10 +3424,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}",
@@ -3492,10 +3458,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}/documents",
@@ -3531,10 +3496,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}",
@@ -3579,10 +3543,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}/documents/{{childId}}",
@@ -3627,10 +3590,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}/status",
@@ -3675,10 +3637,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers",
@@ -3723,10 +3684,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}/documents",
@@ -3771,10 +3731,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}",
@@ -3819,10 +3778,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/drivers/{{driverId}}/documents/{{childId}}",
@@ -3868,10 +3826,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}",
@@ -3903,10 +3860,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices",
@@ -3938,10 +3894,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}",
@@ -3973,10 +3928,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/status-histories",
@@ -4012,10 +3966,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}",
@@ -4060,10 +4013,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/cancel",
@@ -4108,10 +4060,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/issue",
@@ -4156,10 +4107,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}/mark-paid",
@@ -4204,10 +4154,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices",
@@ -4252,10 +4201,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/invoices/{{invoiceId}}",
@@ -4301,10 +4249,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests/{{leaveRequestId}}",
@@ -4336,10 +4283,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests",
@@ -4371,10 +4317,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests/{{leaveRequestId}}",
@@ -4410,10 +4355,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests/{{leaveRequestId}}",
@@ -4458,10 +4402,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests/{{leaveRequestId}}/approve",
@@ -4506,10 +4449,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests/{{leaveRequestId}}/cancel",
@@ -4554,10 +4496,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests/{{leaveRequestId}}/reject",
@@ -4602,10 +4543,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests",
@@ -4650,10 +4590,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-requests/{{leaveRequestId}}",
@@ -4699,10 +4638,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-types/{{leaveTypeId}}",
@@ -4734,10 +4672,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-types",
@@ -4773,10 +4710,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-types/{{leaveTypeId}}",
@@ -4821,10 +4757,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-types/{{leaveTypeId}}/status",
@@ -4869,10 +4804,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-types",
@@ -4917,10 +4851,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/leave-types/{{leaveTypeId}}",
@@ -4966,10 +4899,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/locations/{{locationId}}",
@@ -5001,10 +4933,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/locations",
@@ -5036,10 +4967,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/locations/search",
@@ -5071,10 +5001,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/locations/{{locationId}}",
@@ -5110,10 +5039,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/locations/{{locationId}}",
@@ -5158,10 +5086,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/locations",
@@ -5206,10 +5133,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/locations/{{locationId}}",
@@ -5259,10 +5185,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/maintenance-records/{{maintenanceRecordId}}/complete",
@@ -5312,10 +5237,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/maintenance-schedules/{{maintenanceScheduleId}}",
@@ -5361,10 +5285,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/notifications/{{notificationId}}",
@@ -5396,10 +5319,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/notifications",
@@ -5431,10 +5353,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/notifications/unread-count",
@@ -5470,10 +5391,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/notifications/read-all",
@@ -5518,10 +5438,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read",
@@ -5567,10 +5486,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/order-status-configs",
@@ -5606,10 +5524,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/order-status-configs",
@@ -5655,10 +5572,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/payments/{{paymentId}}",
@@ -5695,10 +5611,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/price-lists/{{priceListId}}",
@@ -5730,10 +5645,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/price-lists/{{priceListId}}/items/{{itemId}}",
@@ -5765,10 +5679,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/price-lists/{{priceListId}}/items",
@@ -5804,10 +5717,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/price-lists/{{priceListId}}/items",
@@ -5852,10 +5764,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/price-lists/{{priceListId}}",
@@ -5905,10 +5816,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/price-lookup",
@@ -5954,10 +5864,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations/{{reconciliationId}}",
@@ -5989,10 +5898,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations",
@@ -6024,10 +5932,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations/{{reconciliationId}}",
@@ -6059,10 +5966,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations/{{reconciliationId}}/export",
@@ -6098,10 +6004,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations/{{reconciliationId}}",
@@ -6146,10 +6051,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations/{{reconciliationId}}/confirm",
@@ -6194,10 +6098,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations",
@@ -6242,10 +6145,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations/{{reconciliationId}}",
@@ -6290,10 +6192,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reconciliations/{{reconciliationId}}/items/{{itemId}}",
@@ -6339,10 +6240,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/costs",
@@ -6374,10 +6274,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/dashboard",
@@ -6409,10 +6308,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/debt",
@@ -6444,10 +6342,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/drivers",
@@ -6479,10 +6376,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/maintenance",
@@ -6514,10 +6410,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/profit",
@@ -6549,10 +6444,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/revenue",
@@ -6584,10 +6478,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/trips",
@@ -6619,10 +6512,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/vehicles",
@@ -6658,10 +6550,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/reports/export",
@@ -6707,10 +6598,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/route-templates/{{routeTemplateId}}",
@@ -6742,10 +6632,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/route-templates",
@@ -6777,10 +6666,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/route-templates/{{routeTemplateId}}",
@@ -6816,10 +6704,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/route-templates/{{routeTemplateId}}",
@@ -6864,10 +6751,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/route-templates",
@@ -6912,10 +6798,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/route-templates/{{routeTemplateId}}",
@@ -6961,10 +6846,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/spare-parts/{{sparePartId}}",
@@ -6996,10 +6880,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/spare-parts",
@@ -7035,10 +6918,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/spare-parts/{{sparePartId}}",
@@ -7083,10 +6965,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/spare-parts",
@@ -7131,10 +7012,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/spare-parts/{{sparePartId}}",
@@ -7243,10 +7123,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/transport-requests/{{transportRequestId}}",
@@ -7278,10 +7157,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/transport-requests",
@@ -7313,10 +7191,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/transport-requests/{{transportRequestId}}",
@@ -7352,10 +7229,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/transport-requests/{{transportRequestId}}",
@@ -7400,10 +7276,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/transport-requests",
@@ -7448,10 +7323,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/transport-requests/{{transportRequestId}}",
@@ -7497,10 +7371,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trip-costs/{{tripCostId}}",
@@ -7536,10 +7409,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trip-costs/{{tripCostId}}",
@@ -7585,10 +7457,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}",
@@ -7620,10 +7491,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/costs/{{childId}}",
@@ -7655,10 +7525,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/documents/{{childId}}",
@@ -7690,10 +7559,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/stops/{{childId}}",
@@ -7725,10 +7593,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/surcharges/{{childId}}",
@@ -7760,10 +7627,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips",
@@ -7795,10 +7661,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}",
@@ -7830,10 +7695,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/costs",
@@ -7865,10 +7729,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/documents",
@@ -7900,10 +7763,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/stops",
@@ -7935,10 +7797,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/surcharges",
@@ -7974,10 +7835,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}",
@@ -8022,10 +7882,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/assign",
@@ -8070,10 +7929,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/cancel",
@@ -8118,10 +7976,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/change-driver",
@@ -8166,10 +8023,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/change-vehicle",
@@ -8214,10 +8070,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/complete",
@@ -8262,10 +8117,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/costs/{{childId}}",
@@ -8310,10 +8164,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/deliver",
@@ -8358,10 +8211,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/documents/{{childId}}",
@@ -8406,10 +8258,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/start",
@@ -8454,10 +8305,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/stops/{{childId}}",
@@ -8502,10 +8352,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/stops/{{childId}}/arrive",
@@ -8550,10 +8399,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/stops/{{childId}}/complete",
@@ -8598,10 +8446,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/surcharges/{{childId}}",
@@ -8646,10 +8493,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips",
@@ -8694,10 +8540,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/costs",
@@ -8742,10 +8587,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/documents",
@@ -8790,10 +8634,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/stops",
@@ -8838,10 +8681,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/surcharges",
@@ -8886,10 +8728,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}",
@@ -8934,10 +8775,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/costs/{{childId}}",
@@ -8982,10 +8822,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/documents/{{childId}}",
@@ -9030,10 +8869,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/stops/{{childId}}",
@@ -9078,10 +8916,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/trips/{{tripId}}/surcharges/{{childId}}",
@@ -9127,10 +8964,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/upload",
@@ -9162,10 +8998,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/upload",
@@ -9207,10 +9042,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/upload/document",
@@ -9252,10 +9086,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/upload/image",
@@ -9302,10 +9135,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}",
@@ -9337,10 +9169,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users",
@@ -9372,10 +9203,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}",
@@ -9407,10 +9237,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}/permissions",
@@ -9446,10 +9275,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}",
@@ -9494,10 +9322,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}/status",
@@ -9542,10 +9369,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users",
@@ -9590,10 +9416,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}/reset-password",
@@ -9638,10 +9463,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}",
@@ -9686,10 +9510,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/users/{{userId}}/permissions",
@@ -9735,10 +9558,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicle-types/{{vehicleTypeId}}",
@@ -9770,10 +9592,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicle-types",
@@ -9809,10 +9630,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicle-types/reorder",
@@ -9857,10 +9677,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicle-types/{{vehicleTypeId}}",
@@ -9905,10 +9724,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicle-types",
@@ -9953,10 +9771,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicle-types/{{vehicleTypeId}}",
@@ -10002,10 +9819,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}",
@@ -10037,10 +9853,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents/{{childId}}",
@@ -10072,10 +9887,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-records/{{childId}}",
@@ -10107,10 +9921,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-schedules/{{childId}}",
@@ -10142,10 +9955,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles",
@@ -10177,10 +9989,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/available",
@@ -10212,10 +10023,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/expiring-documents",
@@ -10247,10 +10057,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/maintenance-due",
@@ -10282,10 +10091,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}",
@@ -10317,10 +10125,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/assignments",
@@ -10352,10 +10159,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents",
@@ -10387,10 +10193,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-records",
@@ -10422,10 +10227,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-schedules",
@@ -10461,10 +10265,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}",
@@ -10509,10 +10312,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/assignments/release",
@@ -10557,10 +10359,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents/{{childId}}",
@@ -10605,10 +10406,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-records/{{childId}}",
@@ -10653,10 +10453,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-schedules/{{childId}}",
@@ -10701,10 +10500,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/status",
@@ -10749,10 +10547,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles",
@@ -10797,10 +10594,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/assignments",
@@ -10845,10 +10641,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents",
@@ -10893,10 +10688,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-records",
@@ -10941,10 +10735,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-schedules",
@@ -10989,10 +10782,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}",
@@ -11037,10 +10829,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/documents/{{childId}}",
@@ -11085,10 +10876,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-records/{{childId}}",
@@ -11133,10 +10923,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/vehicles/{{vehicleId}}/maintenance-schedules/{{childId}}",
@@ -11182,10 +10971,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules/{{workScheduleId}}",
@@ -11217,10 +11005,9 @@
                                 "type": "text"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules",
@@ -11256,10 +11043,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules/{{workScheduleId}}",
@@ -11304,10 +11090,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules/{{workScheduleId}}/approve",
@@ -11352,10 +11137,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules/{{workScheduleId}}/reject",
@@ -11400,10 +11184,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules/{{workScheduleId}}/submit",
@@ -11448,10 +11231,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules",
@@ -11496,10 +11278,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules/generate",
@@ -11544,10 +11325,9 @@
                                 "value": "application/json"
                             },
                             {
-                                "key": "X-Tenant-ID",
-                                "value": "{{tenantId}}",
-                                "disabled": true,
-                                "description": "Optional. Enable only when you want to force a specific tenant/company."
+                                "key": "X-Tenant-Id",
+                                "value": "{{companyId}}",
+                                "type": "text"
                             }
                         ],
                         "url": "{{baseUrl}}/api/work-schedules/{{workScheduleId}}",
