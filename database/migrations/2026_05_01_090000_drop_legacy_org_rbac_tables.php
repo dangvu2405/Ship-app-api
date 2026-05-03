@@ -40,6 +40,7 @@ return new class extends Migration
             'offices',
             'login_logs',
             'export_logs',
+            'refresh_tokens',
             'user_companies',
         ];
 

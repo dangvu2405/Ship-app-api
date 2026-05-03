@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Models\Company;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
@@ -162,11 +161,11 @@ class User extends Authenticatable
         }
 
         return $companies->map(fn (Company $c): array => [
-            'id'       => $c->id,
-            'name'     => $c->name,
-            'code'     => $c->code,
+            'id' => $c->id,
+            'name' => $c->name,
+            'code' => $c->code,
             'logo_url' => $c->logo_url ?? null,
-            'status'   => $c->status,
+            'status' => $c->status,
         ])->values()->all();
     }
 

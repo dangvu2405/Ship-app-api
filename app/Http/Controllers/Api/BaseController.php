@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Exceptions\ApiException;
+use App\Http\Controllers\Controller;
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Exception;
 use Throwable;
 
 class BaseController extends Controller
@@ -17,10 +17,7 @@ class BaseController extends Controller
     /**
      * Success response
      *
-     * @param mixed $data
-     * @param string $message
-     * @param int $code
-     * @return JsonResponse
+     * @param  mixed  $data
      */
     protected function successResponse($data = null, string $message = 'api.success', int $code = 200): JsonResponse
     {
@@ -39,10 +36,7 @@ class BaseController extends Controller
     /**
      * Error response
      *
-     * @param string $message
-     * @param int $code
-     * @param mixed $errors
-     * @return JsonResponse
+     * @param  mixed  $errors
      */
     protected function errorResponse(string $message = 'api.error', int $code = 400, $errors = null): JsonResponse
     {
@@ -60,9 +54,6 @@ class BaseController extends Controller
 
     /**
      * Not found response
-     *
-     * @param string $message
-     * @return JsonResponse
      */
     protected function notFoundResponse(string $message = 'api.resource_not_found'): JsonResponse
     {
@@ -71,9 +62,6 @@ class BaseController extends Controller
 
     /**
      * Unauthorized response
-     *
-     * @param string $message
-     * @return JsonResponse
      */
     protected function unauthorizedResponse(string $message = 'api.unauthorized'): JsonResponse
     {
@@ -96,9 +84,6 @@ class BaseController extends Controller
 
     /**
      * Forbidden response
-     *
-     * @param string $message
-     * @return JsonResponse
      */
     protected function forbiddenResponse(string $message = 'api.forbidden'): JsonResponse
     {
@@ -108,9 +93,7 @@ class BaseController extends Controller
     /**
      * Validation error response
      *
-     * @param mixed $errors
-     * @param string $message
-     * @return JsonResponse
+     * @param  mixed  $errors
      */
     protected function validationErrorResponse($errors, string $message = 'api.validation_failed'): JsonResponse
     {
@@ -119,14 +102,10 @@ class BaseController extends Controller
 
     /**
      * Handle exceptions and return formatted error response
-     *
-     * @param Throwable $e
-     * @param string|null $customMessage
-     * @return JsonResponse
      */
     protected function handleException(Throwable $e, ?string $customMessage = null): JsonResponse
     {
-        $level = match(true) {
+        $level = match (true) {
             $e instanceof \Illuminate\Database\QueryException,
             $e instanceof \PDOException => 'critical',
             $e instanceof \Illuminate\Auth\AuthenticationException => 'info',
@@ -140,9 +119,9 @@ class BaseController extends Controller
 
         Log::log($level, 'API Exception', [
             'message' => $e->getMessage(),
-            'file'    => $e->getFile(),
-            'line'    => $e->getLine(),
-            'trace'   => $e->getTraceAsString(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
         ]);
 
         if ($e instanceof ApiException) {

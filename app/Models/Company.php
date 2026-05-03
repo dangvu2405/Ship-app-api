@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
-    use HasFactory, SoftDeletes, \App\Traits\HasAuditLogs;
+    use \App\Traits\HasAuditLogs, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'code',
@@ -32,4 +32,3 @@ class Company extends Model
         return $this->hasMany(UserPermission::class);
     }
 }
-

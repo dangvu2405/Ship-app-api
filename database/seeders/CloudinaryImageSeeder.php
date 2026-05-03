@@ -27,26 +27,26 @@ class CloudinaryImageSeeder extends Seeder
     private array $vehicleImageSets = [
         'truck' => [
             'front' => 'https://images.pexels.com/photos/1687342/pexels-photo-1687342.jpeg?w=800',
-            'back'  => 'https://images.pexels.com/photos/2199293/pexels-photo-2199293.jpeg?w=800',
-            'side'  => 'https://images.pexels.com/photos/2533092/pexels-photo-2533092.jpeg?w=800',
+            'back' => 'https://images.pexels.com/photos/2199293/pexels-photo-2199293.jpeg?w=800',
+            'side' => 'https://images.pexels.com/photos/2533092/pexels-photo-2533092.jpeg?w=800',
             'other' => 'https://images.pexels.com/photos/906494/pexels-photo-906494.jpeg?w=800',
         ],
         'van' => [
             'front' => 'https://images.pexels.com/photos/210019/pexels-photo-210019.jpeg?w=800',
-            'back'  => 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?w=800',
-            'side'  => 'https://images.pexels.com/photos/244553/pexels-photo-244553.jpeg?w=800',
+            'back' => 'https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?w=800',
+            'side' => 'https://images.pexels.com/photos/244553/pexels-photo-244553.jpeg?w=800',
             'other' => 'https://images.pexels.com/photos/164634/pexels-photo-164634.jpeg?w=800',
         ],
         'bus' => [
             'front' => 'https://images.pexels.com/photos/258045/pexels-photo-258045.jpeg?w=800',
-            'back'  => 'https://images.pexels.com/photos/1624695/pexels-photo-1624695.jpeg?w=800',
-            'side'  => 'https://images.pexels.com/photos/1008155/pexels-photo-1008155.jpeg?w=800',
+            'back' => 'https://images.pexels.com/photos/1624695/pexels-photo-1624695.jpeg?w=800',
+            'side' => 'https://images.pexels.com/photos/1008155/pexels-photo-1008155.jpeg?w=800',
             'other' => 'https://images.pexels.com/photos/1031645/pexels-photo-1031645.jpeg?w=800',
         ],
         'car' => [
             'front' => 'https://images.pexels.com/photos/170811/pexels-photo-170811.jpeg?w=800',
-            'back'  => 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?w=800',
-            'side'  => 'https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?w=800',
+            'back' => 'https://images.pexels.com/photos/100656/pexels-photo-100656.jpeg?w=800',
+            'side' => 'https://images.pexels.com/photos/116675/pexels-photo-116675.jpeg?w=800',
             'other' => 'https://images.pexels.com/photos/1402787/pexels-photo-1402787.jpeg?w=800',
         ],
     ];
@@ -79,7 +79,7 @@ class CloudinaryImageSeeder extends Seeder
         $this->cloudName = $this->resolveCloudName();
 
         $this->command->info('');
-        $this->command->info('☁️  Cloudinary Image Seeder — cloud: ' . $this->cloudName);
+        $this->command->info('☁️  Cloudinary Image Seeder — cloud: '.$this->cloudName);
         $this->command->info('');
 
         $this->seedVehicleImages();
@@ -99,6 +99,7 @@ class CloudinaryImageSeeder extends Seeder
 
         if ($vehicles->isEmpty()) {
             $this->command->info('  All vehicles already have images — skipping');
+
             return;
         }
 
@@ -106,18 +107,18 @@ class CloudinaryImageSeeder extends Seeder
         $bar = $this->command->getOutput()->createProgressBar($vehicles->count());
         $bar->start();
 
-        $typeKeys    = array_keys($this->vehicleImageSets);
-        $allSets     = array_values($this->vehicleImageSets);
-        $totalSets   = count($allSets);
+        $typeKeys = array_keys($this->vehicleImageSets);
+        $allSets = array_values($this->vehicleImageSets);
+        $totalSets = count($allSets);
 
         foreach ($vehicles as $index => $vehicle) {
             // Rotate through image sets so consecutive vehicles look different
             $setIndex = $index % $totalSets;
-            $images   = array_key_exists($vehicle->type, $this->vehicleImageSets)
+            $images = array_key_exists($vehicle->type, $this->vehicleImageSets)
                 ? $this->vehicleImageSets[$vehicle->type]
                 : $allSets[$setIndex];
 
-            $folder  = 'ship_app/vehicles';
+            $folder = 'ship_app/vehicles';
             $updates = [];
 
             foreach (['front', 'back', 'side', 'other'] as $side) {
@@ -150,6 +151,7 @@ class CloudinaryImageSeeder extends Seeder
 
         if ($drivers->isEmpty()) {
             $this->command->info('  All drivers already have avatars — skipping');
+
             return;
         }
 
@@ -157,20 +159,20 @@ class CloudinaryImageSeeder extends Seeder
         $bar = $this->command->getOutput()->createProgressBar($drivers->count());
         $bar->start();
 
-        $malePhotos   = $this->personPhotos['male'];
+        $malePhotos = $this->personPhotos['male'];
         $femalePhotos = $this->personPhotos['female'];
-        $maleIdx      = 0;
-        $femaleIdx    = 0;
+        $maleIdx = 0;
+        $femaleIdx = 0;
 
         foreach ($drivers as $driver) {
-            $isFemale  = $driver->gender === 'female';
-            $photoUrl  = $isFemale
+            $isFemale = $driver->gender === 'female';
+            $photoUrl = $isFemale
                 ? $femalePhotos[$femaleIdx++ % count($femalePhotos)]
                 : $malePhotos[$maleIdx++ % count($malePhotos)];
 
             $url = $this->uploadFromUrl(
                 $photoUrl,
-                "ship_app/drivers",
+                'ship_app/drivers',
                 "driver_{$driver->id}_avatar"
             );
 
@@ -215,27 +217,29 @@ class CloudinaryImageSeeder extends Seeder
     {
         try {
             $result = cloudinary()->uploadApi()->upload($sourceUrl, [
-                'folder'          => $folder,
-                'public_id'       => $publicId,
-                'overwrite'       => true,
-                'resource_type'   => 'image',
-                'transformation'  => [
+                'folder' => $folder,
+                'public_id' => $publicId,
+                'overwrite' => true,
+                'resource_type' => 'image',
+                'transformation' => [
                     ['quality' => 'auto', 'fetch_format' => 'auto'],
                 ],
             ]);
 
             return $result['secure_url'] ?? null;
         } catch (\Throwable $e) {
-            Log::warning("Cloudinary upload failed for {$sourceUrl}: " . $e->getMessage());
-            $this->command->warn("\n  ⚠ Failed: {$publicId} — " . $e->getMessage());
+            Log::warning("Cloudinary upload failed for {$sourceUrl}: ".$e->getMessage());
+            $this->command->warn("\n  ⚠ Failed: {$publicId} — ".$e->getMessage());
+
             return null;
         }
     }
 
     private function resolveCloudName(): string
     {
-        $url  = config('services.cloudinary.url') ?? env('CLOUDINARY_URL', '');
+        $url = config('services.cloudinary.url') ?? env('CLOUDINARY_URL', '');
         $host = parse_url($url, PHP_URL_HOST);
+
         return $host ?: 'unknown';
     }
 }

@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 final class SmokeTest extends TestCase
 {
-    public function testPhpUnitBoots(): void
+    public function test_php_unit_boots(): void
     {
         $this->assertTrue(true);
     }

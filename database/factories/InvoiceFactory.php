@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\Company;
 use App\Models\Customer;
-use App\Models\Trip;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -18,7 +17,7 @@ class InvoiceFactory extends Factory
         $vatRate = fake()->randomFloat(2, 0, 10);
         $vatAmount = $subtotal * ($vatRate / 100);
         $totalAmount = $subtotal + $vatAmount;
-        
+
         return [
             'code' => strtoupper(fake()->unique()->bothify('INV#######')),
             'company_id' => Company::factory(),

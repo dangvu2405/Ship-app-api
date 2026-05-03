@@ -39,6 +39,6 @@ final class TenantContext
     public function reset(): void
     {
         $this->companyId = null;
-        $this->officeId  = null;
+        $this->officeId = null;
     }
 }

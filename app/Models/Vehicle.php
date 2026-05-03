@@ -13,8 +13,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Vehicle extends Model
 {
+    use \App\Traits\HasAuditLogs, HasFactory, SoftDeletes;
     use BelongsToTenant;
-    use HasFactory, SoftDeletes, \App\Traits\HasAuditLogs;
 
     protected $fillable = [
         'company_id',

@@ -12,8 +12,7 @@ final readonly class UploadService
     /**
      * Giao tiếp với API Cloudinary để upload file.
      *
-     * @param UploadedFile $file
-     * @param string $folder Thư mục trên Cloudinary
+     * @param  string  $folder  Thư mục trên Cloudinary
      * @return array{url: string, public_id: string}
      */
     public function uploadImage(UploadedFile $file, string $folder = 'ship_app'): array
@@ -23,7 +22,7 @@ final readonly class UploadService
         ]);
 
         return [
-            'url'       => $uploadedFileUrl->getSecurePath(),
+            'url' => $uploadedFileUrl->getSecurePath(),
             'public_id' => $uploadedFileUrl->getPublicId(),
         ];
     }

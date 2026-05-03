@@ -17,15 +17,15 @@ class LeaveService
     /**
      * Submit a leave request for a driver.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public function create(array $data, User $actor): LeaveRequest
     {
-        $driverId    = (int) $data['driver_id'];
+        $driverId = (int) $data['driver_id'];
         $leaveTypeId = (int) $data['leave_type_id'];
-        $from        = $data['from_date'];
-        $to          = $data['to_date'];
-        $totalDays   = (float) $data['total_days'];
+        $from = $data['from_date'];
+        $to = $data['to_date'];
+        $totalDays = (float) $data['total_days'];
 
         $leaveType = LeaveType::findOrFail($leaveTypeId);
 
@@ -44,7 +44,7 @@ class LeaveService
 
             // Check leave balance with row lock to prevent concurrent over-allocation
             if ($leaveType->is_paid) {
-                $year    = (int) substr($from, 0, 4);
+                $year = (int) substr($from, 0, 4);
                 $balance = LeaveBalance::query()
                     ->where('driver_id', $driverId)
                     ->where('leave_type_id', $leaveTypeId)
@@ -76,7 +76,7 @@ class LeaveService
 
             $request = LeaveRequest::create([
                 ...$data,
-                'status'     => 'pending',
+                'status' => 'pending',
                 'created_by' => $actor->id,
             ]);
 
@@ -113,7 +113,7 @@ class LeaveService
             }
 
             $locked->update([
-                'status'      => 'approved',
+                'status' => 'approved',
                 'approved_by' => $actor->id,
                 'approved_at' => now(),
             ]);
@@ -163,7 +163,7 @@ class LeaveService
 
         $before = $request->toArray();
         $request->update([
-            'status'           => 'rejected',
+            'status' => 'rejected',
             'rejection_reason' => $reason,
         ]);
         $this->auditLog($actor, 'leave.rejected', $request->id, $before, $request->fresh()->toArray());
@@ -222,12 +222,12 @@ class LeaveService
     {
         try {
             AuditLog::create([
-                'user_id'    => $actor->id,
-                'action'     => $action,
+                'user_id' => $actor->id,
+                'action' => $action,
                 'table_name' => 'leave_requests',
-                'record_id'  => $recordId,
-                'old_data'   => $before,
-                'new_data'   => $after,
+                'record_id' => $recordId,
+                'old_data' => $before,
+                'new_data' => $after,
                 'ip_address' => request()->ip(),
             ]);
         } catch (\Throwable) {

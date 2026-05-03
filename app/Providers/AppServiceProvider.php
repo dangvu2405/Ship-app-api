@@ -20,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->scoped(TenantContext::class, static fn(): TenantContext => new TenantContext);
+        $this->app->scoped(TenantContext::class, static fn (): TenantContext => new TenantContext);
     }
 
     /**
@@ -30,7 +30,8 @@ class AppServiceProvider extends ServiceProvider
     {
         ResetPassword::createUrlUsing(function (mixed $notifiable, string $token): string {
             $frontend = rtrim((string) config('app.frontend_url', config('app.url')), '/');
-            return $frontend . '/reset-password?token=' . $token . '&email=' . urlencode($notifiable->getEmailForPasswordReset());
+
+            return $frontend.'/reset-password?token='.$token.'&email='.urlencode($notifiable->getEmailForPasswordReset());
         });
 
         Trip::observe(TripObserver::class);

@@ -23,7 +23,7 @@ final class UploadController extends BaseController
         try {
             /** @var \Illuminate\Http\UploadedFile $file */
             $file = $request->file('file');
-            
+
             $result = $this->uploadService->uploadImage($file, 'ship_app_uploads');
 
             return $this->successResponse(

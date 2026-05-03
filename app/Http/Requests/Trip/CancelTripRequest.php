@@ -19,7 +19,7 @@ class CancelTripRequest extends AppFormRequest
     {
         return [
             'reason.string' => __('api.validation.string'),
-            'reason.max'    => __('api.validation.max.string'),
+            'reason.max' => __('api.validation.max.string'),
         ];
     }
 

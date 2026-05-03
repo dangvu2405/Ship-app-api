@@ -26,18 +26,19 @@ use Throwable;
 class EmbeddingService
 {
     private readonly string $baseUrl;
+
     private readonly string $model;
 
     public function __construct()
     {
         $this->baseUrl = rtrim((string) config('services.ollama.url', 'http://localhost:11434'), '/');
-        $this->model   = (string) config('services.ollama.model', 'bge-m3');
+        $this->model = (string) config('services.ollama.model', 'bge-m3');
     }
 
     /**
      * Embed a single piece of text.
      *
-     * @return float[]|null  1024-dim vector, or NULL on failure
+     * @return float[]|null 1024-dim vector, or NULL on failure
      */
     public function embed(string $text): ?array
     {
@@ -48,7 +49,7 @@ class EmbeddingService
         try {
             $response = Http::timeout(30)
                 ->post("{$this->baseUrl}/api/embeddings", [
-                    'model'  => $this->model,
+                    'model' => $this->model,
                     'prompt' => $text,
                 ]);
 
@@ -75,7 +76,7 @@ class EmbeddingService
      * Embed multiple texts.  Ollama has no native batch endpoint, so we
      * send requests sequentially (acceptable for indexing jobs).
      *
-     * @param  string[] $texts
+     * @param  string[]  $texts
      * @return array<int, float[]|null>
      */
     public function embedBatch(array $texts): array
@@ -86,18 +87,18 @@ class EmbeddingService
     /**
      * Cosine similarity between two equal-length vectors.
      *
-     * @param float[] $a
-     * @param float[] $b
+     * @param  float[]  $a
+     * @param  float[]  $b
      */
     public static function cosineSimilarity(array $a, array $b): float
     {
-        $dot  = 0.0;
+        $dot = 0.0;
         $normA = 0.0;
         $normB = 0.0;
 
         $len = min(count($a), count($b));
         for ($i = 0; $i < $len; $i++) {
-            $dot   += $a[$i] * $b[$i];
+            $dot += $a[$i] * $b[$i];
             $normA += $a[$i] * $a[$i];
             $normB += $b[$i] * $b[$i];
         }

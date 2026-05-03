@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -12,8 +11,8 @@ class AuditLogFactory extends Factory
 {
     public function definition(): array
     {
-        $tables = ['users', 'drivers', 'trips', 'vehicles', 'customers', 'invoices', 'reconciliation_sessions'];
-        
+        $tables = ['users', 'employees', 'trips', 'vehicles', 'customers', 'invoices', 'payrolls'];
+
         return [
             'user_id' => null,
             'action' => fake()->randomElement(['create', 'update', 'delete']),

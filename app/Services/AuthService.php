@@ -9,18 +9,17 @@ use App\Models\AuditLog;
 use App\Models\LoginLog;
 use App\Models\RefreshToken;
 use App\Models\User;
-use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 class AuthService
 {
@@ -76,9 +75,9 @@ class AuthService
         $this->eagerLoadRolesForAuthResponse($user);
 
         return [
-            'user'         => $user,
-            'tenants'      => $user->resolveTenants(),
-            'token'        => $tokenPair['token'],
+            'user' => $user,
+            'tenants' => $user->resolveTenants(),
+            'token' => $tokenPair['token'],
             'refreshToken' => $tokenPair['refreshToken'],
         ];
     }
@@ -150,9 +149,9 @@ class AuthService
         $this->eagerLoadRolesForAuthResponse($user);
 
         return [
-            'user'         => $user,
-            'tenants'      => $user->resolveTenants(),
-            'token'        => $tokenPair['token'],
+            'user' => $user,
+            'tenants' => $user->resolveTenants(),
+            'token' => $tokenPair['token'],
             'refreshToken' => $tokenPair['refreshToken'],
         ];
     }
@@ -324,7 +323,7 @@ class AuthService
     }
 
     /**
-     * @param array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return array<int, array<string, mixed>>
      */
     public function actions(User $user, array $filters = []): array
@@ -463,6 +462,7 @@ class AuthService
         $user = User::query()->where('email', $email)->first();
         if (! $user) {
             Cache::put($throttleKey, true, now()->addSeconds(60));
+
             return;
         }
 
@@ -480,7 +480,7 @@ class AuthService
     }
 
     /**
-     * @param array{email: string, otp: string} $payload
+     * @param  array{email: string, otp: string}  $payload
      * @return array{otp_token: string}
      */
     public function checkPasswordResetOtp(array $payload): array
@@ -500,7 +500,7 @@ class AuthService
     }
 
     /**
-     * @param array{email: string, password: string, password_confirmation: string, otp_token: string} $payload
+     * @param  array{email: string, password: string, password_confirmation: string, otp_token: string}  $payload
      */
     public function resetPassword(array $payload): void
     {
@@ -694,7 +694,7 @@ class AuthService
     }
 
     /**
-     * @param array{provider_id: string, email?: string, username?: string, avatar_url?: string, email_verified?: bool} $profile
+     * @param  array{provider_id: string, email?: string, username?: string, avatar_url?: string, email_verified?: bool}  $profile
      */
     private function createUserFromSocialProfile(string $provider, array $profile): User
     {
@@ -762,7 +762,7 @@ class AuthService
                 throw new AuthenticationException('Unable to fetch Apple public keys');
             }
             $payload = $response->json();
-            $keys    = is_array($payload['keys'] ?? null) ? $payload['keys'] : [];
+            $keys = is_array($payload['keys'] ?? null) ? $payload['keys'] : [];
             Cache::put('apple:oauth:public_keys', $keys, now()->addHour());
         }
 

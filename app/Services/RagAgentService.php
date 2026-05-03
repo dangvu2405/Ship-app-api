@@ -38,7 +38,7 @@ class RagAgentService
 
     public function __construct(
         private readonly RetrievalService $retriever,
-        private readonly SqlAgentService  $sqlAgent,
+        private readonly SqlAgentService $sqlAgent,
     ) {
         $this->toolDefinitions = $this->buildToolDefinitions();
     }
@@ -50,23 +50,23 @@ class RagAgentService
      */
     public function ask(string $userQuery, ?int $companyId = null, int $maxIterations = 5): array
     {
-        $apiKey  = (string) config('services.groq.api_key');
+        $apiKey = (string) config('services.groq.api_key');
         $baseUrl = rtrim((string) config('services.groq.base_url', 'https://api.groq.com/openai/v1'), '/');
 
         if ($apiKey === '' || ! str_contains($baseUrl, 'groq.com')) {
             return [
                 'answer' => 'Agent không khả dụng (thiếu GROQ_API_KEY).',
-                'trace'  => [],
+                'trace' => [],
             ];
         }
 
         $messages = [
             [
-                'role'    => 'system',
+                'role' => 'system',
                 'content' => $this->buildSystemPrompt(),
             ],
             [
-                'role'    => 'user',
+                'role' => 'user',
                 'content' => $userQuery,
             ],
         ];
@@ -78,12 +78,12 @@ class RagAgentService
                 $response = Http::timeout(30)
                     ->withToken($apiKey)
                     ->post("{$baseUrl}/chat/completions", [
-                        'model'       => self::AGENT_MODEL,
-                        'messages'    => $messages,
-                        'tools'       => $this->toolDefinitions,
+                        'model' => self::AGENT_MODEL,
+                        'messages' => $messages,
+                        'tools' => $this->toolDefinitions,
                         'tool_choice' => 'auto',
                         'temperature' => 0.1,
-                        'max_tokens'  => 1024,
+                        'max_tokens' => 1024,
                     ]);
 
                 if ($response->failed()) {
@@ -91,14 +91,14 @@ class RagAgentService
 
                     return [
                         'answer' => 'Lỗi kết nối đến AI agent.',
-                        'trace'  => $trace,
+                        'trace' => $trace,
                     ];
                 }
 
                 /** @var array<string, mixed> $decoded */
                 $decoded = $response->json() ?? [];
                 /** @var array<string, mixed> $message */
-                $message  = $decoded['choices'][0]['message'] ?? [];
+                $message = $decoded['choices'][0]['message'] ?? [];
                 $messages[] = $message;
 
                 // No tool call → final answer
@@ -111,24 +111,24 @@ class RagAgentService
                 // Execute each tool call
                 foreach ((array) $message['tool_calls'] as $toolCall) {
                     /** @var array<string, mixed> $toolCall */
-                    $name   = (string) ($toolCall['function']['name'] ?? '');
+                    $name = (string) ($toolCall['function']['name'] ?? '');
                     $rawArgs = (string) ($toolCall['function']['arguments'] ?? '{}');
                     /** @var array<string, mixed> $args */
-                    $args   = json_decode($rawArgs, true) ?? [];
+                    $args = json_decode($rawArgs, true) ?? [];
                     $callId = (string) ($toolCall['id'] ?? '');
 
                     $result = $this->dispatchTool($name, $args, $companyId);
 
                     $trace[] = [
-                        'tool'   => $name,
-                        'args'   => $args,
+                        'tool' => $name,
+                        'args' => $args,
                         'result' => $result,
                     ];
 
                     $messages[] = [
-                        'role'         => 'tool',
+                        'role' => 'tool',
                         'tool_call_id' => $callId,
-                        'content'      => $result,
+                        'content' => $result,
                     ];
                 }
             } catch (Throwable $e) {
@@ -136,14 +136,14 @@ class RagAgentService
 
                 return [
                     'answer' => 'Đã xảy ra lỗi khi xử lý câu hỏi.',
-                    'trace'  => $trace,
+                    'trace' => $trace,
                 ];
             }
         }
 
         return [
             'answer' => 'Đã đạt giới hạn vòng lặp của agent, không thể tổng hợp câu trả lời.',
-            'trace'  => $trace,
+            'trace' => $trace,
         ];
     }
 
@@ -157,7 +157,7 @@ class RagAgentService
                 $companyId,
                 isset($args['source_table']) ? (string) $args['source_table'] : null,
             ),
-            'query_database'  => $this->sqlAgent->answer(
+            'query_database' => $this->sqlAgent->answer(
                 (string) ($args['question'] ?? ''),
                 $companyId,
             ),
@@ -214,46 +214,46 @@ class RagAgentService
     {
         return [
             [
-                'type'     => 'function',
+                'type' => 'function',
                 'function' => [
-                    'name'        => 'search_semantic',
+                    'name' => 'search_semantic',
                     'description' => 'Tìm kiếm ngữ nghĩa trong dữ liệu mô tả (chuyến xe, tài xế, vi phạm). '
-                        . 'Dùng cho câu hỏi định tính như "tài xế nào thường xuyên vi phạm", '
-                        . '"chuyến nào có sự cố", "tài xế nào được đánh giá cao". '
-                        . 'Không dùng cho câu hỏi số liệu chính xác.',
-                    'parameters'  => [
-                        'type'       => 'object',
+                        .'Dùng cho câu hỏi định tính như "tài xế nào thường xuyên vi phạm", '
+                        .'"chuyến nào có sự cố", "tài xế nào được đánh giá cao". '
+                        .'Không dùng cho câu hỏi số liệu chính xác.',
+                    'parameters' => [
+                        'type' => 'object',
                         'properties' => [
                             'query' => [
-                                'type'        => 'string',
+                                'type' => 'string',
                                 'description' => 'Câu truy vấn bằng tiếng Việt tự nhiên',
                             ],
                             'source_table' => [
-                                'type'        => 'string',
+                                'type' => 'string',
                                 'description' => 'Lọc theo bảng: drivers | trips | violations | payroll_lines (tùy chọn)',
                             ],
                         ],
-                        'required'   => ['query'],
+                        'required' => ['query'],
                     ],
                 ],
             ],
             [
-                'type'     => 'function',
+                'type' => 'function',
                 'function' => [
-                    'name'        => 'query_database',
+                    'name' => 'query_database',
                     'description' => 'Truy vấn database để lấy số liệu chính xác. '
-                        . 'Dùng cho câu hỏi định lượng như "tổng doanh thu tháng X", '
-                        . '"có bao nhiêu chuyến", "lương trung bình", "top N tài xế". '
-                        . 'Input là câu hỏi tiếng Việt — hệ thống sẽ tự sinh SQL.',
-                    'parameters'  => [
-                        'type'       => 'object',
+                        .'Dùng cho câu hỏi định lượng như "tổng doanh thu tháng X", '
+                        .'"có bao nhiêu chuyến", "lương trung bình", "top N tài xế". '
+                        .'Input là câu hỏi tiếng Việt — hệ thống sẽ tự sinh SQL.',
+                    'parameters' => [
+                        'type' => 'object',
                         'properties' => [
                             'question' => [
-                                'type'        => 'string',
+                                'type' => 'string',
                                 'description' => 'Câu hỏi định lượng bằng tiếng Việt',
                             ],
                         ],
-                        'required'   => ['question'],
+                        'required' => ['question'],
                     ],
                 ],
             ],

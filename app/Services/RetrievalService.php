@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\RagIndex;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Hybrid retrieval over rag_index:
@@ -24,7 +23,7 @@ class RetrievalService
     ) {}
 
     /**
-     * @param  array<string, mixed> $filters  e.g. ['company_id' => 1, 'source_table' => 'trips']
+     * @param  array<string, mixed>  $filters  e.g. ['company_id' => 1, 'source_table' => 'trips']
      * @return list<array{source: string, content: string, metadata: array, score: float}>
      */
     public function hybridSearch(string $query, array $filters = [], int $topK = 8): array
@@ -37,7 +36,7 @@ class RetrievalService
         $queryEmbedding = $this->embedder->embed($query);
 
         $keywordResults = $this->keywordSearch($query, $filters);
-        $vectorResults  = $queryEmbedding !== null
+        $vectorResults = $queryEmbedding !== null
             ? $this->vectorRerank($keywordResults, $queryEmbedding)
             : [];
 
@@ -49,7 +48,7 @@ class RetrievalService
     /**
      * MySQL FULLTEXT search (+ LIKE fallback for short queries).
      *
-     * @param  array<string, mixed> $filters
+     * @param  array<string, mixed>  $filters
      * @return list<array{id: int, content: string, metadata: array, source_table: string, source_id: int, score: float}>
      */
     private function keywordSearch(string $query, array $filters): array
@@ -76,12 +75,12 @@ class RetrievalService
 
                 if ($rows->isNotEmpty()) {
                     return $rows->map(fn ($r) => [
-                        'id'           => (int) $r->id,
+                        'id' => (int) $r->id,
                         'source_table' => $r->source_table,
-                        'source_id'    => (int) $r->source_id,
-                        'content'      => $r->content,
-                        'metadata'     => is_array($r->metadata) ? $r->metadata : (json_decode((string) $r->metadata, true) ?? []),
-                        'score'        => (float) ($r->ft_score ?? 0),
+                        'source_id' => (int) $r->source_id,
+                        'content' => $r->content,
+                        'metadata' => is_array($r->metadata) ? $r->metadata : (json_decode((string) $r->metadata, true) ?? []),
+                        'score' => (float) ($r->ft_score ?? 0),
                     ])->values()->all();
                 }
             }
@@ -106,20 +105,20 @@ class RetrievalService
         })->limit(self::CANDIDATE_LIMIT)->get(['id', 'source_table', 'source_id', 'content', 'metadata']);
 
         return $likeBase->map(fn ($r) => [
-            'id'           => (int) $r->id,
+            'id' => (int) $r->id,
             'source_table' => $r->source_table,
-            'source_id'    => (int) $r->source_id,
-            'content'      => $r->content,
-            'metadata'     => is_array($r->metadata) ? $r->metadata : (json_decode((string) $r->metadata, true) ?? []),
-            'score'        => 0.1,   // flat score for LIKE matches
+            'source_id' => (int) $r->source_id,
+            'content' => $r->content,
+            'metadata' => is_array($r->metadata) ? $r->metadata : (json_decode((string) $r->metadata, true) ?? []),
+            'score' => 0.1,   // flat score for LIKE matches
         ])->values()->all();
     }
 
     /**
      * Re-rank keyword candidates by cosine similarity to the query embedding.
      *
-     * @param  list<array{id: int, ...}> $candidates
-     * @param  float[]                   $queryEmbedding
+     * @param  list<array{id: int, ...}>  $candidates
+     * @param  float[]  $queryEmbedding
      * @return list<array{id: int, content: string, metadata: array, source_table: string, source_id: int, score: float}>
      */
     private function vectorRerank(array $candidates, array $queryEmbedding): array
@@ -151,7 +150,7 @@ class RetrievalService
             }
 
             $similarity = EmbeddingService::cosineSimilarity($queryEmbedding, $storedEmb);
-            $ranked[]   = array_merge($candidate, ['score' => $similarity]);
+            $ranked[] = array_merge($candidate, ['score' => $similarity]);
         }
 
         usort($ranked, fn ($a, $b) => $b['score'] <=> $a['score']);
@@ -162,41 +161,41 @@ class RetrievalService
     /**
      * Reciprocal Rank Fusion — merges two ranked lists into one.
      *
-     * @param list<array{id: int, ...}> $listA  keyword results
-     * @param list<array{id: int, ...}> $listB  vector results (may be empty)
+     * @param  list<array{id: int, ...}>  $listA  keyword results
+     * @param  list<array{id: int, ...}>  $listB  vector results (may be empty)
      * @return list<array{source: string, content: string, metadata: array, score: float}>
      */
     private function rrfMerge(array $listA, array $listB, int $topK): array
     {
-        $k      = 60;  // standard RRF constant
+        $k = 60;  // standard RRF constant
         $scores = [];
-        $byId   = [];
+        $byId = [];
 
         foreach ($listA as $rank => $item) {
-            $id            = $item['id'];
-            $scores[$id]   = ($scores[$id] ?? 0.0) + 1.0 / ($k + $rank + 1);
-            $byId[$id]     = $item;
+            $id = $item['id'];
+            $scores[$id] = ($scores[$id] ?? 0.0) + 1.0 / ($k + $rank + 1);
+            $byId[$id] = $item;
         }
         foreach ($listB as $rank => $item) {
-            $id            = $item['id'];
-            $scores[$id]   = ($scores[$id] ?? 0.0) + 1.0 / ($k + $rank + 1);
-            $byId[$id]     = $item;
+            $id = $item['id'];
+            $scores[$id] = ($scores[$id] ?? 0.0) + 1.0 / ($k + $rank + 1);
+            $byId[$id] = $item;
         }
 
         arsort($scores);
 
         $result = [];
-        $count  = 0;
+        $count = 0;
         foreach ($scores as $id => $score) {
             if ($count >= $topK) {
                 break;
             }
             $item = $byId[$id];
             $result[] = [
-                'source'   => "{$item['source_table']}#{$item['source_id']}",
-                'content'  => $item['content'],
+                'source' => "{$item['source_table']}#{$item['source_id']}",
+                'content' => $item['content'],
                 'metadata' => $item['metadata'],
-                'score'    => round($score, 6),
+                'score' => round($score, 6),
             ];
             $count++;
         }

@@ -21,7 +21,7 @@ class UpdateInvoiceRequest extends FormRequest
         $id = $this->route('invoice');
 
         return [
-            'code' => 'sometimes|string|max:50|unique:invoices,code,' . $id,
+            'code' => 'sometimes|string|max:50|unique:invoices,code,'.$id,
             'trip_id' => 'nullable|exists:trips,id',
             'customer_id' => 'sometimes|exists:customers,id',
             'subtotal' => 'sometimes|numeric|min:0',

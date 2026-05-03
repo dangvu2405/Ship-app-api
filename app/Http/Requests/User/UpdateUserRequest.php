@@ -14,14 +14,14 @@ class UpdateUserRequest extends AppFormRequest
         $id = $this->route('user');
 
         return [
-            'username'                => 'sometimes|string|max:255|unique:users,username,' . $id,
-            'email'                   => 'sometimes|email|max:255|unique:users,email,' . $id,
-            'avatar_url'              => 'nullable|url|max:255',
-            'password'                => ['sometimes', 'string', Password::min(8)->mixedCase()->numbers()],
-            'status'                  => 'sometimes|in:active,inactive',
-            'emergency_contact_name'  => 'nullable|string|max:255',
+            'username' => 'sometimes|string|max:255|unique:users,username,'.$id,
+            'email' => 'sometimes|email|max:255|unique:users,email,'.$id,
+            'avatar_url' => 'nullable|url|max:255',
+            'password' => ['sometimes', 'string', Password::min(8)->mixedCase()->numbers()],
+            'status' => 'sometimes|in:active,inactive',
+            'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_phone' => 'nullable|string|max:20|regex:/^0[0-9]{9,10}$/',
-            'residential_address'     => 'nullable|string|max:500',
+            'residential_address' => 'nullable|string|max:500',
         ];
     }
 

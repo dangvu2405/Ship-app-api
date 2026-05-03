@@ -19,7 +19,7 @@ class LoginRequest extends AppFormRequest
     public function rules(): array
     {
         return [
-            'email'    => ['required', 'string', 'email', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'max:255'],
         ];
     }
@@ -27,18 +27,18 @@ class LoginRequest extends AppFormRequest
     public function messages(): array
     {
         return [
-            'email.required'    => __('api.validation.required'),
-            'email.email'       => __('api.validation.email'),
-            'email.max'         => __('api.validation.max.string'),
+            'email.required' => __('api.validation.required'),
+            'email.email' => __('api.validation.email'),
+            'email.max' => __('api.validation.max.string'),
             'password.required' => __('api.validation.required'),
-            'password.max'      => __('api.validation.max.string'),
+            'password.max' => __('api.validation.max.string'),
         ];
     }
 
     public function attributes(): array
     {
         return [
-            'email'    => __('api.attributes.email'),
+            'email' => __('api.attributes.email'),
             'password' => __('api.attributes.password'),
         ];
     }

@@ -26,11 +26,13 @@ class VehicleController extends BaseController
      *     path="/api/vehicles",
      *     tags={"Vehicles"},
      *     summary="Danh sách phương tiện",
+     *
      *     @OA\Parameter(name="search", in="query", description="Tìm theo plate_number, brand, model", @OA\Schema(type="string")),
      *     @OA\Parameter(name="office_id", in="query", description="Lọc theo văn phòng", @OA\Schema(type="integer")),
      *     @OA\Parameter(name="status", in="query", description="Lọc theo trạng thái", @OA\Schema(type="string")),
      *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
      *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -50,10 +52,13 @@ class VehicleController extends BaseController
      *     path="/api/vehicles",
      *     tags={"Vehicles"},
      *     summary="Tạo phương tiện mới",
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"plate_number","office_id"},
+     *
      *             @OA\Property(property="plate_number", type="string", example="51A-12345"),
      *             @OA\Property(property="office_id", type="integer", example=1),
      *             @OA\Property(property="type", type="string", example="truck"),
@@ -64,6 +69,7 @@ class VehicleController extends BaseController
      *             @OA\Property(property="status", type="string", enum={"active","maintenance","inactive"})
      *         )
      *     ),
+     *
      *     @OA\Response(response=201, description="Tạo thành công"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
@@ -80,7 +86,9 @@ class VehicleController extends BaseController
      *     path="/api/vehicles/{id}",
      *     tags={"Vehicles"},
      *     summary="Chi tiết phương tiện",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )
@@ -100,10 +108,14 @@ class VehicleController extends BaseController
      *     path="/api/vehicles/{id}",
      *     tags={"Vehicles"},
      *     summary="Cập nhật phương tiện",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
+     *
      *             @OA\Property(property="plate_number", type="string"),
      *             @OA\Property(property="office_id", type="integer"),
      *             @OA\Property(property="type", type="string"),
@@ -114,6 +126,7 @@ class VehicleController extends BaseController
      *             @OA\Property(property="status", type="string")
      *         )
      *     ),
+     *
      *     @OA\Response(response=200, description="Cập nhật thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Validation lỗi")
@@ -130,49 +143,14 @@ class VehicleController extends BaseController
         return $this->successResponse($model->fresh('office'), 'Vehicle updated successfully');
     }
 
-    public function available(Request $request): JsonResponse
-    {
-        $query = Vehicle::query()->where('status', 'active');
-        if ($request->filled('office_id')) {
-            $query->where('office_id', $request->integer('office_id'));
-        }
-        $rows = $query->orderBy('plate_number')->limit(100)->get(['id', 'plate_number', 'office_id', 'company_id', 'status', 'type']);
-
-        return $this->successResponse($rows, 'OK');
-    }
-
-    public function releaseAssignments(Request $request, string $vehicle): JsonResponse
-    {
-        $model = Vehicle::find($vehicle);
-        if (! $model) {
-            return $this->notFoundResponse('Vehicle not found');
-        }
-        $request->validate([
-            'reason' => ['nullable', 'string', 'max:500'],
-        ]);
-        $assignment = VehicleAssignment::query()
-            ->where('vehicle_id', $vehicle)
-            ->where(static function ($q): void {
-                $q->whereNull('to_date')->orWhereDate('to_date', '>=', now()->toDateString());
-            })
-            ->orderByDesc('from_date')
-            ->first();
-        if ($assignment === null) {
-            return $this->errorResponse('No active assignment for this vehicle', 422);
-        }
-        $assignment->update([
-            'to_date' => now()->toDateString(),
-        ]);
-
-        return $this->successResponse($assignment->fresh(['vehicle', 'driver']), 'OK');
-    }
-
     /**
      * @OA\Delete(
      *     path="/api/vehicles/{id}",
      *     tags={"Vehicles"},
      *     summary="Xóa phương tiện",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Xóa thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Không thể xóa do đang được gán")

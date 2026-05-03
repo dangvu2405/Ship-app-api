@@ -11,7 +11,9 @@ use Illuminate\Support\Facades\Schema;
 final class ChatRagService
 {
     private const MAX_DOCS = 3;
+
     private const SNIPPET_CHARS = 500;
+
     private static ?bool $hasTenantPriorityColumn = null;
 
     /**
@@ -103,7 +105,7 @@ final class ChatRagService
         $dbQuery->where(function ($q) use ($keywords): void {
             foreach ($keywords as $word) {
                 $q->orWhere('title', 'LIKE', '%'.$word.'%')
-                  ->orWhere('content', 'LIKE', '%'.$word.'%');
+                    ->orWhere('content', 'LIKE', '%'.$word.'%');
             }
         });
 
@@ -135,7 +137,7 @@ final class ChatRagService
     }
 
     /**
-     * @param Collection<int, KnowledgeArticle> $articles
+     * @param  Collection<int, KnowledgeArticle>  $articles
      * @return list<array{title: string, snippet: string, category: string}>
      */
     private function formatDocs(Collection $articles): array
@@ -147,8 +149,8 @@ final class ChatRagService
                 : $content;
 
             return [
-                'title'    => $article->title,
-                'snippet'  => $snippet,
+                'title' => $article->title,
+                'snippet' => $snippet,
                 'category' => $article->category,
             ];
         })->values()->all();

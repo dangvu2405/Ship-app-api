@@ -24,23 +24,23 @@ return new class extends Migration
             return;
         }
 
-        $this->safeStatement("
+        $this->safeStatement('
             ALTER TABLE `trips`
             ADD CONSTRAINT `chk_trips_time`
                 CHECK (end_time IS NULL OR start_time IS NULL OR end_time >= start_time)
-        ");
+        ');
 
-        $this->safeStatement("
+        $this->safeStatement('
             ALTER TABLE `driver_work_schedules`
             ADD CONSTRAINT `chk_dws_time`
                 CHECK (end_time > start_time)
-        ");
+        ');
 
-        $this->safeStatement("
+        $this->safeStatement('
             ALTER TABLE `payroll_adjustments`
             ADD CONSTRAINT `chk_pa_amount_positive`
                 CHECK (amount > 0)
-        ");
+        ');
     }
 
     public function down(): void
@@ -63,7 +63,7 @@ return new class extends Migration
         try {
             DB::statement($sql);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('[time_checks] Skipped: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning('[time_checks] Skipped: '.$e->getMessage());
         }
     }
 };

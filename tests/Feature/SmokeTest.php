@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 final class SmokeTest extends TestCase
 {
-    public function testFeatureSuitePlaceholder(): void
+    public function test_feature_suite_placeholder(): void
     {
         $this->assertTrue(true);
     }

@@ -12,7 +12,7 @@ class ReportCacheFactory extends Factory
     public function definition(): array
     {
         $types = ['revenue', 'expense', 'trip', 'vehicle', 'driver', 'debt', 'maintenance'];
-        
+
         return [
             'type' => fake()->randomElement($types),
             'month' => fake()->optional(0.8)->numberBetween(1, 12),

@@ -26,10 +26,12 @@ class CompanyController extends BaseController
      *     path="/api/companies",
      *     tags={"Companies"},
      *     summary="Danh sách công ty",
+     *
      *     @OA\Parameter(name="search", in="query", description="Tìm theo code, name", @OA\Schema(type="string")),
      *     @OA\Parameter(name="status", in="query", description="Lọc theo status", @OA\Schema(type="string")),
      *     @OA\Parameter(name="sort", in="query", description="Sắp xếp (vd: name,-created_at)", @OA\Schema(type="string")),
      *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -46,10 +48,13 @@ class CompanyController extends BaseController
      *     path="/api/companies",
      *     tags={"Companies"},
      *     summary="Tạo công ty mới",
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"code","name"},
+     *
      *             @OA\Property(property="code", type="string", example="COMP001"),
      *             @OA\Property(property="name", type="string", example="Công ty ABC"),
      *             @OA\Property(property="address", type="string", example="123 Đường ABC"),
@@ -59,6 +64,7 @@ class CompanyController extends BaseController
      *             @OA\Property(property="status", type="string", enum={"active","inactive"}, example="active")
      *         )
      *     ),
+     *
      *     @OA\Response(response=201, description="Tạo thành công"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
@@ -75,7 +81,9 @@ class CompanyController extends BaseController
      *     path="/api/companies/{id}",
      *     tags={"Companies"},
      *     summary="Chi tiết công ty",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )
@@ -95,10 +103,14 @@ class CompanyController extends BaseController
      *     path="/api/companies/{id}",
      *     tags={"Companies"},
      *     summary="Cập nhật công ty",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
+     *
      *             @OA\Property(property="code", type="string"),
      *             @OA\Property(property="name", type="string"),
      *             @OA\Property(property="address", type="string"),
@@ -108,6 +120,7 @@ class CompanyController extends BaseController
      *             @OA\Property(property="status", type="string", enum={"active","inactive"})
      *         )
      *     ),
+     *
      *     @OA\Response(response=200, description="Cập nhật thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Validation lỗi")
@@ -129,7 +142,9 @@ class CompanyController extends BaseController
      *     path="/api/companies/{id}",
      *     tags={"Companies"},
      *     summary="Xóa công ty",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Xóa thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )

@@ -62,9 +62,9 @@ return new class extends Migration
 
         // FULLTEXT (MySQL only — SQLite/PgSQL không cần check)
         if ($isMysql) {
-            $this->safeStatement("ALTER TABLE `drivers` ADD FULLTEXT KEY `ft_drivers_search` (name, code, phone, email)");
-            $this->safeStatement("ALTER TABLE `vehicles` ADD FULLTEXT KEY `ft_vehicles_search` (plate_number, brand, model)");
-            $this->safeStatement("ALTER TABLE `customers` ADD FULLTEXT KEY `ft_customers_search` (name, phone, email, tax_code)");
+            $this->safeStatement('ALTER TABLE `drivers` ADD FULLTEXT KEY `ft_drivers_search` (name, code, phone, email)');
+            $this->safeStatement('ALTER TABLE `vehicles` ADD FULLTEXT KEY `ft_vehicles_search` (plate_number, brand, model)');
+            $this->safeStatement('ALTER TABLE `customers` ADD FULLTEXT KEY `ft_customers_search` (name, phone, email, tax_code)');
         }
     }
 
@@ -79,25 +79,40 @@ return new class extends Migration
         }
 
         Schema::table('vehicle_expenses', function (Blueprint $table): void {
-            try { $table->dropIndex('idx_ve_company_date_type'); } catch (\Throwable) {}
+            try {
+                $table->dropIndex('idx_ve_company_date_type');
+            } catch (\Throwable) {
+            }
         });
 
         if (Schema::hasTable('violations')) {
             Schema::table('violations', function (Blueprint $table): void {
-                try { $table->dropIndex('idx_viol_company_occurred'); } catch (\Throwable) {}
+                try {
+                    $table->dropIndex('idx_viol_company_occurred');
+                } catch (\Throwable) {
+                }
             });
         }
 
         Schema::table('audit_logs', function (Blueprint $table): void {
-            try { $table->dropIndex('idx_audit_company_created'); } catch (\Throwable) {}
+            try {
+                $table->dropIndex('idx_audit_company_created');
+            } catch (\Throwable) {
+            }
         });
 
         Schema::table('payroll_lines', function (Blueprint $table): void {
-            try { $table->dropIndex('idx_pl_company_driver'); } catch (\Throwable) {}
+            try {
+                $table->dropIndex('idx_pl_company_driver');
+            } catch (\Throwable) {
+            }
         });
 
         Schema::table('trips', function (Blueprint $table): void {
-            try { $table->dropIndex('idx_trips_company_start_time'); } catch (\Throwable) {}
+            try {
+                $table->dropIndex('idx_trips_company_start_time');
+            } catch (\Throwable) {
+            }
         });
     }
 
@@ -118,7 +133,7 @@ return new class extends Migration
         try {
             DB::statement($sql);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('[composite_indexes] Skipped: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning('[composite_indexes] Skipped: '.$e->getMessage());
         }
     }
 };

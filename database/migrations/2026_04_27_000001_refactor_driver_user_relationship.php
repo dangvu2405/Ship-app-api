@@ -114,10 +114,10 @@ return new class extends Migration
     {
         DB::statement('PRAGMA foreign_keys = OFF');
 
-        $tempTable = $table . '__drop__temp';
+        $tempTable = $table.'__drop__temp';
 
         // Build column definitions from PRAGMA (avoids fragile SQL text parsing).
-        $masterSql   = DB::selectOne("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", [$table])->sql ?? '';
+        $masterSql = DB::selectOne("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", [$table])->sql ?? '';
         $isAutoincrement = (bool) preg_match('/\bautoincrement\b/i', $masterSql);
 
         $cols = collect(DB::select("PRAGMA table_info(\"{$table}\")"))->reject(fn ($c) => $c->name === $column);
@@ -125,22 +125,24 @@ return new class extends Migration
         $pkCols = $cols->where('pk', '>', 0);
 
         $colDefs = $cols->map(function ($c) use ($pkCols, $isAutoincrement) {
-            $def = '"' . $c->name . '" ' . $c->type;
+            $def = '"'.$c->name.'" '.$c->type;
             if ($c->pk > 0 && $pkCols->count() === 1) {
-                $def .= ' primary key' . ($isAutoincrement ? ' autoincrement' : '');
+                $def .= ' primary key'.($isAutoincrement ? ' autoincrement' : '');
+
                 return $def;
             }
             if ($c->notnull) {
                 $def .= ' not null';
             }
             if ($c->dflt_value !== null) {
-                $def .= ' default ' . $c->dflt_value;
+                $def .= ' default '.$c->dflt_value;
             }
+
             return $def;
         });
 
         if ($pkCols->count() > 1) {
-            $pkList = $pkCols->sortBy('pk')->map(fn ($c) => '"' . $c->name . '"')->implode(', ');
+            $pkList = $pkCols->sortBy('pk')->map(fn ($c) => '"'.$c->name.'"')->implode(', ');
             $colDefs->push("primary key ({$pkList})");
         }
 
@@ -148,24 +150,25 @@ return new class extends Migration
         $fkDefs = collect(DB::select("PRAGMA foreign_key_list(\"{$table}\")"))->reject(fn ($r) => $r->from === $column)
             ->groupBy('id')
             ->map(function ($rows) {
-                $rows  = $rows->sortBy('seq');
-                $from  = $rows->pluck('from')->map(fn ($c) => '"' . $c . '"')->implode(', ');
-                $to    = $rows->pluck('to')->map(fn ($c) => '"' . $c . '"')->implode(', ');
-                $ref   = $rows->first()->table;
-                $del   = strtolower($rows->first()->on_delete);
-                $upd   = strtolower($rows->first()->on_update);
-                $sql   = "foreign key ({$from}) references \"{$ref}\" ({$to})";
+                $rows = $rows->sortBy('seq');
+                $from = $rows->pluck('from')->map(fn ($c) => '"'.$c.'"')->implode(', ');
+                $to = $rows->pluck('to')->map(fn ($c) => '"'.$c.'"')->implode(', ');
+                $ref = $rows->first()->table;
+                $del = strtolower($rows->first()->on_delete);
+                $upd = strtolower($rows->first()->on_update);
+                $sql = "foreign key ({$from}) references \"{$ref}\" ({$to})";
                 if ($del !== 'no action') {
                     $sql .= " on delete {$del}";
                 }
                 if ($upd !== 'no action') {
                     $sql .= " on update {$upd}";
                 }
+
                 return $sql;
             });
 
-        $createSql = 'create table "' . $tempTable . '" (' . $colDefs->merge($fkDefs)->implode(', ') . ')';
-        $keepCols  = $cols->pluck('name')->map(fn ($c) => '"' . $c . '"')->implode(', ');
+        $createSql = 'create table "'.$tempTable.'" ('.$colDefs->merge($fkDefs)->implode(', ').')';
+        $keepCols = $cols->pluck('name')->map(fn ($c) => '"'.$c.'"')->implode(', ');
 
         DB::statement($createSql);
         DB::statement("INSERT INTO \"{$tempTable}\" ({$keepCols}) SELECT {$keepCols} FROM \"{$table}\"");
@@ -174,7 +177,7 @@ return new class extends Migration
 
         // Recreate indexes that do not reference the dropped column.
         foreach (DB::select("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL", [$table]) as $idx) {
-            if (! preg_match('/"' . preg_quote($column, '/') . '"/', $idx->sql)) {
+            if (! preg_match('/"'.preg_quote($column, '/').'"/', $idx->sql)) {
                 DB::statement($idx->sql);
             }
         }

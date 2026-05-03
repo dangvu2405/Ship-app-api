@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Models\Driver;
 use App\Models\Company;
+use App\Models\Driver;
 use App\Models\Vehicle;
-use App\Models\VehicleAssignment;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**

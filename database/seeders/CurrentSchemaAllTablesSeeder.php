@@ -193,11 +193,13 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
 
             if (in_array($field, ['created_at', 'updated_at'], true)) {
                 $payload[$field] = now();
+
                 continue;
             }
 
             if ($field === 'deleted_at') {
                 $payload[$field] = null;
+
                 continue;
             }
 
@@ -374,7 +376,7 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     private function filterColumns(string $table, array $payload): array

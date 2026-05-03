@@ -4,6 +4,4 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-final class OrderStatusConfig extends CetaModel
-{
-}
+final class OrderStatusConfig extends CetaModel {}

@@ -8,8 +8,6 @@ use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
 use App\Http\Traits\HasIndexQuery;
 use App\Models\Customer;
-use App\Models\Invoice;
-use App\Models\Trip;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -27,10 +25,12 @@ class CustomerController extends BaseController
      *     path="/api/customers",
      *     tags={"Customers"},
      *     summary="Danh sách khách hàng",
+     *
      *     @OA\Parameter(name="search", in="query", description="Tìm theo name, tax_code, email", @OA\Schema(type="string")),
      *     @OA\Parameter(name="type", in="query", description="Lọc theo loại khách hàng", @OA\Schema(type="string")),
      *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
      *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
@@ -47,10 +47,13 @@ class CustomerController extends BaseController
      *     path="/api/customers",
      *     tags={"Customers"},
      *     summary="Tạo khách hàng mới",
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
      *             required={"name"},
+     *
      *             @OA\Property(property="name", type="string", example="Công ty XYZ"),
      *             @OA\Property(property="type", type="string", enum={"company","individual"}, example="company"),
      *             @OA\Property(property="tax_code", type="string"),
@@ -60,6 +63,7 @@ class CustomerController extends BaseController
      *             @OA\Property(property="contact_person", type="string")
      *         )
      *     ),
+     *
      *     @OA\Response(response=201, description="Tạo thành công"),
      *     @OA\Response(response=422, description="Validation lỗi")
      * )
@@ -76,7 +80,9 @@ class CustomerController extends BaseController
      *     path="/api/customers/{id}",
      *     tags={"Customers"},
      *     summary="Chi tiết khách hàng",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )
@@ -96,10 +102,14 @@ class CustomerController extends BaseController
      *     path="/api/customers/{id}",
      *     tags={"Customers"},
      *     summary="Cập nhật khách hàng",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\RequestBody(
      *         required=true,
+     *
      *         @OA\JsonContent(
+     *
      *             @OA\Property(property="name", type="string"),
      *             @OA\Property(property="type", type="string"),
      *             @OA\Property(property="tax_code", type="string"),
@@ -109,6 +119,7 @@ class CustomerController extends BaseController
      *             @OA\Property(property="contact_person", type="string")
      *         )
      *     ),
+     *
      *     @OA\Response(response=200, description="Cập nhật thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy"),
      *     @OA\Response(response=422, description="Validation lỗi")
@@ -125,61 +136,14 @@ class CustomerController extends BaseController
         return $this->successResponse($model->fresh(), 'Customer updated successfully');
     }
 
-    public function search(Request $request): JsonResponse
-    {
-        $q = trim((string) $request->query('q', ''));
-        $query = Customer::query();
-        if ($q !== '') {
-            $query->where(function ($x) use ($q): void {
-                $x->where('name', 'like', '%'.$q.'%')
-                    ->orWhere('tax_code', 'like', '%'.$q.'%')
-                    ->orWhere('email', 'like', '%'.$q.'%');
-            });
-        }
-        $rows = $query->limit(50)->get(['id', 'name', 'type', 'tax_code', 'email', 'phone']);
-
-        return $this->successResponse($rows, 'OK');
-    }
-
-    public function trips(Request $request, string $customer): JsonResponse
-    {
-        $model = Customer::find($customer);
-        if (! $model) {
-            return $this->notFoundResponse('Customer not found');
-        }
-        $perPage = min(100, max(1, (int) $request->query('per_page', 15)));
-        $paginator = Trip::query()
-            ->where('customer_id', $customer)
-            ->orderByDesc('created_at')
-            ->paginate($perPage);
-
-        return $this->successResponse($paginator, 'OK');
-    }
-
-    public function debt(string $customer): JsonResponse
-    {
-        $model = Customer::find($customer);
-        if (! $model) {
-            return $this->notFoundResponse('Customer not found');
-        }
-        $row = Invoice::query()
-            ->where('customer_id', $customer)
-            ->whereIn('status', ['draft', 'issued'])
-            ->selectRaw('COUNT(*) as cnt, COALESCE(SUM(total_amount),0) as total')
-            ->first();
-
-        return $this->successResponse([
-            'unpaid_invoices' => (int) ($row?->cnt ?? 0),
-            'unpaid_total' => (string) ($row?->total ?? '0.00'),
-        ], 'OK');
-    }
-
     /**
      * @OA\Delete(
      *     path="/api/customers/{id}",
      *     tags={"Customers"},
      *     summary="Xóa khách hàng",
+     *
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Xóa thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy")
      * )

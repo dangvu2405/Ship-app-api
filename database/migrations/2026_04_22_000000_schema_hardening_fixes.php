@@ -45,7 +45,7 @@ return new class extends Migration
         });
 
         // Đổi code UNIQUE global → UNIQUE per (company_id, code)
-        Schema::table('chart_of_accounts', function (Blueprint $table) use ($isMysql): void {
+        Schema::table('chart_of_accounts', function (Blueprint $table): void {
             // Xoá UNIQUE cũ trên code
             try {
                 $table->dropUnique(['code']);
@@ -105,24 +105,24 @@ return new class extends Migration
         if ($isMysql) {
             // MySQL 8.0.16+ hỗ trợ CHECK constraints
             // Nếu DB < 8.0.16 thì câu này sẽ bị ignore (MySQL behaviour)
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE invoices
                 ADD CONSTRAINT chk_invoice_amounts
                     CHECK (total_amount = subtotal + vat_amount)
-            ");
+            ');
 
             // CHECK vat_amount hợp lệ (chấp nhận sai lệch ±1 đơn vị nhỏ nhất do làm tròn)
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE invoices
                 ADD CONSTRAINT chk_invoice_vat
                     CHECK (ABS(vat_amount - ROUND(subtotal * vat_rate / 100, 2)) <= 0.01)
-            ");
+            ');
 
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE invoices
                 ADD CONSTRAINT chk_invoice_non_negative
                     CHECK (subtotal >= 0 AND vat_amount >= 0 AND total_amount >= 0)
-            ");
+            ');
         }
 
         // ====================================================================
@@ -172,62 +172,62 @@ return new class extends Migration
         // 🟠 TRUNG-4: journal_entry_lines — double-entry CHECK (debit XOR credit)
         // ====================================================================
         if ($isMysql) {
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE journal_entry_lines
                 ADD CONSTRAINT chk_jel_debit_credit
                     CHECK (NOT (debit > 0 AND credit > 0))
-            ");
+            ');
 
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE journal_entry_lines
                 ADD CONSTRAINT chk_jel_non_negative
                     CHECK (debit >= 0 AND credit >= 0)
-            ");
+            ');
         }
 
         // ====================================================================
         // 🟠 TRUNG-5: vehicle_assignments — CHECK to_date >= from_date
         // ====================================================================
         if ($isMysql) {
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE vehicle_assignments
                 ADD CONSTRAINT chk_va_dates
                     CHECK (to_date IS NULL OR to_date >= from_date)
-            ");
+            ');
         }
 
         // ====================================================================
         // 🟡 THẤP-1: leave_requests — CHECK to_date >= from_date
         // ====================================================================
         if ($isMysql && Schema::hasTable('leave_requests')) {
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE leave_requests
                 ADD CONSTRAINT chk_lr_dates
                     CHECK (to_date >= from_date)
-            ");
+            ');
 
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE leave_requests
                 ADD CONSTRAINT chk_lr_total_days
                     CHECK (total_days > 0)
-            ");
+            ');
         }
 
         // ====================================================================
         // 🟡 THẤP-2: leave_balances — CHECK tính hợp lệ số ngày
         // ====================================================================
         if ($isMysql && Schema::hasTable('leave_balances')) {
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE leave_balances
                 ADD CONSTRAINT chk_lb_non_negative
                     CHECK (entitled_days >= 0 AND used_days >= 0 AND carried_forward_days >= 0)
-            ");
+            ');
 
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE leave_balances
                 ADD CONSTRAINT chk_lb_used_not_exceed
                     CHECK (used_days <= entitled_days + carried_forward_days)
-            ");
+            ');
         }
 
         // ====================================================================
@@ -262,34 +262,34 @@ return new class extends Migration
         // 🟡 THẤP-4: overtime_requests — CHECK end_time > start_time
         // ====================================================================
         if ($isMysql) {
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE overtime_requests
                 ADD CONSTRAINT chk_ot_time
                     CHECK (end_time > start_time)
-            ");
+            ');
 
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE overtime_requests
                 ADD CONSTRAINT chk_ot_hours
                     CHECK (ot_hours > 0 AND ot_hours <= 24)
-            ");
+            ');
         }
 
         // ====================================================================
         // 🟡 THẤP-5: trip_bonus_rules — CHECK max_km > min_km
         // ====================================================================
         if ($isMysql) {
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE trip_bonus_rules
                 ADD CONSTRAINT chk_tbr_km
                     CHECK (max_km IS NULL OR max_km > min_km)
-            ");
+            ');
 
-            $this->safeDbStatement("
+            $this->safeDbStatement('
                 ALTER TABLE trip_bonus_rules
                 ADD CONSTRAINT chk_tbr_bonus
                     CHECK (bonus_per_km >= 0 AND min_km >= 0)
-            ");
+            ');
         }
 
         // ====================================================================
@@ -386,13 +386,13 @@ return new class extends Migration
 
         // ENUM reversals (MySQL)
         if ($isMysql) {
-            $this->safeDbStatement("ALTER TABLE invoice_status_histories MODIFY COLUMN `from_status` VARCHAR(30) NULL");
-            $this->safeDbStatement("ALTER TABLE invoice_status_histories MODIFY COLUMN `to_status` VARCHAR(30) NOT NULL");
-            $this->safeDbStatement("ALTER TABLE trip_status_histories MODIFY COLUMN `from_status` VARCHAR(30) NULL");
-            $this->safeDbStatement("ALTER TABLE trip_status_histories MODIFY COLUMN `to_status` VARCHAR(30) NOT NULL");
-            $this->safeDbStatement("ALTER TABLE violations MODIFY COLUMN `type` VARCHAR(50) NOT NULL");
+            $this->safeDbStatement('ALTER TABLE invoice_status_histories MODIFY COLUMN `from_status` VARCHAR(30) NULL');
+            $this->safeDbStatement('ALTER TABLE invoice_status_histories MODIFY COLUMN `to_status` VARCHAR(30) NOT NULL');
+            $this->safeDbStatement('ALTER TABLE trip_status_histories MODIFY COLUMN `from_status` VARCHAR(30) NULL');
+            $this->safeDbStatement('ALTER TABLE trip_status_histories MODIFY COLUMN `to_status` VARCHAR(30) NOT NULL');
+            $this->safeDbStatement('ALTER TABLE violations MODIFY COLUMN `type` VARCHAR(50) NOT NULL');
             $this->safeDbStatement("ALTER TABLE journal_entries MODIFY COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'draft'");
-            $this->safeDbStatement("ALTER TABLE chart_of_accounts MODIFY COLUMN `type` VARCHAR(30) NOT NULL");
+            $this->safeDbStatement('ALTER TABLE chart_of_accounts MODIFY COLUMN `type` VARCHAR(30) NOT NULL');
             $this->safeDbStatement("ALTER TABLE chart_of_accounts MODIFY COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'active'");
         }
 
@@ -404,13 +404,15 @@ return new class extends Migration
             Schema::table('roles', function (Blueprint $table): void {
                 try {
                     $table->dropForeign(['company_id']);
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             });
             // Step 2: now safe to drop unique index, drop column, restore old unique
             Schema::table('roles', function (Blueprint $table): void {
                 try {
                     $table->dropUnique('roles_company_name_unique');
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
                 $table->dropColumn('company_id');
                 if (! $this->indexExists('roles', 'roles_name_unique')) {
                     $table->unique('name', 'roles_name_unique');
@@ -423,15 +425,18 @@ return new class extends Migration
             Schema::table('leave_types', function (Blueprint $table): void {
                 try {
                     $table->dropForeign(['company_id']);
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             });
             Schema::table('leave_types', function (Blueprint $table): void {
                 try {
                     $table->dropIndex('lt_company_id_idx');
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
                 try {
                     $table->dropUnique('lt_company_code_unique');
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
                 $table->dropColumn('company_id');
                 if (! $this->indexExists('leave_types', 'leave_types_code_unique')) {
                     $table->unique('code', 'leave_types_code_unique');
@@ -444,7 +449,8 @@ return new class extends Migration
             Schema::table('payrolls', function (Blueprint $table): void {
                 try {
                     $table->dropForeign(['locked_by']);
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
                 $table->dropColumn('locked_by');
             });
         }
@@ -455,12 +461,14 @@ return new class extends Migration
         Schema::table('positions', function (Blueprint $table): void {
             try {
                 $table->dropUnique('positions_company_code_unique');
-            } catch (\Throwable) {}
+            } catch (\Throwable) {
+            }
             // Restore original unique only if it doesn't already exist
             if (! $this->indexExists('positions', 'positions_code_unique')) {
                 try {
                     $table->unique('code', 'positions_code_unique');
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             }
         });
 
@@ -468,7 +476,8 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table): void {
             try {
                 $table->dropUnique('users_driver_id_unique');
-            } catch (\Throwable) {}
+            } catch (\Throwable) {
+            }
         });
 
         // MySQL CHECK constraints — drop
@@ -499,13 +508,15 @@ return new class extends Migration
             Schema::table('journal_entries', function (Blueprint $table): void {
                 try {
                     $table->dropForeign(['company_id']);
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             });
             // Step 2: safe to drop index and column
             Schema::table('journal_entries', function (Blueprint $table): void {
                 try {
                     $table->dropIndex('je_company_id_idx');
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
                 $table->dropColumn('company_id');
             });
         }
@@ -515,15 +526,18 @@ return new class extends Migration
             Schema::table('chart_of_accounts', function (Blueprint $table): void {
                 try {
                     $table->dropForeign(['company_id']);
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
             });
             Schema::table('chart_of_accounts', function (Blueprint $table): void {
                 try {
                     $table->dropUnique('coa_company_code_unique');
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
                 try {
                     $table->dropIndex('coa_company_id_idx');
-                } catch (\Throwable) {}
+                } catch (\Throwable) {
+                }
                 $table->dropColumn('company_id');
                 if (! $this->indexExists('chart_of_accounts', 'chart_of_accounts_code_unique')) {
                     $table->unique('code');
@@ -553,7 +567,7 @@ return new class extends Migration
             // Log cảnh báo nhưng không làm migration fail
             // (vd: CHECK đã tồn tại, ENUM value chưa migrate đủ data)
             \Illuminate\Support\Facades\Log::warning(
-                '[schema_hardening] Statement skipped: ' . $e->getMessage(),
+                '[schema_hardening] Statement skipped: '.$e->getMessage(),
                 ['sql' => trim($sql)]
             );
         }

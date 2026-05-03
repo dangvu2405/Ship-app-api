@@ -33,11 +33,11 @@ class LeaveRequest extends Model
     protected function casts(): array
     {
         return [
-            'company_id'      => 'integer',
-            'from_date'       => 'date',
-            'to_date'         => 'date',
-            'total_days'      => 'decimal:1',
-            'approved_at'     => 'datetime',
+            'company_id' => 'integer',
+            'from_date' => 'date',
+            'to_date' => 'date',
+            'total_days' => 'decimal:1',
+            'approved_at' => 'datetime',
             'attachment_urls' => 'array',
         ];
     }

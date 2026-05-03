@@ -26,6 +26,7 @@ class IndexTripJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
     public int $backoff = 60;
 
     public function __construct(
@@ -50,24 +51,24 @@ class IndexTripJob implements ShouldQueue
             return;
         }
 
-        $content   = $this->buildDescription($trip);
+        $content = $this->buildDescription($trip);
         $embedding = $embedder->embed($content);
 
         RagIndex::withoutGlobalScopes()->updateOrCreate(
             ['source_table' => 'trips', 'source_id' => $trip->id],
             [
-                'company_id'        => $trip->company_id,
-                'content'           => $content,
-                'embedding'         => $embedding,
-                'metadata'          => [
-                    'status'      => $trip->status,
-                    'driver_id'   => $trip->driver_id,
+                'company_id' => $trip->company_id,
+                'content' => $content,
+                'embedding' => $embedding,
+                'metadata' => [
+                    'status' => $trip->status,
+                    'driver_id' => $trip->driver_id,
                     'driver_name' => $trip->driver?->name,
-                    'vehicle'     => $trip->vehicle?->plate_number,
-                    'from'        => $trip->start_point,
-                    'to'          => $trip->end_point,
+                    'vehicle' => $trip->vehicle?->plate_number,
+                    'from' => $trip->start_point,
+                    'to' => $trip->end_point,
                     'distance_km' => $trip->distance_km,
-                    'date'        => $trip->start_time?->toDateString(),
+                    'date' => $trip->start_time?->toDateString(),
                 ],
                 'source_updated_at' => $trip->updated_at ?? Carbon::now(),
             ],
@@ -78,7 +79,7 @@ class IndexTripJob implements ShouldQueue
     {
         Log::error('IndexTripJob failed', [
             'trip_id' => $this->trip->id,
-            'error'   => $exception->getMessage(),
+            'error' => $exception->getMessage(),
         ]);
     }
 
@@ -90,7 +91,7 @@ class IndexTripJob implements ShouldQueue
             'Chuyến xe %s từ %s đến %s.',
             $trip->code ?? "#{$trip->id}",
             $trip->start_point ?? 'điểm xuất phát',
-            $trip->end_point   ?? 'điểm đến',
+            $trip->end_point ?? 'điểm đến',
         );
 
         if ($trip->driver) {
@@ -106,9 +107,9 @@ class IndexTripJob implements ShouldQueue
         }
 
         $statusMap = [
-            'pending'     => 'chờ xuất phát',
+            'pending' => 'chờ xuất phát',
             'in_progress' => 'đang trên đường',
-            'completed'   => 'đã hoàn thành',
+            'completed' => 'đã hoàn thành',
         ];
         $parts[] = sprintf('Trạng thái: %s.', $statusMap[$trip->status] ?? $trip->status);
 

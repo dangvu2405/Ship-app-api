@@ -19,7 +19,7 @@ class StoreVehicleAssignmentRequest extends FormRequest
     {
         return [
             'vehicle_id' => 'required|exists:vehicles,id',
-            'driver_id' => 'required|exists:drivers,id',
+            'driver_id' => 'required|exists:employees,id',
             'from_date' => 'required|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
         ];

@@ -86,4 +86,3 @@ class CompanyRevenueSeeder extends Seeder
         $this->command?->info('CompanyRevenueSeeder completed: seeded paid revenue invoices for 4 months.');
     }
 }
-

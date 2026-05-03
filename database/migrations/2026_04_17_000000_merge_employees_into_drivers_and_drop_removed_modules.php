@@ -116,7 +116,7 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'mysql') {
-            DB::statement("
+            DB::statement('
                 UPDATE drivers
                 INNER JOIN employees ON employees.id = drivers.employee_id
                 SET
@@ -143,7 +143,7 @@ return new class extends Migration
                     drivers.bank_name = employees.bank_name,
                     drivers.bank_account_no = employees.bank_account_no,
                     drivers.bank_account_name = employees.bank_account_name
-            ");
+            ');
 
             return;
         }

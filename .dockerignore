@@ -7,10 +7,6 @@
 vendor
 node_modules
 
-# Thư mục này thường 0700/0770 (www-data); Docker build context không đọc được → permission denied.
-# Collection Postman / tệp cục bộ, không cần trong image.
-storage/app/private/postman
-
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*

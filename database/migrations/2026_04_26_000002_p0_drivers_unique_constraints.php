@@ -31,8 +31,14 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('drivers', function (Blueprint $table): void {
-            try { $table->dropUnique('uniq_drivers_national_id_no'); } catch (\Throwable) {}
-            try { $table->dropUnique('uniq_drivers_license_no'); } catch (\Throwable) {}
+            try {
+                $table->dropUnique('uniq_drivers_national_id_no');
+            } catch (\Throwable) {
+            }
+            try {
+                $table->dropUnique('uniq_drivers_license_no');
+            } catch (\Throwable) {
+            }
         });
     }
 

@@ -35,9 +35,9 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'mysql') {
-            DB::statement('ALTER TABLE payroll_lines DROP CHECK ' . self::CONSTRAINT);
+            DB::statement('ALTER TABLE payroll_lines DROP CHECK '.self::CONSTRAINT);
         } elseif ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE payroll_lines DROP CONSTRAINT IF EXISTS ' . self::CONSTRAINT);
+            DB::statement('ALTER TABLE payroll_lines DROP CONSTRAINT IF EXISTS '.self::CONSTRAINT);
         }
 
         Schema::table('payroll_lines', function (Blueprint $table): void {
@@ -45,12 +45,12 @@ return new class extends Migration
         });
 
         if ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT ' . self::CONSTRAINT . ' CHECK (
+            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT '.self::CONSTRAINT.' CHECK (
                 base_salary >= 0 AND trip_bonus >= 0 AND allowance >= 0 AND deduction >= 0
                 AND fuel_excess_deduction >= 0 AND tax >= 0
             )');
         } elseif ($driver === 'mysql') {
-            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT ' . self::CONSTRAINT . ' CHECK (
+            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT '.self::CONSTRAINT.' CHECK (
                 base_salary >= 0 AND trip_bonus >= 0 AND allowance >= 0 AND deduction >= 0
                 AND fuel_excess_deduction >= 0 AND tax >= 0
             )');
@@ -74,9 +74,9 @@ return new class extends Migration
         $driver = Schema::getConnection()->getDriverName();
 
         if ($driver === 'mysql') {
-            DB::statement('ALTER TABLE payroll_lines DROP CHECK ' . self::CONSTRAINT);
+            DB::statement('ALTER TABLE payroll_lines DROP CHECK '.self::CONSTRAINT);
         } elseif ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE payroll_lines DROP CONSTRAINT IF EXISTS ' . self::CONSTRAINT);
+            DB::statement('ALTER TABLE payroll_lines DROP CONSTRAINT IF EXISTS '.self::CONSTRAINT);
         }
 
         Schema::table('payroll_lines', function (Blueprint $table): void {
@@ -84,12 +84,12 @@ return new class extends Migration
         });
 
         if ($driver === 'pgsql') {
-            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT ' . self::CONSTRAINT . ' CHECK (
+            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT '.self::CONSTRAINT.' CHECK (
                 base_salary >= 0 AND trip_bonus >= 0 AND allowance >= 0 AND deduction >= 0
                 AND fuel_cost >= 0 AND tax >= 0
             )');
         } elseif ($driver === 'mysql') {
-            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT ' . self::CONSTRAINT . ' CHECK (
+            DB::statement('ALTER TABLE payroll_lines ADD CONSTRAINT '.self::CONSTRAINT.' CHECK (
                 base_salary >= 0 AND trip_bonus >= 0 AND allowance >= 0 AND deduction >= 0
                 AND fuel_cost >= 0 AND tax >= 0
             )');

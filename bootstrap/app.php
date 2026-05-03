@@ -21,13 +21,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Register custom middleware aliases
         $middleware->alias([
-            'auth'                  => \App\Http\Middleware\Authenticate::class,
-            'role'                  => \App\Http\Middleware\RoleMiddleware::class,
-            'permission'            => \App\Http\Middleware\PermissionMiddleware::class,
-            'tenant.context'        => \App\Http\Middleware\EnsureTenantContext::class,
+            'auth' => \App\Http\Middleware\Authenticate::class,
+            'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'permission' => \App\Http\Middleware\PermissionMiddleware::class,
+            'tenant.context' => \App\Http\Middleware\EnsureTenantContext::class,
             'audit.sensitive_reads' => \App\Http\Middleware\LogSensitiveResourceReads::class,
-            'sod'                   => \App\Http\Middleware\SodGuard::class,
-            'track.actions'         => \App\Http\Middleware\TrackUserActions::class,
+            'sod' => \App\Http\Middleware\SodGuard::class,
+            'track.actions' => \App\Http\Middleware\TrackUserActions::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -56,7 +56,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 422);
             }
         });
-        
+
         // Model Not Found Exception
         $exceptions->render(function (\Illuminate\Database\Eloquent\ModelNotFoundException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -66,7 +66,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 404);
             }
         });
-        
+
         // Authentication Exception
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -76,7 +76,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 401);
             }
         });
-        
+
         // Authorization Exception
         $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -86,7 +86,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 403);
             }
         });
-        
+
         // NotFoundHttpException
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -96,7 +96,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 404);
             }
         });
-        
+
         // MethodNotAllowedHttpException
         $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -106,28 +106,28 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 405);
             }
         });
-        
+
         // Database Query Exception
         $exceptions->render(function (\Illuminate\Database\QueryException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
                 $message = __('api.database_error');
-                
+
                 // Check for common database errors
                 $errorCode = $e->getCode();
                 $errorMessage = $e->getMessage();
-                
+
                 if ($errorCode === 23000) { // Integrity constraint violation
                     $message = __('api.integrity_constraints_error');
                 } elseif (str_contains($errorMessage, "doesn't exist") || str_contains($errorMessage, 'Base table')) {
                     $message = __('api.database_table_not_found');
-                } elseif (str_contains($errorMessage, "Unknown column")) {
+                } elseif (str_contains($errorMessage, 'Unknown column')) {
                     $message = __('api.database_column_not_found');
-                } elseif (str_contains($errorMessage, "Duplicate entry")) {
+                } elseif (str_contains($errorMessage, 'Duplicate entry')) {
                     $message = __('api.duplicate_entry');
-                } elseif (str_contains($errorMessage, "foreign key constraint")) {
+                } elseif (str_contains($errorMessage, 'foreign key constraint')) {
                     $message = __('api.foreign_key_constraint');
                 }
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => $message,
@@ -135,7 +135,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 500);
             }
         });
-        
+
         // PDO Exception
         $exceptions->render(function (\PDOException $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -146,7 +146,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 500);
             }
         });
-        
+
         // General Exception Handler - Catch all other errors
         $exceptions->render(function (\Throwable $e, $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
@@ -165,10 +165,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 return response()->json([
                     'success' => false,
                     'message' => $message,
-                    'error'   => config('app.debug') ? [
+                    'error' => config('app.debug') ? [
                         'message' => $e->getMessage(),
-                        'file'    => $e->getFile(),
-                        'line'    => $e->getLine(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
                     ] : null,
                 ], $statusCode);
             }

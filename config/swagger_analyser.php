@@ -6,5 +6,5 @@ use OpenApi\Analysers\ReflectionAnalyser;
 
 return new ReflectionAnalyser([
     new AttributeAnnotationFactory(false),
-    new DocBlockAnnotationFactory(),
+    new DocBlockAnnotationFactory,
 ]);

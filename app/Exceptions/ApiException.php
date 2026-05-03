@@ -9,9 +9,10 @@ use Exception;
 class ApiException extends Exception
 {
     protected $statusCode;
+
     protected $errors;
 
-    public function __construct(string $message = '', int $statusCode = 400, $errors = null, Exception $previous = null)
+    public function __construct(string $message = '', int $statusCode = 400, $errors = null, ?Exception $previous = null)
     {
         parent::__construct($message, 0, $previous);
         $this->statusCode = $statusCode;

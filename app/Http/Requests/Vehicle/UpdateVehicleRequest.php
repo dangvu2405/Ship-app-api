@@ -21,7 +21,7 @@ class UpdateVehicleRequest extends FormRequest
 
         return [
             'office_id' => 'sometimes|exists:offices,id',
-            'plate_number' => 'sometimes|string|max:20|unique:vehicles,plate_number,' . $id,
+            'plate_number' => 'sometimes|string|max:20|unique:vehicles,plate_number,'.$id,
             'type' => 'sometimes|in:truck,van,car,motorcycle',
             'brand' => 'nullable|string|max:100',
             'model' => 'nullable|string|max:100',

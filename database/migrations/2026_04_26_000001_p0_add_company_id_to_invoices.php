@@ -67,8 +67,14 @@ return new class extends Migration
         }
 
         Schema::table('invoices', function (Blueprint $table): void {
-            try { $table->dropIndex('idx_invoices_company_issued_at'); } catch (\Throwable) {}
-            try { $table->dropIndex('idx_invoices_company_status'); } catch (\Throwable) {}
+            try {
+                $table->dropIndex('idx_invoices_company_issued_at');
+            } catch (\Throwable) {
+            }
+            try {
+                $table->dropIndex('idx_invoices_company_status');
+            } catch (\Throwable) {
+            }
         });
 
         Schema::table('invoices', function (Blueprint $table): void {

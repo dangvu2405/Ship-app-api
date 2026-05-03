@@ -16,7 +16,7 @@ class DriverFactory extends Factory
             'code' => strtoupper(fake()->unique()->bothify('DRV#####')),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
-            'phone' => '0' . fake()->numerify('#########'),
+            'phone' => '0'.fake()->numerify('#########'),
             'dob' => fake()->date('Y-m-d', '-25 years'),
             'gender' => fake()->randomElement(['male', 'female']),
             'address' => fake()->address(),

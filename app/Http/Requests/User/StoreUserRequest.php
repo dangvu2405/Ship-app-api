@@ -12,14 +12,14 @@ class StoreUserRequest extends AppFormRequest
     public function rules(): array
     {
         return [
-            'username'                => 'required|string|max:255|unique:users,username',
-            'email'                   => 'required|email|max:255|unique:users,email',
-            'avatar_url'              => 'nullable|url|max:255',
-            'password'                => ['required', 'string', Password::min(8)->letters()->numbers()],
-            'status'                  => 'required|in:active,inactive',
-            'emergency_contact_name'  => 'nullable|string|max:255',
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'required|email|max:255|unique:users,email',
+            'avatar_url' => 'nullable|url|max:255',
+            'password' => ['required', 'string', Password::min(8)->letters()->numbers()],
+            'status' => 'required|in:active,inactive',
+            'emergency_contact_name' => 'nullable|string|max:255',
             'emergency_contact_phone' => 'nullable|string|max:20|regex:/^0[0-9]{9,10}$/',
-            'residential_address'     => 'nullable|string|max:500',
+            'residential_address' => 'nullable|string|max:500',
         ];
     }
 

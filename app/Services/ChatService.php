@@ -8,8 +8,8 @@ use App\Exceptions\ApiException;
 use App\Models\ChatMessage;
 use App\Models\User;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -18,7 +18,7 @@ class ChatService
     public function __construct(private readonly GeminiService $geminiService) {}
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     public function send(User $user, array $payload): array
@@ -177,7 +177,7 @@ class ChatService
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return \Generator<int, array<string, mixed>>
      */
     public function streamSend(User $user, array $payload): \Generator
@@ -282,8 +282,8 @@ class ChatService
     }
 
     /**
-     * @param Collection<int, ChatMessage> $history
-     * @param array<string, mixed> $context
+     * @param  Collection<int, ChatMessage>  $history
+     * @param  array<string, mixed>  $context
      */
     private function buildPrompt(Collection $history, string $message, array $context, string $task): string
     {
@@ -329,7 +329,7 @@ class ChatService
     }
 
     /**
-     * @param array<string, mixed> $context
+     * @param  array<string, mixed>  $context
      */
     private function buildCacheKey(int $userId, string $message, string $task, array $context, string $model): string
     {

@@ -32,8 +32,8 @@ return new class extends Migration
         // Backfill từ 4 cột cũ
         $typeMap = [
             'image_front' => 'front',
-            'image_back'  => 'back',
-            'image_side'  => 'side',
+            'image_back' => 'back',
+            'image_side' => 'side',
             'image_other' => 'other',
         ];
 
@@ -46,7 +46,7 @@ return new class extends Migration
                         $rows = $vehicles->map(fn ($v) => [
                             'vehicle_id' => $v->id,
                             'image_type' => $imageType,
-                            'url'        => $v->{$column},
+                            'url' => $v->{$column},
                             'sort_order' => 0,
                             'created_at' => now(),
                             'updated_at' => now(),

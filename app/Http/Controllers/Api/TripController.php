@@ -141,7 +141,7 @@ class TripController extends BaseController
     public function show(string $trip): JsonResponse
     {
         $model = Trip::with(['customer', 'driver', 'vehicle'])->find($trip);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
 
@@ -183,7 +183,7 @@ class TripController extends BaseController
     public function update(UpdateTripRequest $request, string $trip): JsonResponse
     {
         $model = Trip::find($trip);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
 
@@ -210,7 +210,7 @@ class TripController extends BaseController
     public function destroy(string $trip): JsonResponse
     {
         $model = Trip::find($trip);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
 
@@ -227,7 +227,7 @@ class TripController extends BaseController
     public function assign(AssignTripRequest $request, string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
 
@@ -323,10 +323,10 @@ class TripController extends BaseController
     public function start(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
-        if (!in_array($model->status, ['pending', 'in_progress'], true)) {
+        if (! in_array($model->status, ['pending', 'in_progress'], true)) {
             return $this->errorResponse(__('api.trip.cannot_start_from_status', ['status' => $model->status]), 422);
         }
 
@@ -340,7 +340,7 @@ class TripController extends BaseController
     public function pickup(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
 
@@ -352,7 +352,7 @@ class TripController extends BaseController
     public function transit(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
 
@@ -364,7 +364,7 @@ class TripController extends BaseController
     public function arrive(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
 
@@ -376,7 +376,7 @@ class TripController extends BaseController
     public function complete(string $id): JsonResponse
     {
         $model = Trip::find($id);
-        if (!$model) {
+        if (! $model) {
             return $this->notFoundResponse('api.trip.not_found');
         }
         if ($model->status === 'completed') {
@@ -442,12 +442,17 @@ class TripController extends BaseController
      *     summary="Cập nhật thông tin bổ sung chuyến xe",
      *     tags={"Trips"},
      *     security={{"bearerAuth":{}}},
+     *
      *     @OA\Parameter(name="id", in="path", required=true, description="Trip ID", @OA\Schema(type="string")),
+     *
      *     @OA\RequestBody(required=true,
+     *
      *         @OA\JsonContent(
+     *
      *             @OA\Property(property="distance_km", type="number", format="float", nullable=true, minimum=0, description="Cập nhật quãng đường (schema dump trips)")
      *         )
      *     ),
+     *
      *     @OA\Response(response=200, description="Cập nhật thành công"),
      *     @OA\Response(response=404, description="Không tìm thấy chuyến xe"),
      *     @OA\Response(response=422, description="Validation lỗi")

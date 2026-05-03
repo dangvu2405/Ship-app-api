@@ -23,9 +23,11 @@ final class CustomerGroupController extends BaseController
      *     path="/api/customer-groups",
      *     tags={"Customer Groups"},
      *     summary="Danh sách nhóm khách hàng",
+     *
      *     @OA\Parameter(name="search", in="query", description="Tìm theo name, description", @OA\Schema(type="string")),
      *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
      *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
+     *
      *     @OA\Response(response=200, description="Thành công")
      * )
      */

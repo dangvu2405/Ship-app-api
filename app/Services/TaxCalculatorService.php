@@ -24,17 +24,21 @@ class TaxCalculatorService
 {
     // Employee-side insurance rates (Điều 85, 86 Luật BHXH 2014)
     private const BHXH_RATE = 0.08;   // 8% pension + disability
+
     private const BHYT_RATE = 0.015;  // 1.5% health insurance
+
     private const BHTN_RATE = 0.01;   // 1% unemployment insurance
-    public const  INSURANCE_RATE = 0.105; // total 10.5%
+
+    public const INSURANCE_RATE = 0.105; // total 10.5%
 
     // Insurable salary ceiling: 20 × base wage for BHXH/BHTN; 3 × region min for BHYT (simplified to same ceiling)
     // 2025 base wage = 2,340,000 VND → ceiling = 46,800,000 VND
     public const INSURANCE_CEILING = 46_800_000.0;
 
     // Personal deduction per Thông tư 111/2013 amended by NĐ 954/2020
-    public const PERSONAL_DEDUCTION   = 11_000_000.0;
-    public const DEPENDENT_DEDUCTION  = 4_400_000.0;
+    public const PERSONAL_DEDUCTION = 11_000_000.0;
+
+    public const DEPENDENT_DEDUCTION = 4_400_000.0;
 
     /**
      * 2025 default progressive TNCN brackets (Điều 22, Luật Thuế TNCN).
@@ -56,8 +60,8 @@ class TaxCalculatorService
     /**
      * Calculate employee insurance and TNCN for a given gross monthly salary.
      *
-     * @param  float $grossSalary   Total gross income for the month (base + bonuses + OT + allowances)
-     * @param  int   $dependents    Number of registered tax dependents (default 0)
+     * @param  float  $grossSalary  Total gross income for the month (base + bonuses + OT + allowances)
+     * @param  int  $dependents  Number of registered tax dependents (default 0)
      * @return array{
      *   gross: float,
      *   insurance_base: float,
@@ -87,21 +91,21 @@ class TaxCalculatorService
 
         if ($taxableIncome <= 0.0) {
             return [
-                'gross'          => $grossSalary,
+                'gross' => $grossSalary,
                 'insurance_base' => $insuranceBase,
-                'bhxh'           => $bhxh,
-                'bhyt'           => $bhyt,
-                'bhtn'           => $bhtn,
-                'insurance'      => $insurance,
+                'bhxh' => $bhxh,
+                'bhyt' => $bhyt,
+                'bhtn' => $bhtn,
+                'insurance' => $insurance,
                 'taxable_income' => 0.0,
-                'tncn_tax'       => 0.0,
-                'dependents'     => $dependents,
+                'tncn_tax' => 0.0,
+                'dependents' => $dependents,
             ];
         }
 
         // 3. Progressive TNCN (using quick-deduction formula for efficiency)
         $brackets = $this->loadBrackets();
-        $tncnTax  = 0.0;
+        $tncnTax = 0.0;
 
         foreach ($brackets as [$from, $to, $rate, $quickDeduction]) {
             if ($taxableIncome <= $from) {
@@ -123,15 +127,15 @@ class TaxCalculatorService
         }
 
         return [
-            'gross'          => $grossSalary,
+            'gross' => $grossSalary,
             'insurance_base' => $insuranceBase,
-            'bhxh'           => $bhxh,
-            'bhyt'           => $bhyt,
-            'bhtn'           => $bhtn,
-            'insurance'      => $insurance,
+            'bhxh' => $bhxh,
+            'bhyt' => $bhyt,
+            'bhtn' => $bhtn,
+            'insurance' => $insurance,
             'taxable_income' => max(0.0, $taxableIncome),
-            'tncn_tax'       => round(max(0.0, $tncnTax), 0),
-            'dependents'     => $dependents,
+            'tncn_tax' => round(max(0.0, $tncnTax), 0),
+            'dependents' => $dependents,
         ];
     }
 

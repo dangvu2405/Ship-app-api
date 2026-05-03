@@ -21,16 +21,16 @@ return new class extends Migration
         }
 
         // Drop check cũ (được thêm bởi schema_hardening_fixes)
-        $this->safeStatement("ALTER TABLE `journal_entry_lines` DROP CHECK `chk_jel_debit_credit`");
+        $this->safeStatement('ALTER TABLE `journal_entry_lines` DROP CHECK `chk_jel_debit_credit`');
 
         // Thêm check mới: exactly one of debit/credit phải > 0
-        $this->safeStatement("
+        $this->safeStatement('
             ALTER TABLE `journal_entry_lines`
             ADD CONSTRAINT `chk_jel_debit_credit`
                 CHECK (
                     (debit = 0 AND credit > 0) OR (debit > 0 AND credit = 0)
                 )
-        ");
+        ');
     }
 
     public function down(): void
@@ -39,14 +39,14 @@ return new class extends Migration
             return;
         }
 
-        $this->safeStatement("ALTER TABLE `journal_entry_lines` DROP CHECK `chk_jel_debit_credit`");
+        $this->safeStatement('ALTER TABLE `journal_entry_lines` DROP CHECK `chk_jel_debit_credit`');
 
         // Khôi phục check cũ từ schema_hardening_fixes
-        $this->safeStatement("
+        $this->safeStatement('
             ALTER TABLE `journal_entry_lines`
             ADD CONSTRAINT `chk_jel_debit_credit`
                 CHECK (NOT (debit > 0 AND credit > 0))
-        ");
+        ');
     }
 
     private function safeStatement(string $sql): void
@@ -54,7 +54,7 @@ return new class extends Migration
         try {
             DB::statement($sql);
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('[fix_jel_check] Skipped: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning('[fix_jel_check] Skipped: '.$e->getMessage());
         }
     }
 };

@@ -18,7 +18,7 @@ class UpdateLeaveRequest extends FormRequest
     {
         return [
             'rejection_reason' => ['required_if:action,reject', 'nullable', 'string', 'max:1000'],
-            'waive_reason'     => ['required_if:action,cancel', 'nullable', 'string', 'max:1000'],
+            'waive_reason' => ['required_if:action,cancel', 'nullable', 'string', 'max:1000'],
         ];
     }
 }

@@ -14,7 +14,7 @@ class VehicleFactory extends Factory
     {
         $brands = ['Toyota', 'Ford', 'Isuzu', 'Hyundai', 'Mitsubishi', 'Hino', 'Mercedes'];
         $models = ['Hiace', 'Transit', 'D-Max', 'County', 'Fuso', '300 Series', 'Sprinter'];
-        
+
         $attributes = [
             'company_id' => Company::factory(),
             'plate_number' => fake()->unique()->regexify('[0-9]{2}[A-Z]-[0-9]{5}'),

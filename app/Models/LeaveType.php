@@ -27,8 +27,8 @@ class LeaveType extends Model
     protected function casts(): array
     {
         return [
-            'is_paid'             => 'boolean',
-            'annual_quota_days'   => 'integer',
+            'is_paid' => 'boolean',
+            'annual_quota_days' => 'integer',
             'allow_carry_forward' => 'boolean',
             'requires_attachment' => 'boolean',
         ];

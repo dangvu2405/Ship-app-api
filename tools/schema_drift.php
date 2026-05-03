@@ -62,9 +62,9 @@ foreach ($tablesInDump as $tbl) {
     }
 }
 
-echo "=== tables_in_dump: ".count($tablesInDump)." ===\n";
-echo "=== models with explicit \$table: ".count($explicitTables)." ===\n";
-echo "=== models without explicit \$table: ".count($noExplicitTable)." (convention — see matrix) ===\n\n";
+echo '=== tables_in_dump: '.count($tablesInDump)." ===\n";
+echo '=== models with explicit $table: '.count($explicitTables)." ===\n";
+echo '=== models without explicit $table: '.count($noExplicitTable)." (convention — see matrix) ===\n\n";
 
 echo "--- model_orphan (explicit \$table not in database.md) ---\n";
 if ($orphans === []) {
@@ -75,7 +75,7 @@ if ($orphans === []) {
 
 echo "\n--- db_only heuristic (dump table not used as any model's explicit \$table) ---\n";
 echo "Many framework/business tables have no explicit \$table on a model; see MODEL_SHIP_DB_MATRIX §3.3.\n";
-echo "Count: ".count($dbOnly)."\n";
+echo 'Count: '.count($dbOnly)."\n";
 if (count($dbOnly) <= 80) {
     echo implode("\n", $dbOnly)."\n";
 }

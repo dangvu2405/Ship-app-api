@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Tenancy\TenantContext;
 use App\Http\Requests\CetaResourceRequest;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -469,6 +469,7 @@ final class CetaSpecController extends BaseController
         }
         if (str_starts_with($type, 'enum(')) {
             preg_match_all("/'([^']+)'/", $type, $matches);
+
             return $matches[1][0] ?? 'active';
         }
         if (str_contains($type, 'int')) {

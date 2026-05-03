@@ -19,8 +19,8 @@ class ForgotPasswordRequest extends AppFormRequest
     {
         return [
             'email.required' => __('api.validation.required'),
-            'email.email'    => __('api.validation.email'),
-            'email.max'      => __('api.validation.max.string'),
+            'email.email' => __('api.validation.email'),
+            'email.max' => __('api.validation.max.string'),
         ];
     }
 

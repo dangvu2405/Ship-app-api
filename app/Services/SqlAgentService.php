@@ -26,6 +26,7 @@ use Throwable;
 class SqlAgentService
 {
     private const READ_ONLY_CONNECTION = 'mysql_readonly';
+
     private const ROW_LIMIT = 100;
 
     /** @var string[] DML/DDL keywords that are never allowed */
@@ -122,7 +123,7 @@ class SqlAgentService
 
     private function isReadonlyConnectionConfigured(): bool
     {
-        $roUser   = (string) config('database.connections.mysql_readonly.username', '');
+        $roUser = (string) config('database.connections.mysql_readonly.username', '');
         $mainUser = (string) config('database.connections.mysql.username', '');
 
         // If both are empty or identical, the readonly connection was never configured
@@ -148,13 +149,13 @@ class SqlAgentService
         $result = $this->geminiService->generateContent(
             [
                 'system' => $systemPrompt,
-                'user'   => $question,
-                'turns'  => [],
+                'user' => $question,
+                'turns' => [],
             ],
             [
                 'generation_config' => [
-                    'temperature'    => 0.0,
-                    'topP'           => 0.1,
+                    'temperature' => 0.0,
+                    'topP' => 0.1,
                     'maxOutputTokens' => 300,
                 ],
             ],
@@ -195,7 +196,7 @@ class SqlAgentService
      */
     private function hasTenantFilter(string $sql, int $companyId): bool
     {
-        return preg_match('/\bcompany_id\s*=\s*' . $companyId . '\b/i', $sql) === 1;
+        return preg_match('/\bcompany_id\s*=\s*'.$companyId.'\b/i', $sql) === 1;
     }
 
     private function isSafeSql(string $sql): bool

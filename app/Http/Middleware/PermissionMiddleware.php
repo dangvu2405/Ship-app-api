@@ -26,7 +26,7 @@ class PermissionMiddleware
             ], 401);
         }
 
-        $user      = auth()->user();
+        $user = auth()->user();
         $companyId = $this->tenantContext->getCompanyId();
 
         // Sentinel -1 means authenticated but no company resolved; treat as null (global check).
@@ -48,15 +48,15 @@ class PermissionMiddleware
     {
         try {
             AuditLog::create([
-                'user_id'    => $userId,
+                'user_id' => $userId,
                 'company_id' => $companyId,
-                'action'     => 'authz_failure',
+                'action' => 'authz_failure',
                 'table_name' => 'permissions',
-                'resource'   => $required,
+                'resource' => $required,
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
-                'metadata'   => [
-                    'route'  => $request->path(),
+                'metadata' => [
+                    'route' => $request->path(),
                     'method' => $request->method(),
                 ],
             ]);

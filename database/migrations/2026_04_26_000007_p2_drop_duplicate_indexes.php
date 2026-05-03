@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -21,11 +20,11 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     private array $duplicates = [
-        'attendances'  => ['attendances_driver_id_date_index'],
-        'drivers'      => ['drivers_code_index'],
-        'companies'    => ['companies_code_index'],
-        'invoices'     => ['invoices_code_index'],
-        'vehicles'     => ['vehicles_plate_number_index'],
+        'attendances' => ['attendances_driver_id_date_index'],
+        'drivers' => ['drivers_code_index'],
+        'companies' => ['companies_code_index'],
+        'invoices' => ['invoices_code_index'],
+        'vehicles' => ['vehicles_plate_number_index'],
     ];
 
     public function up(): void
@@ -57,7 +56,10 @@ return new class extends Migration
 
         foreach ($restore as [$tbl, $fn]) {
             Schema::table($tbl, function (Blueprint $table) use ($fn): void {
-                try { $fn($table); } catch (\Throwable) {}
+                try {
+                    $fn($table);
+                } catch (\Throwable) {
+                }
             });
         }
     }

@@ -11,7 +11,6 @@ declare(strict_types=1);
  * Output:
  *   postman/Company-Ship-API.postman_collection.json
  */
-
 function runRouteList(string $root): array
 {
     $proc = proc_open(
