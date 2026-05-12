@@ -16,7 +16,7 @@ final class LogSuccessfulLogin
             'ip' => request()->ip(),
             'device' => request()->userAgent(),
             'login_at' => now(),
-            'status' => 'success',
+            'status' => 'active',
             'action' => 'login',
             'performed_by' => null,
         ]);

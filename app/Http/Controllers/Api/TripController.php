@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use App\Http\Resources\TripResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class TripController extends BaseController
 {
@@ -45,15 +46,23 @@ class TripController extends BaseController
             $totalSurcharge = collect($validated['surcharges'] ?? [])->sum('amount');
             $totalRevenue = $validated['base_price'] + $totalSurcharge;
 
+            $stops = $validated['stops'] ?? [];
+            $pickup = collect($stops)->firstWhere('stop_type', 'pickup');
+            $delivery = collect($stops)->firstWhere('stop_type', 'delivery');
+
             $trip = Trip::create([
-                'company_id' => auth()->user()->company_id,
-                'customer_id' => $validated['customer_id'],
-                'received_date' => $validated['received_date'],
+                'company_id'     => auth()->user()->company_id,
+                'code'           => 'TRIP-' . strtoupper(Str::random(8)),
+                'customer_id'    => $validated['customer_id'],
+                'start_point'    => $pickup['address'] ?? ($stops[0]['address'] ?? ''),
+                'end_point'      => $delivery['address'] ?? (end($stops)['address'] ?? ''),
+                'price'          => $validated['base_price'],
+                'received_date'  => $validated['received_date'],
                 'scheduled_date' => $validated['scheduled_date'],
-                'base_price' => $validated['base_price'],
+                'base_price'     => $validated['base_price'],
                 'surcharge_amount' => $totalSurcharge,
-                'total_revenue' => $totalRevenue,
-                'status' => 'new', // Default status
+                'total_revenue'  => $totalRevenue,
+                'status'         => 'new',
             ]);
 
             if (!empty($validated['stops'])) {

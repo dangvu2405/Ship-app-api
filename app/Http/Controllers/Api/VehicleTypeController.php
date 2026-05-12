@@ -13,13 +13,10 @@ use Illuminate\Support\Facades\DB;
 
 class VehicleTypeController extends BaseController
 {
-    public function __construct()
-    {
-        $this->authorizeResource(VehicleType::class, 'vehicle_type');
-    }
-
     public function index(Request $request): JsonResource
     {
+        $this->authorize('viewAny', VehicleType::class);
+
         $query = VehicleType::query()
             ->where('company_id', auth()->user()->company_id);
 
@@ -48,7 +45,8 @@ class VehicleTypeController extends BaseController
 
     public function store(Request $request): JsonResponse
     {
-        // TODO: Replace with a dedicated FormRequest
+        $this->authorize('create', VehicleType::class);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'sort_order' => 'nullable|integer',
@@ -69,12 +67,15 @@ class VehicleTypeController extends BaseController
 
     public function show(VehicleType $vehicleType): JsonResource
     {
+        $this->authorize('view', $vehicleType);
+
         return new VehicleTypeResource($vehicleType);
     }
 
     public function update(Request $request, VehicleType $vehicleType): JsonResource
     {
-        // TODO: Replace with a dedicated FormRequest
+        $this->authorize('update', $vehicleType);
+
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'sort_order' => 'sometimes|nullable|integer',
@@ -90,6 +91,8 @@ class VehicleTypeController extends BaseController
 
     public function destroy(VehicleType $vehicleType): JsonResponse
     {
+        $this->authorize('delete', $vehicleType);
+
         DB::transaction(function () use ($vehicleType) {
             $vehicleType->delete();
         });
@@ -97,10 +100,9 @@ class VehicleTypeController extends BaseController
         return response()->json(null, 204);
     }
 
-    // Action for reordering vehicle types
     public function reorder(Request $request): JsonResponse
     {
-        $this->authorize('updateAny', VehicleType::class); // Assuming a policy method for reordering
+        $this->authorize('updateAny', VehicleType::class);
 
         $validated = $request->validate([
             'ids' => 'required|array',

@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use App\Http\Resources\DriverResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class DriverController extends BaseController
 {
@@ -42,8 +43,10 @@ class DriverController extends BaseController
         ]);
 
         $driver = DB::transaction(function () use ($validated) {
+            $code = 'DRV-' . strtoupper(Str::random(8));
             $driver = Driver::create(array_merge($validated, [
                 'company_id' => auth()->user()->company_id,
+                'code'       => $code,
             ]));
             return $driver;
         });

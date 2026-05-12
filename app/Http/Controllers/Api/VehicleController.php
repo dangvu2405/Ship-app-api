@@ -86,4 +86,29 @@ class VehicleController extends BaseController
 
         return response()->json(null, 204);
     }
+
+    public function available(Request $request): JsonResource
+    {
+        $vehicles = Vehicle::query()
+            ->where('company_id', auth()->user()->company_id)
+            ->where('status', 'active')
+            ->paginate(15);
+
+        return VehicleResource::collection($vehicles);
+    }
+
+    public function updateStatus(Request $request, Vehicle $vehicle): JsonResource
+    {
+        $this->authorize('update', $vehicle);
+
+        $validated = $request->validate([
+            'status' => 'required|string|in:active,maintenance,inactive',
+        ]);
+
+        DB::transaction(function () use ($validated, $vehicle) {
+            $vehicle->update(['status' => $validated['status']]);
+        });
+
+        return new VehicleResource($vehicle);
+    }
 }

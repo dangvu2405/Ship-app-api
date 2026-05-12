@@ -8,12 +8,11 @@ use App\Models\VehicleType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class VehicleTypesTest extends TestCase
+final class VehicleTypesTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** @test */
-    public function it_can_get_a_list_of_vehicle_types()
+    public function test_it_can_get_a_list_of_vehicle_types(): void
     {
         VehicleType::factory()->count(3)->create(['company_id' => $this->company->id]);
 
@@ -23,11 +22,10 @@ class VehicleTypesTest extends TestCase
             ->assertJsonCount(3, 'data');
     }
 
-    /** @test */
-    public function it_can_create_a_vehicle_type()
+    public function test_it_can_create_a_vehicle_type(): void
     {
         $data = [
-            'name' => 'Big Truck',
+            'name'     => 'Big Truck',
             'capacity' => 100,
         ];
 
@@ -38,7 +36,38 @@ class VehicleTypesTest extends TestCase
 
         $this->assertDatabaseHas('vehicle_types', [
             'company_id' => $this->company->id,
-            'name' => 'Big Truck',
+            'name'       => 'Big Truck',
         ]);
+    }
+
+    public function test_vehicle_type_list_is_company_scoped(): void
+    {
+        VehicleType::factory()->count(2)->create(['company_id' => $this->company->id]);
+        VehicleType::factory()->count(5)->create();
+
+        $response = $this->getJson('/api/vehicle-types');
+
+        $response->assertOk();
+        $this->assertCount(2, $response->json('data'));
+    }
+
+    public function test_create_vehicle_type_requires_name(): void
+    {
+        $response = $this->postJson('/api/vehicle-types', [
+            'max_load_ton' => 5.0,
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['name']);
+    }
+
+    public function test_vehicle_type_is_soft_deleted(): void
+    {
+        $type = VehicleType::factory()->create(['company_id' => $this->company->id]);
+
+        $response = $this->deleteJson("/api/vehicle-types/{$type->id}");
+
+        $response->assertNoContent();
+        $this->assertSoftDeleted('vehicle_types', ['id' => $type->id]);
     }
 }
