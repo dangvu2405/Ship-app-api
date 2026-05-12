@@ -10,7 +10,6 @@
         "andreaselia/laravel-api-to-postman": "^2.3",
         "cloudinary-labs/cloudinary-laravel": "*",
         "darkaonline/l5-swagger": "^11.0",
-        "doctrine/annotations": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^2.10.1"

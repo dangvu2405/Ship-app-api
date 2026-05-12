@@ -11,7 +11,7 @@ class CheckOtpRequest extends AppFormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email', 'max:255'],
+            'email' => ['required', 'string', 'email:rfc', 'max:255'],
             'otp' => ['required', 'digits:6'],
         ];
     }

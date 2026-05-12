@@ -67,4 +67,17 @@ return [
         'sql_enabled' => env('RAG_SQL_ENABLED', false),
     ],
 
+    'map' => [
+        'driver' => env('MAP_SERVICE_DRIVER', 'google'),
+        'google_key' => env('GOOGLE_MAPS_API_KEY'),
+        'mapbox_token' => env('MAPBOX_ACCESS_TOKEN'),
+        'goong_key' => env('GOONG_API_KEY'),
+    ],
+
+    'shipping' => [
+        'base_fee' => env('SHIPPING_BASE_FEE', 15000),
+        'fee_per_km' => env('SHIPPING_FEE_PER_KM', 5000),
+    ],
+
 ];
+

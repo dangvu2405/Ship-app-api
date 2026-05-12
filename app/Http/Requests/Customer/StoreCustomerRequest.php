@@ -4,36 +4,35 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Customer;
 
-use App\Tenancy\TenantContext;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AppFormRequest;
 use Illuminate\Validation\Rule;
 
-class StoreCustomerRequest extends FormRequest
+class StoreCustomerRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('orders', 'create');
     }
 
     public function prepareForValidation(): void
     {
-        if ($this->filled('company_id')) {
-            return;
+        $tenantId = $this->tenantCompanyId();
+        if ($tenantId !== null && $tenantId > 0) {
+            $this->merge(['company_id' => $tenantId]);
         }
-
-        $tenant_id = app(TenantContext::class)->getCompanyId();
-        if ($tenant_id !== null && $tenant_id > 0) {
-            $this->merge(['company_id' => $tenant_id]);
-
-            return;
-        }
-
     }
 
     public function rules(): array
     {
+        $tenantId = $this->tenantCompanyId();
+
         return [
-            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'company_id' => array_values(array_filter([
+                'required',
+                'integer',
+                Rule::exists('companies', 'id'),
+                $tenantId !== null ? Rule::in([$tenantId]) : null,
+            ])),
             'type' => 'required|in:individual,company',
             'name' => 'required|string|max:255',
             'tax_code' => ['nullable', 'string', 'max:50',

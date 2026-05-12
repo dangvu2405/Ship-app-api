@@ -83,6 +83,26 @@ final class MeResponseBuilder
             return $grantAll();
         }
 
+        if ($companyId !== null && Schema::hasTable('user_permissions')) {
+            $perms = \Illuminate\Support\Facades\DB::table('user_permissions')
+                ->where('user_id', $user->id)
+                ->where('company_id', $companyId)
+                ->get();
+
+            foreach ($perms as $p) {
+                if (isset($out[$p->module])) {
+                    $out[$p->module] = [
+                        'view' => (bool) $p->can_view,
+                        'create' => (bool) $p->can_create,
+                        'edit' => (bool) $p->can_edit,
+                        'delete' => (bool) $p->can_delete,
+                        'approve' => (bool) $p->can_approve,
+                        'export' => (bool) $p->can_export,
+                    ];
+                }
+            }
+        }
+
         return $out;
     }
 }

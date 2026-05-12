@@ -12,14 +12,9 @@ final class CetaApiContractTest extends TestCase
     public function test_legacy_api_surfaces_are_removed(): void
     {
         $legacyFragments = [
-            'payroll',
             'roles',
             'permissions/',
-            'offices',
-            'departments',
-            'positions',
             'attendances',
-            'overtime',
             'violations',
             'vehicle_expenses',
             'work-schedule-templates',
@@ -111,11 +106,16 @@ final class CetaApiContractTest extends TestCase
             'GET api/invoices',
             'PATCH api/invoices/{id}/issue',
             'GET api/invoices/{id}/status-histories',
+            'GET api/invoices/{id}/cqt',
+            'GET api/invoices/{id}/pdf',
+            'PATCH api/invoices/{id}/email',
             'GET api/notifications',
             'PATCH api/notifications/read-all',
             'GET api/reports/dashboard',
             'POST api/reports/export',
+            'GET api/reports/payroll/export',
             'GET api/dispatch/board',
+            'GET api/driver-schedules',
         ];
     }
 }

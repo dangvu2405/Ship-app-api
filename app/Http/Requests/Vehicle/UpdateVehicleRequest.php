@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Vehicle;
 
+use App\Http\Requests\AppFormRequest;
 use App\Models\Trip;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
-class UpdateVehicleRequest extends FormRequest
+class UpdateVehicleRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('vehicles', 'edit');
     }
 
     public function rules(): array
@@ -20,7 +20,7 @@ class UpdateVehicleRequest extends FormRequest
         $id = $this->route('vehicle');
 
         return [
-            'office_id' => 'sometimes|exists:offices,id',
+            'office_id' => ['sometimes', 'integer', $this->existsInCompany('offices')],
             'plate_number' => 'sometimes|string|max:20|unique:vehicles,plate_number,'.$id,
             'type' => 'sometimes|in:truck,van,car,motorcycle',
             'brand' => 'nullable|string|max:100',
@@ -48,7 +48,9 @@ class UpdateVehicleRequest extends FormRequest
                 return;
             }
 
+            $companyId = $this->tenantCompanyId();
             $hasInProgressTrip = Trip::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                 ->where('vehicle_id', (int) $vehicleId)
                 ->where('status', 'in_progress')
                 ->exists();

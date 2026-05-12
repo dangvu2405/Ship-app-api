@@ -8,7 +8,7 @@ namespace App\Models;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -16,6 +16,9 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @property string|null $avatar_url
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -38,9 +41,6 @@ class User extends Authenticatable
         'must_change_password',
         'password',
         'status',
-        'driver_id',
-        'last_login_at',
-        'emergency_contact_name',
         'emergency_contact_phone',
         'residential_address',
     ];
@@ -65,7 +65,6 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
-            'driver_id' => 'integer',
             'password' => 'hashed',
         ];
     }
@@ -93,46 +92,42 @@ class User extends Authenticatable
 
                 return "https://api.dicebear.com/7.x/initials/svg?seed={$seed}&backgroundColor=3b82f6,8b5cf6,ec4899,f97316,10b981&backgroundType=gradientLinear&fontSize=40&bold=true";
             },
+            set: fn ($value) => $value,
         );
     }
 
     // Relationships
 
-    public function loginLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function loginLogs(): HasMany
     {
         return $this->hasMany(LoginLog::class);
     }
 
-    public function auditLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class);
     }
 
-    public function exportLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function exportLogs(): HasMany
     {
         return $this->hasMany(ExportLog::class);
     }
 
-    public function refreshTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function refreshTokens(): HasMany
     {
         return $this->hasMany(RefreshToken::class);
     }
 
-    public function chatMessages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function chatMessages(): HasMany
     {
         return $this->hasMany(ChatMessage::class);
-    }
-
-    public function driver(): BelongsTo
-    {
-        return $this->belongsTo(Driver::class, 'driver_id');
     }
 
     /**
      * Companies explicitly assigned to this user (multi-tenant support).
      * Returns an empty collection for legacy single-tenant users.
      */
-    public function companies(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    public function companies(): BelongsToMany
     {
         return $this->belongsToMany(Company::class, 'user_companies')
             ->withPivot('is_default')
@@ -198,16 +193,27 @@ class User extends Authenticatable
             return false;
         }
 
-        $permission = UserPermission::query()
+        [$module, $action] = str_contains($permissionCode, ':')
+            ? explode(':', $permissionCode, 2)
+            : [$permissionCode, null];
+
+        $query = UserPermission::query()
             ->where('user_id', $this->id)
-            ->where('module', $permissionCode);
+            ->where('module', $module);
 
         if ($companyId !== null) {
-            $permission->where('company_id', $companyId);
+            $query->where('company_id', $companyId);
         }
 
-        return $permission->where(function ($query): void {
-            $query->where('can_view', true)
+        if ($action !== null) {
+            $column = "can_{$action}";
+            if (Schema::hasColumn('user_permissions', $column)) {
+                return $query->where($column, true)->exists();
+            }
+        }
+
+        return $query->where(function ($q): void {
+            $q->where('can_view', true)
                 ->orWhere('can_create', true)
                 ->orWhere('can_edit', true)
                 ->orWhere('can_delete', true)
@@ -231,13 +237,6 @@ class User extends Authenticatable
 
             if ($ids->isNotEmpty()) {
                 return Company::query()->whereIn('id', $ids)->where('status', 'active')->orderBy('name')->get();
-            }
-        }
-
-        if ($this->driver_id !== null) {
-            $companyId = Driver::withoutGlobalScopes()->whereKey($this->driver_id)->value('company_id');
-            if ($companyId !== null) {
-                return Company::query()->whereKey($companyId)->get();
             }
         }
 

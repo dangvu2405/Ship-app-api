@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\VehicleAssignment;
 
+use App\Http\Requests\AppFormRequest;
 use App\Models\VehicleAssignment;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
-class UpdateVehicleAssignmentRequest extends FormRequest
+class UpdateVehicleAssignmentRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('vehicles', 'edit');
     }
 
     public function rules(): array
     {
         return [
-            'vehicle_id' => 'sometimes|exists:vehicles,id',
-            'driver_id' => 'sometimes|exists:employees,id',
+            'vehicle_id' => ['sometimes', 'integer', $this->existsInCompany('vehicles')],
+            'driver_id' => ['sometimes', 'integer', $this->existsInCompany('drivers')],
             'from_date' => 'sometimes|date',
             'to_date' => 'nullable|date',
         ];
@@ -28,8 +28,11 @@ class UpdateVehicleAssignmentRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $companyId = $this->tenantCompanyId();
             $assignmentId = (int) $this->route('vehicle_assignment');
-            $assignment = VehicleAssignment::query()->find($assignmentId);
+            $assignment = VehicleAssignment::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
+                ->find($assignmentId);
 
             if (! $assignment) {
                 return;
@@ -48,6 +51,7 @@ class UpdateVehicleAssignmentRequest extends FormRequest
             }
 
             $vehicleOverlapped = VehicleAssignment::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                 ->where('id', '!=', $assignmentId)
                 ->where('vehicle_id', $vehicleId)
                 ->whereDate('from_date', '<=', $toDate)
@@ -61,6 +65,7 @@ class UpdateVehicleAssignmentRequest extends FormRequest
             }
 
             $driverOverlapped = VehicleAssignment::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                 ->where('id', '!=', $assignmentId)
                 ->where('driver_id', $driverId)
                 ->whereDate('from_date', '<=', $toDate)

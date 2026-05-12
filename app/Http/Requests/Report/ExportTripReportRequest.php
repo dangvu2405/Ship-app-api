@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Report;
 
+use App\Http\Requests\AppFormRequest;
 use Carbon\CarbonImmutable;
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class ExportTripReportRequest extends FormRequest
+class ExportTripReportRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('reports', 'export');
     }
 
     /**
@@ -20,8 +21,15 @@ class ExportTripReportRequest extends FormRequest
      */
     public function rules(): array
     {
+        $tenantId = $this->tenantCompanyId();
+
         return [
-            'company_id' => 'nullable|integer|exists:companies,id',
+            'company_id' => array_values(array_filter([
+                'nullable',
+                'integer',
+                Rule::exists('companies', 'id'),
+                $tenantId !== null ? Rule::in([$tenantId]) : null,
+            ])),
             'month' => 'nullable|integer|min:1|max:12',
             'year' => 'nullable|integer|min:2000|max:2100',
             'from' => 'nullable|date',
@@ -68,7 +76,7 @@ class ExportTripReportRequest extends FormRequest
                 return;
             }
 
-            $allowed = ['pending', 'assigned', 'in_transit', 'delivered', 'in_progress', 'completed', 'cancelled'];
+            $allowed = ['pending', 'in_progress', 'completed', 'cancelled'];
             $parts = array_map('trim', explode(',', (string) $raw));
             foreach ($parts as $p) {
                 if ($p !== '' && ! in_array($p, $allowed, true)) {

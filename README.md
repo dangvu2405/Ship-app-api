@@ -1,100 +1,71 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Ship-app Backend API (CETA Specification)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A standardized, multi-tenant backend API for the Ship-app Logistics Management System, built with Laravel 11.
 
-## About Laravel
+## 🚀 Key Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Standardized API Layer**: Centralized `CetaSpecController` for consistent CRUD and action-driven state transitions.
+- **Multi-tenancy**: Native support for multiple companies (tenants) via `TenantContext` and global scopes.
+- **RESTful Architecture**: Strict adherence to REST principles (e.g., `PATCH` for state transitions).
+- **Granular Permissions**: RBAC matrix implemented via middleware and database-driven `user_permissions`.
+- **Domain Logic Services**: Decoupled business logic for Trips, Finance, Fleet, and Reports.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🛠️ Technology Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Framework**: Laravel 11 (PHP 8.3+)
+- **Authentication**: Laravel Sanctum (Token-based)
+- **Database**: MySQL (Production), SQLite (Testing/Development)
+- **Logistics Core**: Custom CETA (Clean Enterprise Transportation Architecture) specification.
 
-## Learning Laravel
+## 📂 Project Structure
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- `app/Http/Controllers/Api/CetaSpecController.php`: Generic controller handling resources dynamic CRUD.
+- `app/Services/`: Domain services containing business logic.
+    - `Trip/TripService.php`: Trip state transitions and assignments.
+    - `Finance/FinanceService.php`: Pricing, debt, and cost approvals.
+    - `Fleet/FleetService.php`: Resource availability and assignments.
+    - `Report/ReportService.php`: Summary reports and dispatch data.
+- `app/Tenancy/`: Tenant resolution and context management.
+- `database/migrations/`: Structured migrations for schema hardening.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## ⚙️ Setup & Development
 
-## Laravel Sponsors
+### Docker (Backend API)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## 🚀 Deployment với Nginx
-
-### Docker (Development — chỉ backend API)
-
-Docker Compose nằm trong thư mục này; **không** có `docker-compose` ở root monorepo. Frontend chạy bằng `npm run dev` trên máy.
+Docker Compose is located within the `ship-app-api` directory.
 
 ```bash
 cd ship-app-api
-cp docker/env.docker.example .env   # lần đầu; tạo APP_KEY: php artisan key:generate
+cp docker/env.docker.example .env
+# Generate APP_KEY if needed
 docker compose up -d --build
-# API: http://localhost:8080/api  (đổi cổng host: export API_HTTP_PORT=9080)
-# MySQL: localhost:3306  user root / pass root  database ship_db
-```
-
-Sau khi container chạy (và DB healthy), trong container hoặc host (nếu đã có PHP/Composer):
-
-```bash
 docker compose exec app php artisan migrate --force
 ```
 
-**Frontend (Vite):** đặt `VITE_API_ORIGIN` trong `ship-app/.env` **trùng `APP_URL`** (chỉ origin, không `/api`). Dev dùng base `/api` + proxy tới origin đó; `VITE_PROXY_TARGET` vẫn hoạt động như alias.
+- **API URL**: `http://localhost:8080/api`
+- **Database**: `localhost:3306` (user: root, pass: root, db: ship_db)
 
-### Production với PHP-FPM
-```bash
-sudo ./nginx/setup.sh
-# API: http://localhost/api
-```
+### Manual Setup
 
-Xem chi tiết tại: [nginx/README.md](nginx/README.md)
+1. Install dependencies: `composer install`
+2. Configure `.env`
+3. Run migrations: `php artisan migrate`
+4. Start server: `php artisan serve`
 
-## 🧹 Tối ưu dung lượng dự án
+## 🧹 Optimization
 
-- Audit dung lượng: [docs/PROJECT_SIZE_AUDIT.md](docs/PROJECT_SIZE_AUDIT.md)
-- Dọn cache/log local an toàn:
+Run the optimization script to clean up project size:
 
 ```bash
 ./scripts/optimize_project_size.sh
 ```
 
-- Docker build context đã được tối ưu qua `.dockerignore`.
+## 📝 Documentation
+
+- **Database Schema**: [database.md](database.md)
+- **API Specification**: [spec.md](spec.md)
+- **Audit Logs**: [docs/PROJECT_SIZE_AUDIT.md](docs/PROJECT_SIZE_AUDIT.md)
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Private and Confidential. © 2026 Ship-app Team.

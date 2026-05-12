@@ -8,6 +8,11 @@ use App\Http\Requests\AppFormRequest;
 
 class DelayTripRequest extends AppFormRequest
 {
+    public function authorize(): bool
+    {
+        return $this->authorizePermission('orders', 'edit');
+    }
+
     public function rules(): array
     {
         return [

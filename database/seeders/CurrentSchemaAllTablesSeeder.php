@@ -19,21 +19,35 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
     {
         $this->seedBaseRecords();
 
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        $driver = Schema::getConnection()->getDriverName();
+        if ($driver === 'mysql' || $driver === 'mariadb') {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        } elseif ($driver === 'sqlite') {
+            DB::statement('PRAGMA foreign_keys = OFF');
+        }
+
         try {
             foreach ($this->tables() as $table) {
                 if ($this->shouldSkip($table) || DB::table($table)->count() > 0) {
                     continue;
                 }
 
-                $payload = $this->payloadFor($table);
-                if ($payload !== []) {
-                    DB::table($table)->insert($payload);
-                    $this->command?->info("Seeded {$table}");
+                try {
+                    $payload = $this->payloadFor($table);
+                    if ($payload !== []) {
+                        DB::table($table)->insert($payload);
+                        $this->command?->info("Seeded {$table}");
+                    }
+                } catch (\Throwable $e) {
+                    $this->command?->warn("Skipping {$table}: " . $e->getMessage());
                 }
             }
         } finally {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            if ($driver === 'mysql' || $driver === 'mariadb') {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            } elseif ($driver === 'sqlite') {
+                DB::statement('PRAGMA foreign_keys = ON');
+            }
         }
     }
 
@@ -152,10 +166,7 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
      */
     private function tables(): array
     {
-        return collect(DB::select('SHOW TABLES'))
-            ->map(static fn (object $row): string => (string) array_values((array) $row)[0])
-            ->values()
-            ->all();
+        return Schema::getTableListing();
     }
 
     private function shouldSkip(string $table): bool
@@ -182,12 +193,12 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
         $payload = [];
 
         foreach ($this->columns($table) as $column) {
-            $field = (string) $column->Field;
-            $extra = strtolower((string) $column->Extra);
-            $nullable = ((string) $column->Null) === 'YES';
-            $default = $column->Default;
+            $field = $column['name'];
+            $autoIncrement = ! empty($column['auto_increment']);
+            $nullable = ! empty($column['nullable']);
+            $default = $column['default'];
 
-            if (str_contains($extra, 'auto_increment')) {
+            if ($autoIncrement) {
                 continue;
             }
 
@@ -203,7 +214,7 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
                 continue;
             }
 
-            if ($default !== null && ! $this->isImportantField($field)) {
+            if ($default !== null) {
                 continue;
             }
 
@@ -211,19 +222,19 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
                 continue;
             }
 
-            $payload[$field] = $this->valueFor($table, $field, (string) $column->Type, $nullable);
+            $payload[$field] = $this->valueFor($table, $field, (string) $column['type'], $nullable);
         }
 
         if ($payload === []) {
             $firstFillable = collect($this->columns($table))
-                ->first(fn (object $column): bool => ! str_contains(strtolower((string) $column->Extra), 'auto_increment'));
+                ->first(fn (array $column): bool => empty($column['auto_increment']));
 
             if ($firstFillable !== null) {
-                $payload[(string) $firstFillable->Field] = $this->valueFor(
+                $payload[$firstFillable['name']] = $this->valueFor(
                     $table,
-                    (string) $firstFillable->Field,
-                    (string) $firstFillable->Type,
-                    ((string) $firstFillable->Null) === 'YES'
+                    $firstFillable['name'],
+                    (string) $firstFillable['type'],
+                    ! empty($firstFillable['nullable'])
                 );
             }
         }
@@ -236,7 +247,7 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
      */
     private function columns(string $table): array
     {
-        return DB::select("SHOW COLUMNS FROM `{$table}`");
+        return Schema::getColumns($table);
     }
 
     private function isImportantField(string $field): bool
@@ -363,6 +374,19 @@ final class CurrentSchemaAllTablesSeeder extends Seeder
         $suffix = Str::lower(Str::random(6));
 
         return match (true) {
+            $field === 'status' => 'active',
+            $field === 'type' && $table === 'companies' => 'company',
+            $field === 'type' => 'scheduled',
+            $field === 'doc_type' => 'other',
+            $field === 'price_unit' => 'per_trip',
+            $field === 'stop_type' => 'pickup',
+            $field === 'payment_method' => 'cash',
+            $field === 'payment_status' => 'unpaid',
+            $field === 'gender' => 'male',
+            $field === 'available_status' => 'available',
+            $field === 'interval_type' => 'both',
+            $field === 'fuel_type' => 'diesel',
+            $field === 'action' => 'approved',
             str_contains($field, 'email') => "seed-{$table}-{$suffix}@example.test",
             str_contains($field, 'phone') => '0900000000',
             str_contains($field, 'code') => 'SEED-'.Str::upper(Str::random(8)),

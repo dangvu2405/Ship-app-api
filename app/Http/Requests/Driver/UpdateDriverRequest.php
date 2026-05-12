@@ -8,6 +8,11 @@ use App\Http\Requests\AppFormRequest;
 
 class UpdateDriverRequest extends AppFormRequest
 {
+    public function authorize(): bool
+    {
+        return $this->authorizePermission('drivers', 'edit');
+    }
+
     public function rules(): array
     {
         $id = $this->route('driver');
@@ -29,9 +34,9 @@ class UpdateDriverRequest extends AppFormRequest
             'health_insurance_no' => 'nullable|string|max:30',
             'insurance_registered_at' => 'nullable|date',
             // Tổ chức
-            'office_id' => 'sometimes|exists:offices,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'position_id' => 'sometimes|exists:positions,id',
+            'office_id' => ['sometimes', 'integer', $this->existsInCompany('offices')],
+            'department_id' => ['nullable', 'integer', $this->existsInCompany('departments')],
+            'position_id' => ['sometimes', 'integer', $this->existsInCompany('positions')],
             // Trạng thái
             'status' => 'sometimes|in:active,inactive,resigned',
             'join_date' => 'sometimes|date',

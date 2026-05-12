@@ -21,13 +21,25 @@ return new class extends Migration
         });
 
         // Add new enum values: assigned, delivered
-        DB::statement("ALTER TABLE `trips` MODIFY COLUMN `status` ENUM('pending','assigned','in_progress','delivered','completed','cancelled') NOT NULL DEFAULT 'pending'");
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'mysql' || $driver === 'mariadb') {
+            DB::statement("ALTER TABLE `trips` MODIFY COLUMN `status` ENUM('pending','assigned','in_progress','delivered','completed','cancelled') NOT NULL DEFAULT 'pending'");
+        } else {
+            Schema::table('trips', function (Blueprint $table) {
+                $table->string('status')->default('pending')->change();
+            });
+        }
+
     }
 
     public function down(): void
     {
         // Revert enum (remove assigned, delivered)
-        DB::statement("ALTER TABLE `trips` MODIFY COLUMN `status` ENUM('pending','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending'");
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'mysql' || $driver === 'mariadb') {
+            DB::statement("ALTER TABLE `trips` MODIFY COLUMN `status` ENUM('pending','in_progress','completed','cancelled') NOT NULL DEFAULT 'pending'");
+        }
+
 
         Schema::table('trips', function (Blueprint $table): void {
             if (Schema::hasColumn('trips', 'assigned_at')) {

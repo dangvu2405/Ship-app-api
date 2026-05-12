@@ -17,11 +17,17 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('payroll_details', function (Blueprint $table) {
-            $table->dropForeign(['created_by']);
-            $table->dropForeign(['updated_by']);
-            $table->dropForeign(['deleted_by']);
-            $table->dropColumn(['created_by', 'updated_by', 'deleted_by']);
-        });
+        if (Schema::hasTable('payroll_details')) {
+            Schema::table('payroll_details', function (Blueprint $table) {
+                if (Schema::hasColumn('payroll_details', 'created_by')) {
+                    if (DB::getDriverName() !== 'sqlite') {
+                        $table->dropForeign(['created_by']);
+                        $table->dropForeign(['updated_by']);
+                        $table->dropForeign(['deleted_by']);
+                    }
+                    $table->dropColumn(['created_by', 'updated_by', 'deleted_by']);
+                }
+            });
+        }
     }
 };

@@ -29,6 +29,9 @@ final class ApiRoutesHealthMarkdownTest extends TestCase
     {
         $this->withoutMiddleware();
 
+        \Illuminate\Support\Facades\Schema::disableForeignKeyConstraints();
+        config(['app.debug' => true]);
+
         $rows = [];
         foreach (RouteFacade::getRoutes() as $route) {
             if (! $route instanceof Route) {

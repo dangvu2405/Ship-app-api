@@ -7,6 +7,8 @@ namespace App\Http\Requests;
 use App\Models\Driver;
 use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 abstract class AppFormRequest extends FormRequest
 {
@@ -31,5 +33,27 @@ abstract class AppFormRequest extends FormRequest
         }
 
         return null;
+    }
+
+    protected function authorizePermission(string $module, string $action): bool
+    {
+        $user = $this->user();
+        if (! $user) {
+            return false;
+        }
+
+        return $user->hasPermission("{$module}:{$action}", $this->tenantCompanyId());
+    }
+
+    protected function existsInCompany(string $table, string $column = 'id'): Rule
+    {
+        $rule = Rule::exists($table, $column);
+        $companyId = $this->tenantCompanyId();
+
+        if ($companyId !== null && Schema::hasColumn($table, 'company_id')) {
+            $rule->where('company_id', $companyId);
+        }
+
+        return $rule;
     }
 }

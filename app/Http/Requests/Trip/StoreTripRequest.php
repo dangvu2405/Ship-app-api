@@ -4,67 +4,55 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Trip;
 
-use App\Models\Trip;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Validator;
 
 class StoreTripRequest extends FormRequest
 {
+    /**
+     * Determine if the user is authorized to make this request.
+     */
     public function authorize(): bool
     {
-        return true;
+        return true; // Authorization handled by Policy
     }
 
+    /**
+     * Get the validation rules that apply to the request.
+     */
     public function rules(): array
     {
         return [
-            'code' => 'required|string|max:50|unique:trips,code',
-            'customer_id' => 'required|exists:customers,id',
-            'driver_id' => 'required|exists:employees,id',
-            'vehicle_id' => 'required|exists:vehicles,id',
-            'start_point' => 'required|string|max:255',
-            'end_point' => 'required|string|max:255',
-            'distance_km' => 'nullable|numeric|min:0',
-            'start_time' => 'nullable|date',
-            'end_time' => 'nullable|date|after_or_equal:start_time',
-            'price' => 'nullable|numeric|min:0',
-            'status' => 'required|in:pending,in_progress,completed,cancelled',
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+            'contact_name' => ['nullable', 'string', 'max:200'],
+            'contact_phone' => ['nullable', 'string', 'max:20'],
+            'cargo_type_id' => ['nullable', 'integer', 'exists:cargo_types,id'],
+            'cargo_description' => ['nullable', 'string'],
+            'cargo_quantity' => ['nullable', 'numeric'],
+            'cargo_unit' => ['nullable', 'string', 'max:50'],
+            'cargo_weight_ton' => ['nullable', 'numeric'],
+            'cargo_notes' => ['nullable', 'string'],
+            'received_date' => ['required', 'date'],
+            'scheduled_date' => ['required', 'date'],
+            'base_price' => ['required', 'numeric', 'min:0'],
+            'payment_method' => ['nullable', 'string', 'in:bank_transfer,cash,credit'],
+            'internal_notes' => ['nullable', 'string'],
+            
+            // Stops validation
+            'stops' => ['nullable', 'array', 'min:1'],
+            'stops.*.stop_type' => ['required', 'string', 'in:pickup,delivery'],
+            'stops.*.sequence' => ['required', 'integer', 'min:1'],
+            'stops.*.address' => ['required', 'string'],
+            'stops.*.location_id' => ['nullable', 'integer', 'exists:locations,id'],
+            'stops.*.contact_name' => ['nullable', 'string', 'max:200'],
+            'stops.*.contact_phone' => ['nullable', 'string', 'max:20'],
+            'stops.*.scheduled_time' => ['nullable', 'date_format:Y-m-d H:i:s'],
+            'stops.*.notes' => ['nullable', 'string'],
+
+            // Surcharges validation
+            'surcharges' => ['nullable', 'array'],
+            'surcharges.*.name' => ['required', 'string', 'max:200'],
+            'surcharges.*.amount' => ['required', 'numeric', 'min:0'],
+            'surcharges.*.notes' => ['nullable', 'string'],
         ];
-    }
-
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $validator): void {
-            if ((string) $this->input('start_point') !== ''
-                && (string) $this->input('end_point') !== ''
-                && $this->input('start_point') === $this->input('end_point')) {
-                $validator->errors()->add('end_point', 'Điểm đến phải khác điểm đi.');
-            }
-
-            $driverId = $this->input('driver_id');
-            $vehicleId = $this->input('vehicle_id');
-
-            if ($driverId && Trip::query()->where('driver_id', $driverId)->where('status', 'in_progress')->exists()) {
-                $validator->errors()->add('driver_id', 'Tài xế đang có chuyến in_progress, không thể tạo chuyến mới.');
-            }
-
-            if ($vehicleId && Trip::query()->where('vehicle_id', $vehicleId)->where('status', 'in_progress')->exists()) {
-                $validator->errors()->add('vehicle_id', 'Xe đang có chuyến in_progress, không thể tạo chuyến mới.');
-            }
-
-            if ($this->input('status') === 'in_progress' && ! $this->filled('start_time')) {
-                $validator->errors()->add('start_time', 'start_time là bắt buộc khi trạng thái là in_progress.');
-            }
-
-            if ($this->input('status') === 'completed') {
-                if (! $this->filled('start_time')) {
-                    $validator->errors()->add('start_time', 'start_time là bắt buộc khi trạng thái là completed.');
-                }
-
-                if (! $this->filled('end_time')) {
-                    $validator->errors()->add('end_time', 'end_time là bắt buộc khi trạng thái là completed.');
-                }
-            }
-        });
     }
 }

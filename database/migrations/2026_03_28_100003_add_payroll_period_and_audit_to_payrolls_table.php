@@ -24,25 +24,31 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('payrolls', function (Blueprint $table) {
-            $table->dropForeign(['payroll_period_id']);
-            $table->dropForeign(['calculated_by']);
-            $table->dropForeign(['approved_by']);
-            $table->dropForeign(['created_by']);
-            $table->dropForeign(['updated_by']);
-            $table->dropForeign(['deleted_by']);
-            $table->dropColumn([
-                'payroll_period_id',
-                'calculated_at',
-                'calculated_by',
-                'approved_at',
-                'approved_by',
-                'paid_at',
-                'notes',
-                'created_by',
-                'updated_by',
-                'deleted_by',
-            ]);
-        });
+        if (Schema::hasTable('payrolls')) {
+            Schema::table('payrolls', function (Blueprint $table) {
+                if (Schema::hasColumn('payrolls', 'payroll_period_id')) {
+                    if (DB::getDriverName() !== 'sqlite') {
+                        $table->dropForeign(['payroll_period_id']);
+                        $table->dropForeign(['calculated_by']);
+                        $table->dropForeign(['approved_by']);
+                        $table->dropForeign(['created_by']);
+                        $table->dropForeign(['updated_by']);
+                        $table->dropForeign(['deleted_by']);
+                    }
+                    $table->dropColumn([
+                        'payroll_period_id',
+                        'calculated_at',
+                        'calculated_by',
+                        'approved_at',
+                        'approved_by',
+                        'paid_at',
+                        'notes',
+                        'created_by',
+                        'updated_by',
+                        'deleted_by',
+                    ]);
+                }
+            });
+        }
     }
 };

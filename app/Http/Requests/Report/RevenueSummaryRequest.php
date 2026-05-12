@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Report;
 
+use App\Http\Requests\AppFormRequest;
 use Carbon\CarbonImmutable;
-use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
-class RevenueSummaryRequest extends FormRequest
+class RevenueSummaryRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('reports', 'view');
     }
 
     /**
@@ -20,8 +21,15 @@ class RevenueSummaryRequest extends FormRequest
      */
     public function rules(): array
     {
+        $tenantId = $this->tenantCompanyId();
+
         return [
-            'company_id' => 'nullable|integer|exists:companies,id',
+            'company_id' => array_values(array_filter([
+                'nullable',
+                'integer',
+                Rule::exists('companies', 'id'),
+                $tenantId !== null ? Rule::in([$tenantId]) : null,
+            ])),
             'month' => 'nullable|integer|min:1|max:12',
             'year' => 'nullable|integer|min:2000|max:2100',
             'from' => 'nullable|date',

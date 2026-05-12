@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Trip;
 
+use App\Http\Requests\AppFormRequest;
 use App\Models\Trip;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
-class UpdateTripRequest extends FormRequest
+class UpdateTripRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('orders', 'edit');
     }
 
     public function rules(): array
@@ -21,9 +21,9 @@ class UpdateTripRequest extends FormRequest
 
         return [
             'code' => 'sometimes|string|max:50|unique:trips,code,'.$id,
-            'customer_id' => 'sometimes|exists:customers,id',
-            'driver_id' => 'sometimes|exists:employees,id',
-            'vehicle_id' => 'sometimes|exists:vehicles,id',
+            'customer_id' => ['sometimes', 'integer', $this->existsInCompany('customers')],
+            'driver_id' => ['sometimes', 'integer', $this->existsInCompany('drivers')],
+            'vehicle_id' => ['sometimes', 'integer', $this->existsInCompany('vehicles')],
             'start_point' => 'sometimes|string|max:255',
             'end_point' => 'sometimes|string|max:255',
             'distance_km' => 'nullable|numeric|min:0',
@@ -37,8 +37,11 @@ class UpdateTripRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $companyId = $this->tenantCompanyId();
             $tripId = (int) $this->route('trip');
-            $trip = Trip::query()->find($tripId);
+            $trip = Trip::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
+                ->find($tripId);
 
             if (! $trip) {
                 return;
@@ -81,6 +84,7 @@ class UpdateTripRequest extends FormRequest
 
             $driverId = (int) $this->input('driver_id', $trip->driver_id);
             if ($driverId > 0 && Trip::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                 ->where('id', '!=', $tripId)
                 ->where('driver_id', $driverId)
                 ->where('status', 'in_progress')
@@ -90,6 +94,7 @@ class UpdateTripRequest extends FormRequest
 
             $vehicleId = (int) $this->input('vehicle_id', $trip->vehicle_id);
             if ($vehicleId > 0 && Trip::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                 ->where('id', '!=', $tripId)
                 ->where('vehicle_id', $vehicleId)
                 ->where('status', 'in_progress')

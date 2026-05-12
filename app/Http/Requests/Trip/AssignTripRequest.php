@@ -4,20 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Trip;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AppFormRequest;
 
-final class AssignTripRequest extends FormRequest
+final class AssignTripRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('orders', 'edit');
     }
 
     /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
-            'driver_id' => ['required', 'integer', 'exists:drivers,id'],
+            'driver_id' => ['required', 'integer', $this->existsInCompany('drivers')],
+            'vehicle_id' => ['required', 'integer', $this->existsInCompany('vehicles')],
         ];
     }
 }

@@ -49,6 +49,12 @@ invoices              notifications         chat_messages
 invoice_status_                             knowledge_articles
   histories                                 rag_index
                                             report_caches
+
+BẢNG LƯƠNG            HỆ THỐNG
+──────────────        ──────────────
+payrolls              login_logs
+payroll_lines         export_logs
+payroll_adjustments
 ```
 
 ---
@@ -128,6 +134,33 @@ invoice_status_                             knowledge_articles
 | created_at | TIMESTAMP | YES | NULL | |
 
 > Không có updated_at. Không UPDATE, không DELETE bảng này.
+
+---
+
+### [P5] `login_logs` — Lịch sử đăng nhập
+| Cột | Kiểu | Null | Default | Mô tả |
+|---|---|---|---|---|
+| id | BIGINT PK | NO | AUTO | |
+| user_id | BIGINT FK | YES | NULL | → users |
+| ip | VARCHAR(45) | YES | NULL | |
+| device | VARCHAR(255) | YES | NULL | |
+| login_at | TIMESTAMP | NO | CURRENT | |
+| logout_at | TIMESTAMP | YES | NULL | |
+| status | VARCHAR(20) | NO | active | active / expired |
+| action | VARCHAR(50) | NO | login | login / refresh |
+
+---
+
+### [P6] `export_logs` — Lịch sử xuất báo cáo
+| Cột | Kiểu | Null | Default | Mô tả |
+|---|---|---|---|---|
+| id | BIGINT PK | NO | AUTO | |
+| user_id | BIGINT FK | YES | NULL | → users |
+| type | VARCHAR(50) | NO | — | payroll / trip / customer |
+| file_name | VARCHAR(255) | NO | — | |
+| file_path | VARCHAR(255) | NO | — | |
+| record_count | INT | NO | 0 | |
+| created_at | TIMESTAMP | YES | NULL | |
 
 ---
 
@@ -756,6 +789,50 @@ Giữ nguyên. Đã có trip_id, from_status, to_status, changed_by, changed_at,
 | created_at | TIMESTAMP | YES | NULL | |
 | updated_at | TIMESTAMP | YES | NULL | |
 | deleted_at | TIMESTAMP | YES | NULL | |
+
+---
+
+### [KT4] `payrolls` — Bảng lương tháng
+| Cột | Kiểu | Null | Default | Mô tả |
+|---|---|---|---|---|
+| id | BIGINT PK | NO | AUTO | |
+| company_id | BIGINT FK | NO | — | |
+| month | TINYINT | NO | — | 1-12 |
+| year | SMALLINT | NO | — | |
+| status | ENUM | NO | draft | draft / approved / locked / paid |
+| locked_at | TIMESTAMP | YES | NULL | |
+| locked_by | BIGINT FK | YES | NULL | |
+| approved_at | TIMESTAMP | YES | NULL | |
+| approved_by | BIGINT FK | YES | NULL | |
+| paid_at | TIMESTAMP | YES | NULL | |
+| paid_by | BIGINT FK | YES | NULL | |
+| snapshot_json | JSON | YES | NULL | Dữ liệu đóng băng lúc chốt |
+
+---
+
+### [KT5] `payroll_lines` — Chi tiết lương từng tài xế
+| Cột | Kiểu | Null | Default | Mô tả |
+|---|---|---|---|---|
+| id | BIGINT PK | NO | AUTO | |
+| payroll_id | BIGINT FK | NO | — | |
+| driver_id | BIGINT FK | NO | — | |
+| base_salary | DECIMAL(15,2) | NO | 0 | |
+| trip_bonus | DECIMAL(15,2) | NO | 0 | |
+| allowance | DECIMAL(15,2) | NO | 0 | |
+| deduction | DECIMAL(15,2) | NO | 0 | |
+| net_salary | DECIMAL(15,2) | NO | 0 | |
+
+---
+
+### [KT6] `payroll_adjustments` — Điều chỉnh lương
+| Cột | Kiểu | Null | Default | Mô tả |
+|---|---|---|---|---|
+| id | BIGINT PK | NO | AUTO | |
+| payroll_id | BIGINT FK | NO | — | |
+| driver_id | BIGINT FK | NO | — | |
+| type | ENUM | NO | addition | addition / deduction |
+| amount | DECIMAL(15,2) | NO | — | |
+| reason | TEXT | NO | — | |
 
 ---
 

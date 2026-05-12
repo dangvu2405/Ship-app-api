@@ -11,8 +11,10 @@ use App\Http\Requests\Leave\StoreLeaveRequest;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Services\LeaveService;
-use Illuminate\Http\JsonResponse;
+use App\Http\Resources\LeaveTypeResource;
+use App\Http\Resources\LeaveRequestResource;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use InvalidArgumentException;
 use Throwable;
 
@@ -21,7 +23,9 @@ use Throwable;
  */
 class LeaveController extends BaseController
 {
-    public function __construct(private readonly LeaveService $leaveService) {}
+    public function __construct(private readonly LeaveService $leaveService)
+    {
+    }
 
     /**
      * @OA\Get(
@@ -33,11 +37,11 @@ class LeaveController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function types(): JsonResponse
+    public function types(): AnonymousResourceCollection
     {
         $types = LeaveType::query()->active()->orderBy('name')->get();
 
-        return $this->successResponse(['leave_types' => $types], 'api.leave.types_retrieved');
+        return LeaveTypeResource::collection($types);
     }
 
     /**
@@ -55,7 +59,7 @@ class LeaveController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): AnonymousResourceCollection
     {
         $query = LeaveRequest::query()->with(['driver', 'leaveType', 'approver']);
 
@@ -74,7 +78,7 @@ class LeaveController extends BaseController
 
         $requests = $query->orderByDesc('from_date')->paginate(20);
 
-        return $this->successResponse($requests, 'api.leave.requests_retrieved');
+        return LeaveRequestResource::collection($requests);
     }
 
     /**

@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Report;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AppFormRequest;
 
-class DashboardRequest extends FormRequest
+class DashboardRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('reports', 'view');
     }
 
     /**

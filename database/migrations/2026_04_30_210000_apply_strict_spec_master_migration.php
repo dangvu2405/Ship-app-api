@@ -9,33 +9,34 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     private const SPEC_TABLES = [
-        'companies', 'users', 'user_permissions', 'audit_logs',
+        'companies', 'users', 'user_permissions', 'user_companies', 'audit_logs',
+        'offices', 'departments', 'positions', 'employees',
         'vehicle_types', 'cargo_types', 'locations', 'route_templates', 'cost_categories', 'order_status_configs',
         'customer_groups', 'customers', 'price_lists', 'price_list_items',
         'vehicles', 'vehicle_documents', 'vehicle_assignments', 'spare_parts', 'maintenance_schedules', 'maintenance_records',
         'driver_teams', 'drivers', 'driver_documents',
-        'leave_types', 'leave_requests', 'driver_work_schedules',
+        'leave_types', 'leave_requests', 'overtime_requests', 'driver_work_schedules',
         'trips', 'trip_stops', 'trip_surcharges', 'trip_documents', 'trip_status_histories',
         'trip_costs', 'cost_approval_requests',
         'reconciliation_sessions', 'reconciliation_items', 'payment_records',
         'invoices', 'invoice_status_histories',
+        'payrolls', 'payroll_lines', 'payroll_adjustments', 'payroll_status_histories',
         'notifications', 'chat_messages', 'knowledge_articles', 'rag_index', 'report_caches',
     ];
 
     private const SYSTEM_TABLES = [
         'migrations', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs',
         'sessions', 'personal_access_tokens', 'password_reset_tokens', 'refresh_tokens',
+        'login_logs', 'export_logs',
     ];
 
     public function up(): void
     {
-        if (app()->runningUnitTests()) {
-            return;
-        }
 
         Schema::disableForeignKeyConstraints();
 
         $this->ensurePlatformTables();
+        $this->ensureWorkforceTables();
         $this->ensureCatalogTables();
         $this->ensureCustomerTables();
         $this->ensureVehicleTables();
@@ -43,6 +44,8 @@ return new class extends Migration
         $this->ensureScheduleTables();
         $this->ensureOrderAndCostTables();
         $this->ensureAccountingTables();
+        $this->ensurePayrollTables();
+        $this->ensureLogTables();
 
         $this->dropTablesOutsideStrictSpec();
 
@@ -70,6 +73,80 @@ return new class extends Migration
                 $table->boolean('can_export')->default(false);
                 $table->timestamps();
                 $table->unique(['company_id', 'user_id', 'module']);
+            });
+        }
+
+        if (! Schema::hasTable('user_companies')) {
+            Schema::create('user_companies', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+                $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+                $table->boolean('is_default')->default(false);
+                $table->timestamps();
+                $table->unique(['user_id', 'company_id']);
+            });
+        }
+    }
+
+    private function ensureWorkforceTables(): void
+    {
+        if (! Schema::hasTable('offices')) {
+            Schema::create('offices', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+                $table->string('code', 50);
+                $table->string('name');
+                $table->text('address')->nullable();
+                $table->unsignedBigInteger('manager_id')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+                $table->index(['company_id', 'code']);
+            });
+        }
+
+        if (! Schema::hasTable('departments')) {
+            Schema::create('departments', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('office_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('parent_id')->nullable()->constrained('departments')->nullOnDelete();
+                $table->string('code', 50);
+                $table->string('name');
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
+
+        if (! Schema::hasTable('positions')) {
+            Schema::create('positions', function (Blueprint $table): void {
+                $table->id();
+                $table->string('code', 50)->unique();
+                $table->string('name');
+                $table->decimal('base_salary', 15, 2)->default(0);
+                $table->integer('level')->default(1);
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
+
+        if (! Schema::hasTable('employees')) {
+            Schema::create('employees', function (Blueprint $table): void {
+                $table->id();
+                $table->string('code', 50)->unique();
+                $table->string('name');
+                $table->string('email')->unique()->nullable();
+                $table->string('phone', 20)->nullable();
+                $table->date('dob')->nullable();
+                $table->enum('gender', ['male', 'female', 'other'])->nullable();
+                $table->text('address')->nullable();
+                $table->foreignId('office_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('department_id')->nullable()->constrained()->nullOnDelete();
+                $table->foreignId('position_id')->constrained()->restrictOnDelete();
+                $table->enum('type', ['office', 'driver'])->default('office');
+                $table->enum('status', ['active', 'inactive', 'resigned'])->default('active');
+                $table->date('join_date')->nullable();
+                $table->date('resign_date')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
             });
         }
     }
@@ -488,6 +565,128 @@ return new class extends Migration
                 $table->text('notes')->nullable();
                 $table->timestamps();
                 $table->softDeletes();
+            });
+        }
+    }
+
+    private function ensurePayrollTables(): void
+    {
+        if (! Schema::hasTable('payrolls')) {
+            Schema::create('payrolls', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+                $table->unsignedTinyInteger('month');
+                $table->unsignedSmallInteger('year');
+                $table->enum('status', ['draft', 'approved', 'locked', 'paid'])->default('draft');
+                $table->timestamp('locked_at')->nullable();
+                $table->unsignedBigInteger('locked_by')->nullable();
+                $table->unsignedBigInteger('approved_by')->nullable();
+                $table->timestamp('approved_at')->nullable();
+                $table->timestamp('paid_at')->nullable();
+                $table->unsignedBigInteger('paid_by')->nullable();
+                $table->text('notes')->nullable();
+                $table->json('snapshot_json')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+                $table->unique(['company_id', 'month', 'year']);
+            });
+        }
+
+        if (! Schema::hasTable('payroll_lines')) {
+            Schema::create('payroll_lines', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('payroll_id')->constrained('payrolls')->cascadeOnDelete();
+                $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('driver_id')->constrained('drivers')->restrictOnDelete();
+                $table->decimal('base_salary', 15, 2)->default(0);
+                $table->decimal('trip_bonus', 15, 2)->default(0);
+                $table->decimal('overtime_pay', 15, 2)->default(0);
+                $table->decimal('night_shift_allowance', 15, 2)->default(0);
+                $table->decimal('public_holiday_pay', 15, 2)->default(0);
+                $table->decimal('allowance', 15, 2)->default(0);
+                $table->decimal('deduction', 15, 2)->default(0);
+                $table->decimal('leave_unpaid_deduction', 15, 2)->default(0);
+                $table->decimal('violation_deduction', 15, 2)->default(0);
+                $table->decimal('fuel_excess_deduction', 15, 2)->default(0);
+                $table->decimal('tax', 15, 2)->default(0);
+                $table->decimal('net_salary', 15, 2)->default(0);
+                $table->unsignedSmallInteger('working_days')->default(22);
+                $table->unsignedSmallInteger('leave_days_paid')->default(0);
+                $table->unsignedSmallInteger('leave_days_unpaid')->default(0);
+                $table->decimal('overtime_hours', 8, 2)->default(0);
+                $table->unsignedInteger('trips_completed_count')->default(0);
+                $table->decimal('total_distance_km', 12, 2)->default(0);
+                $table->json('meta_json')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+                $table->unique(['payroll_id', 'driver_id']);
+            });
+        }
+
+        if (! Schema::hasTable('payroll_adjustments')) {
+            Schema::create('payroll_adjustments', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('payroll_id')->constrained('payrolls')->cascadeOnDelete();
+                $table->unsignedBigInteger('original_payroll_id')->nullable();
+                $table->foreignId('driver_id')->constrained('drivers')->cascadeOnDelete();
+                $table->enum('type', ['addition', 'deduction']);
+                $table->enum('category', ['violation_refund', 'leave_restore', 'ot_late_approval', 'manual'])->default('manual');
+                $table->decimal('amount', 15, 2);
+                $table->text('reason');
+                $table->string('source_type', 50)->nullable();
+                $table->unsignedBigInteger('source_id')->nullable();
+                $table->unsignedBigInteger('approved_by')->nullable();
+                $table->timestamps();
+                $table->softDeletes();
+            });
+        }
+
+        if (! Schema::hasTable('payroll_status_histories')) {
+            Schema::create('payroll_status_histories', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('payroll_id')->constrained('payrolls')->cascadeOnDelete();
+                $table->string('from_status', 50)->nullable();
+                $table->string('to_status', 50);
+                $table->unsignedBigInteger('changed_by')->nullable();
+                $table->timestamp('changed_at')->useCurrent();
+                $table->text('note')->nullable();
+                $table->timestamps();
+            });
+        }
+    }
+
+    private function ensureLogTables(): void
+    {
+        if (! Schema::hasTable('login_logs')) {
+            Schema::create('login_logs', function (Blueprint $table): void {
+                $table->id();
+                $table->unsignedBigInteger('user_id')->nullable();
+                $table->string('ip', 45)->nullable();
+                $table->string('device', 255)->nullable();
+                $table->timestamp('login_at')->useCurrent();
+                $table->timestamp('logout_at')->nullable();
+                $table->string('status', 20)->default('active');
+                $table->string('action', 50)->default('login');
+                $table->string('performed_by', 255)->nullable();
+                $table->timestamps();
+                $table->index('user_id');
+                $table->index('login_at');
+            });
+        }
+
+        if (! Schema::hasTable('export_logs')) {
+            Schema::create('export_logs', function (Blueprint $table): void {
+                $table->id();
+                $table->unsignedBigInteger('user_id')->nullable();
+                $table->string('type', 50);
+                $table->string('file_name', 255);
+                $table->string('file_path', 255);
+                $table->integer('record_count')->default(0);
+                $table->timestamps();
+                $table->softDeletes();
+                $table->index('user_id');
+                $table->index(['type', 'created_at']);
             });
         }
     }

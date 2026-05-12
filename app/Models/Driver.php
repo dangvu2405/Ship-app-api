@@ -33,7 +33,6 @@ class Driver extends Model
         'national_id_issue_place',
         'social_insurance_no',
         // Organization
-        'user_id',
         'company_id',
         'team_id',
         // Status & dates
@@ -63,7 +62,6 @@ class Driver extends Model
     {
         $casts = [
             'company_id' => 'integer',
-            'user_id' => 'integer',
             'team_id' => 'integer',
             'dob' => 'date',
             'national_id_issue_date' => 'date',
@@ -88,12 +86,6 @@ class Driver extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
-    }
-
-    /** Login account linked via `users.driver_id` (ship_db). */
-    public function user(): HasOne
-    {
-        return $this->hasOne(User::class, 'driver_id');
     }
 
     public function trips(): HasMany

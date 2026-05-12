@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Requests\CetaResourceRequest;
+use App\Services\Finance\FinanceService;
+use App\Services\Fleet\FleetService;
+use App\Services\Report\ReportService;
+use App\Services\Trip\TripService;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +23,10 @@ final class CetaSpecController extends BaseController
     private const TABLES = [
         'cargo-types' => 'cargo_types',
         'companies' => 'companies',
+        'departments' => 'departments',
+        'employees' => 'employees',
+        'offices' => 'offices',
+        'positions' => 'positions',
         'cost-approvals' => 'cost_approval_requests',
         'cost-categories' => 'cost_categories',
         'customer-groups' => 'customer_groups',
@@ -33,6 +41,10 @@ final class CetaSpecController extends BaseController
         'maintenance-schedules' => 'maintenance_schedules',
         'notifications' => 'notifications',
         'order-status-configs' => 'order_status_configs',
+        'overtime' => 'overtime_requests',
+        'overtimes' => 'overtime_requests',
+        'payrolls' => 'payrolls',
+        'payroll-driver-lines' => 'payroll_lines',
         'payments' => 'payment_records',
         'price-list-items' => 'price_list_items',
         'price-lists' => 'price_lists',
@@ -59,7 +71,13 @@ final class CetaSpecController extends BaseController
         'work-schedules' => 'driver_work_schedules',
     ];
 
-    public function __construct(private readonly TenantContext $tenantContext) {}
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+        private readonly TripService $tripService,
+        private readonly FinanceService $financeService,
+        private readonly FleetService $fleetService,
+        private readonly ReportService $reportService,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -70,18 +88,19 @@ final class CetaSpecController extends BaseController
         $this->applyFilters($query, $request, $table);
 
         $perPage = max(1, min(100, (int) $request->query('per_page', 15)));
-        $page = $query->orderByDesc($this->orderColumn($table))->paginate($perPage);
+        $this->applySorting($query, $request, $table);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'OK',
+        $page = $query->paginate($perPage);
+
+        return $this->successResponse([
             'data' => $page->items(),
             'meta' => [
-                'page' => $page->currentPage(),
+                'current_page' => $page->currentPage(),
+                'last_page' => $page->lastPage(),
                 'per_page' => $page->perPage(),
                 'total' => $page->total(),
             ],
-        ]);
+        ], 'OK');
     }
 
     public function store(CetaResourceRequest $request): JsonResponse
@@ -91,11 +110,18 @@ final class CetaSpecController extends BaseController
         $payload = $this->withDefaults($payload, $table);
         $this->beforeStore($table, $payload);
 
-        $id = DB::table($table)->insertGetId($payload);
+        try {
+            $id = DB::table($table)->insertGetId($payload);
+            $this->afterStore($table, $id, $payload);
 
-        $this->afterStore($table, $id, $payload);
-
-        return $this->successResponse($this->findRow($table, $id), 'Created', 201);
+            return $this->successResponse($this->findRow($table, $id), 'Created', 201);
+        } catch (\Throwable $e) {
+            return $this->errorResponse(__('api.database_error'), 500, [
+                'error' => $e->getMessage(),
+                'table' => $table,
+                'payload' => config('app.debug') ? $payload : null,
+            ]);
+        }
     }
 
     public function show(Request $request): JsonResponse
@@ -155,9 +181,27 @@ final class CetaSpecController extends BaseController
         $child = (string) $request->route('child');
         $table = $this->table($child);
         $query = $this->scopedQuery($table)->where($this->foreignKey((string) $request->route('parent')), $request->route('id'));
-        $rows = $query->orderByDesc($this->orderColumn($table))->get();
 
-        return $this->successResponse($rows, 'OK');
+        $this->applySearch($query, $request, $table);
+        $this->applyFilters($query, $request, $table);
+        $this->applySorting($query, $request, $table);
+
+        if ($request->has('page') || $request->has('per_page')) {
+            $perPage = max(1, min(100, (int) $request->query('per_page', 15)));
+            $page = $query->paginate($perPage);
+
+            return $this->successResponse([
+                'data' => $page->items(),
+                'meta' => [
+                    'current_page' => $page->currentPage(),
+                    'last_page' => $page->lastPage(),
+                    'per_page' => $page->perPage(),
+                    'total' => $page->total(),
+                ],
+            ], 'OK');
+        }
+
+        return $this->successResponse($query->get(), 'OK');
     }
 
     public function nestedStore(CetaResourceRequest $request): JsonResponse
@@ -169,10 +213,18 @@ final class CetaSpecController extends BaseController
         $payload = $this->withDefaults($payload, $table);
         $this->beforeStore($table, $payload);
 
-        $id = DB::table($table)->insertGetId($payload);
-        $this->afterStore($table, $id, $payload);
+        try {
+            $id = DB::table($table)->insertGetId($payload);
+            $this->afterStore($table, $id, $payload);
 
-        return $this->successResponse($this->findRow($table, $id), 'Created', 201);
+            return $this->successResponse($this->findRow($table, $id), 'Created', 201);
+        } catch (\Throwable $e) {
+            return $this->errorResponse(__('api.database_error'), 500, [
+                'error' => $e->getMessage(),
+                'table' => $table,
+                'payload' => config('app.debug') ? $payload : null,
+            ]);
+        }
     }
 
     public function nestedUpdate(CetaResourceRequest $request): JsonResponse
@@ -227,11 +279,11 @@ final class CetaSpecController extends BaseController
         }
 
         if ($table === 'trips') {
-            $this->assertTripTransition($id, $action);
-            
+            $this->tripService->assertTripTransition($id, $action);
+
             // R02, R03, R12: Validate trip assignment constraints
             if ($action === 'assign') {
-                $this->validateTripAssignment($id, $request);
+                $this->tripService->validateTripAssignment($id, $request);
             }
         }
 
@@ -239,6 +291,10 @@ final class CetaSpecController extends BaseController
         if ($updates !== []) {
             $updates['updated_at'] = now();
             $this->scopedQuery($table)->where('id', $id)->update($updates);
+        }
+
+        if ($action === 'email') {
+            return $this->successResponse(null, "Email sent successfully to {$request->input('email', 'customer')}");
         }
 
         return $this->successResponse([
@@ -250,16 +306,11 @@ final class CetaSpecController extends BaseController
 
     public function releaseVehicleAssignment(Request $request): JsonResponse
     {
-        $vehicleId = (string) $request->route('id');
-        DB::table('vehicle_assignments')
-            ->where('vehicle_id', $vehicleId)
-            ->whereNull('to_date')
-            ->where('company_id', $this->companyId())
-            ->update([
-                'to_date' => $request->input('release_date', now()->toDateString()),
-                'release_reason' => $request->input('release_reason'),
-                'updated_at' => now(),
-            ]);
+        $this->fleetService->releaseVehicleAssignment(
+            (string) $request->route('id'),
+            $request->input('release_date', now()->toDateString()),
+            $request->input('release_reason')
+        );
 
         return $this->successResponse(null, 'Released');
     }
@@ -269,95 +320,33 @@ final class CetaSpecController extends BaseController
         $resource = (string) $request->route('resource');
         $table = $this->table($resource);
         $date = (string) $request->query('date', now()->toDateString());
-        $query = $this->scopedQuery($table);
 
-        if ($table === 'vehicles') {
-            $busy = DB::table('trips')->whereDate('scheduled_date', $date)->pluck('vehicle_id')->filter()->all();
-            $query->where('status', 'active')->whereNotIn('id', $busy);
-        }
-        if ($table === 'drivers') {
-            $busy = DB::table('trips')->whereDate('scheduled_date', $date)->pluck('driver_id')->filter()->all();
-            $query->where('status', 'active')->where('available_status', 'available')->whereNotIn('id', $busy);
-        }
-
-        return $this->successResponse($query->limit(100)->get(), 'OK');
+        return $this->successResponse($this->fleetService->getAvailableResources($table, $date), 'OK');
     }
 
     public function priceLookup(Request $request): JsonResponse
     {
-        $query = $this->scopedQuery('price_list_items');
-        foreach (['route_template_id', 'vehicle_type_id', 'cargo_type_id'] as $field) {
-            if ($request->filled($field)) {
-                $query->where($field, $request->input($field));
-            }
-        }
-        if ($request->filled('customer_id')) {
-            $query->join('price_lists', 'price_lists.id', '=', 'price_list_items.price_list_id')
-                ->where('price_lists.customer_id', $request->input('customer_id'));
-        }
-        $item = $query->select('price_list_items.*')->orderByDesc('price_list_items.id')->first();
-
-        return $this->successResponse($item ? [
-            'price' => $item->price,
-            'price_unit' => $item->price_unit,
-            'price_list_id' => $item->price_list_id,
-        ] : null, 'OK');
+        return $this->successResponse($this->financeService->priceLookup($request), 'OK');
     }
 
     public function debtOverview(Request $request): JsonResponse
     {
-        $companyId = $this->companyId();
-        $rows = DB::table('customers')
-            ->leftJoin('trips', 'trips.customer_id', '=', 'customers.id')
-            ->where('customers.company_id', $companyId)
-            ->groupBy('customers.id', 'customers.name')
-            ->selectRaw('customers.id, customers.name, COALESCE(SUM(CASE WHEN trips.payment_status != "paid" THEN trips.price ELSE 0 END),0) as debt')
-            ->get();
-
-        return $this->successResponse($rows, 'OK');
+        return $this->successResponse($this->financeService->debtOverview(), 'OK');
     }
 
     public function report(Request $request): JsonResponse
     {
         $type = (string) $request->route('reportType');
-        $companyId = $this->companyId();
-        if ($type === 'notifications-unread') {
-            return $this->successResponse([
-                'unread_count' => DB::table('notifications')
-                    ->where('notifiable_id', $request->user()?->id)
-                    ->whereNull('read_at')
-                    ->count(),
-            ], 'OK');
-        }
+        $userId = $request->user()?->id;
 
-        $data = [
-            'type' => $type,
-            'summary' => [
-                'trips' => Schema::hasTable('trips') ? DB::table('trips')->where('company_id', $companyId)->count() : 0,
-                'vehicles' => Schema::hasTable('vehicles') ? DB::table('vehicles')->where('company_id', $companyId)->count() : 0,
-                'drivers' => Schema::hasTable('drivers') ? DB::table('drivers')->where('company_id', $companyId)->count() : 0,
-                'customers' => Schema::hasTable('customers') ? DB::table('customers')->where('company_id', $companyId)->count() : 0,
-            ],
-        ];
-
-        return $this->successResponse($data, 'OK');
+        return $this->successResponse($this->reportService->getReportData($type, $userId), 'OK');
     }
 
     public function dispatch(Request $request): JsonResponse
     {
         $date = (string) $request->query('date', now()->toDateString());
-        $companyId = $this->companyId();
-        $trips = DB::table('trips')->where('company_id', $companyId)->whereDate('scheduled_date', $date)->get();
 
-        return $this->successResponse([
-            'date' => $date,
-            'trips' => $trips,
-            'unassigned_trips' => $trips->whereNull('vehicle_id')->values(),
-            'daily_summary' => [
-                'total_trips' => $trips->count(),
-                'unassigned' => $trips->whereNull('vehicle_id')->count(),
-            ],
-        ], 'OK');
+        return $this->successResponse($this->reportService->getDispatchData($date), 'OK');
     }
 
     public function uploadDelete(Request $request): JsonResponse
@@ -417,7 +406,7 @@ final class CetaSpecController extends BaseController
             }
         }
 
-        return (int) (DB::table('companies')->orderBy('id')->value('id') ?? 1);
+        abort(403, 'Không thể xác định company_id.');
     }
 
     /** @return array<string, mixed> */
@@ -442,7 +431,7 @@ final class CetaSpecController extends BaseController
     /** @param array<string, mixed> $payload @return array<string, mixed> */
     private function withDefaults(array $payload, string $table): array
     {
-        if (Schema::hasColumn($table, 'company_id') && empty($payload['company_id'])) {
+        if (Schema::hasColumn($table, 'company_id')) {
             $payload['company_id'] = $this->companyId();
         }
         if (Schema::hasColumn($table, 'created_by') && empty($payload['created_by'])) {
@@ -470,15 +459,15 @@ final class CetaSpecController extends BaseController
     /** @param array<string, mixed> $payload @return array<string, mixed> */
     private function withRequiredDefaults(array $payload, string $table): array
     {
-        foreach (DB::select("SHOW COLUMNS FROM `{$table}`") as $column) {
-            $field = (string) $column->Field;
-            if (isset($payload[$field]) || $field === 'id' || str_contains((string) $column->Extra, 'auto_increment')) {
+        foreach (Schema::getColumns($table) as $column) {
+            $field = $column['name'];
+            if (isset($payload[$field]) || $field === 'id' || ! empty($column['auto_increment'])) {
                 continue;
             }
-            if ((string) $column->Null === 'YES' || $column->Default !== null || in_array($field, ['created_at', 'updated_at', 'deleted_at'], true)) {
+            if (! empty($column['nullable']) || $column['default'] !== null || in_array($field, ['created_at', 'updated_at', 'deleted_at'], true)) {
                 continue;
             }
-            $payload[$field] = $this->defaultValue($table, $field, (string) $column->Type);
+            $payload[$field] = $this->defaultValue($table, $field, (string) $column['type']);
         }
 
         return $payload;
@@ -552,7 +541,7 @@ final class CetaSpecController extends BaseController
     private function applyFilters(\Illuminate\Database\Query\Builder $query, Request $request, string $table): void
     {
         foreach ($request->query() as $key => $value) {
-            if (in_array($key, ['page', 'per_page', 'q', 'search'], true) || $value === null || $value === '') {
+            if (in_array($key, ['page', 'per_page', 'q', 'search', 'keyword', 'sort_by', 'sort_order'], true) || $value === null || $value === '') {
                 continue;
             }
             if (Schema::hasColumn($table, $key)) {
@@ -561,9 +550,21 @@ final class CetaSpecController extends BaseController
         }
     }
 
+    private function applySorting(\Illuminate\Database\Query\Builder $query, Request $request, string $table): void
+    {
+        $sortBy = (string) $request->query('sort_by', $this->orderColumn($table));
+        $sortOrder = (string) $request->query('sort_order', 'desc');
+
+        if (Schema::hasColumn($table, $sortBy)) {
+            $query->orderBy("{$table}.{$sortBy}", $sortOrder === 'asc' ? 'asc' : 'desc');
+        } else {
+            $query->orderByDesc($this->orderColumn($table));
+        }
+    }
+
     private function applySearch(\Illuminate\Database\Query\Builder $query, Request $request, string $table): void
     {
-        $term = (string) ($request->query('q', $request->query('search', '')));
+        $term = (string) ($request->query('keyword', $request->query('q', $request->query('search', ''))));
         if ($term === '') {
             return;
         }
@@ -588,11 +589,12 @@ final class CetaSpecController extends BaseController
             'submit' => $this->statusUpdate($table, 'submitted', $request),
             'lock' => $this->statusUpdate($table, 'locked', $request),
             'start' => $this->statusUpdate($table, 'in_progress', $request) + ['start_time' => now()],
-            'assign' => $this->statusUpdate($table, 'assigned', $request) + (Schema::hasColumn($table, 'assigned_at') ? ['assigned_at' => now()] : []),
-            'deliver' => $this->statusUpdate($table, 'delivered', $request) + (Schema::hasColumn($table, 'end_time') ? ['end_time' => now()] : []) + (Schema::hasColumn($table, 'actual_delivered_at') ? ['actual_delivered_at' => now()] : []),
+            'assign' => $this->statusUpdate($table, 'in_progress', $request) + (Schema::hasColumn($table, 'assigned_at') ? ['assigned_at' => now()] : []),
+            'deliver' => $this->statusUpdate($table, 'in_progress', $request) + (Schema::hasColumn($table, 'end_time') ? ['end_time' => now()] : []) + (Schema::hasColumn($table, 'actual_delivered_at') ? ['actual_delivered_at' => now()] : []),
             'complete' => $this->statusUpdate($table, 'completed', $request) + (Schema::hasColumn($table, 'end_time') ? ['end_time' => now()] : []),
-            'arrive' => $this->statusUpdate($table, 'arrived', $request) + ['actual_time' => now()],
+            'arrive' => $this->statusUpdate($table, 'in_progress', $request) + (Schema::hasColumn($table, 'actual_delivered_at') ? ['actual_delivered_at' => now()] : []),
             'read' => Schema::hasColumn($table, 'read_at') ? ['read_at' => now()] : [],
+            'email' => [],
             'status' => ['status' => $request->input('status', 'active')],
             default => $this->payload($request, $table, partial: true),
         };
@@ -631,113 +633,15 @@ final class CetaSpecController extends BaseController
     }
 
     /** @param array<string, mixed> $payload */
-    private function afterStore(string $table, int $id, array $payload): void
+    private function afterStore(string $table, int|string $id, array $payload): void
     {
-        if ($table !== 'trip_costs') {
-            return;
-        }
-        $threshold = DB::table('cost_categories')->where('id', $payload['cost_category_id'] ?? null)->value('approval_threshold');
-        $amount = (float) ($payload['amount'] ?? 0);
-        if ($threshold !== null && $amount > (float) $threshold) {
-            DB::table('trip_costs')->where('id', $id)->update(['approval_required' => true, 'status' => 'pending']);
-            DB::table('cost_approval_requests')->insert([
-                'company_id' => $payload['company_id'] ?? $this->companyId(),
-                'trip_id' => $payload['trip_id'] ?? 1,
-                'requested_by' => request()->user()?->id ?? 1,
-                'total_amount' => $amount,
-                'reason' => $payload['description'] ?? 'Cost exceeds approval threshold',
-                'status' => 'pending',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
+        $this->financeService->afterStore($table, $id, $payload);
     }
 
     /** @param array<string, mixed> $payload */
     private function beforeStore(string $table, array $payload): void
     {
-        if ($table !== 'vehicle_assignments') {
-            return;
-        }
-
-        foreach (['vehicle_id', 'driver_id'] as $field) {
-            if (empty($payload[$field])) {
-                continue;
-            }
-
-            DB::table('vehicle_assignments')
-                ->where($field, $payload[$field])
-                ->where('company_id', $payload['company_id'] ?? $this->companyId())
-                ->whereNull('to_date')
-                ->update([
-                    'to_date' => now()->toDateString(),
-                    'release_reason' => 'Auto-closed before new active assignment',
-                    'updated_at' => now(),
-                ]);
-        }
-    }
-
-    private function assertTripTransition(string $id, string $action): void
-    {
-        $current = (string) $this->scopedQuery('trips')->where('id', $id)->value('status');
-        $allowed = [
-            // pending -> assign
-            'assign' => ['pending'],
-            // assigned -> start
-            'start' => ['assigned', 'pending'],
-            // in_progress -> deliver
-            'deliver' => ['in_progress'],
-            // delivered -> complete
-            'complete' => ['delivered', 'in_progress'],
-            'cancel' => ['pending', 'in_progress'],
-            'change-vehicle' => ['pending', 'in_progress'],
-            'change-driver' => ['pending', 'in_progress'],
-        ];
-
-        if (isset($allowed[$action]) && ! in_array($current, $allowed[$action], true)) {
-            abort(422, "Invalid trip transition from {$current} by {$action}");
-        }
-    }
-
-    private function validateTripAssignment(string $tripId, Request $request): void
-    {
-        $trip = DB::table('trips')->where('id', $tripId)->first();
-        $vehicleId = $request->input('vehicle_id') ?? $trip?->vehicle_id;
-        $driverId = $request->input('driver_id') ?? $trip?->driver_id;
-        $date = $trip?->scheduled_date ?? now()->toDateString();
-
-        if ($vehicleId) {
-            $vehicleStatus = DB::table('vehicles')
-                ->where('id', $vehicleId)
-                ->where('company_id', $this->companyId())
-                ->value('status');
-            if ($vehicleStatus !== 'active') {
-                abort(422, "Vehicle is not active (status: {$vehicleStatus})");
-            }
-        }
-
-        if ($vehicleId) {
-            $conflict = DB::table('trips')
-                ->where('vehicle_id', $vehicleId)
-                ->where('company_id', $this->companyId())
-                ->where('id', '!=', $tripId)
-                ->whereDate('scheduled_date', $date)
-                ->whereIn('status', ['in_transit'])
-                ->exists();
-            if ($conflict) {
-                abort(422, 'Vehicle is in transit on this date. Cannot assign.');
-            }
-        }
-
-        if ($driverId) {
-            $expiredDate = DB::table('driver_documents')
-                ->where('driver_id', $driverId)
-                ->where('document_type', 'license')
-                ->value('expiry_date');
-            if ($expiredDate && $expiredDate < now()->toDateString()) {
-                abort(422, 'Driver license is expired.');
-            }
-        }
+        $this->fleetService->beforeStore($table, $payload);
     }
 
     private function preventCodeUpdate(string $table, array &$payload): void

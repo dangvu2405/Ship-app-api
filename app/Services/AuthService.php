@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
@@ -26,7 +27,7 @@ class AuthService
     /**
      * @return array{user: User, token: string, refreshToken: string}
      */
-    public function changePassword(\App\Models\User $user, string $currentPassword, string $newPassword): void
+    public function changePassword(User $user, string $currentPassword, string $newPassword): void
     {
         if (! Hash::check($currentPassword, $user->password)) {
             throw new AuthenticationException('INVALID_PASSWORD');
@@ -53,6 +54,11 @@ class AuthService
 
         $tokenPair = $this->issueTokenPair($user);
         $user->update(['last_login_at' => now()]);
+
+        // Sanctum SPA: Create session if request is from a stateful domain
+        if (Auth::guard('web')->check() === false) {
+            Auth::guard('web')->login($user, true);
+        }
 
         try {
             LoginLog::query()->create([
@@ -128,7 +134,7 @@ class AuthService
             ]);
 
             if (! empty($profile['avatar_url']) && empty($user->avatar_url)) {
-                $user->avatar_url = $profile['avatar_url'];
+                $user->setAttribute('avatar_url', $profile['avatar_url']);
             }
 
             $user->last_login_at = now();
@@ -136,6 +142,12 @@ class AuthService
         }
 
         $tokenPair = $this->issueTokenPair($user);
+
+        // Sanctum SPA: Create session if request is from a stateful domain
+        if (Auth::guard('web')->check() === false) {
+            Auth::guard('web')->login($user, true);
+        }
+
         LoginLog::query()->create([
             'user_id' => $user->id,
             'ip' => request()->ip(),
@@ -389,7 +401,7 @@ class AuthService
                     'entityType' => (string) data_get(
                         $log->metadata,
                         'entity_type',
-                        $log->table_name !== null ? \Illuminate\Support\Str::singular(str_replace('-', '_', (string) $log->table_name)) : ''
+                        $log->table_name !== null ? Str::singular(str_replace('-', '_', (string) $log->table_name)) : ''
                     ),
                     'statusCode' => (int) data_get($log->new_data, 'status_code', 0),
                     'performedBy' => (string) ($log->user?->username ?? 'system'),
@@ -493,6 +505,7 @@ class AuthService
 
         $otpToken = Str::uuid()->toString();
         Cache::put($this->passwordResetOtpVerifiedCacheKey($payload['email']), $otpToken, now()->addMinutes(2));
+        Cache::forget($cacheKey);
 
         return [
             'otp_token' => $otpToken,
@@ -789,7 +802,6 @@ class AuthService
         }
 
         $verified = openssl_verify($signingInput, $signature, $publicKey, OPENSSL_ALGO_SHA256) === 1;
-        openssl_free_key($publicKey);
 
         return $verified;
     }
@@ -852,6 +864,7 @@ class AuthService
         return [
             'token' => $accessToken->plainTextToken,
             'refreshToken' => $refreshToken,
+            'refresh_token' => $refreshToken,
         ];
     }
 }

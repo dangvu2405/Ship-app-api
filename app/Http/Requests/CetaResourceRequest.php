@@ -30,6 +30,7 @@ final class CetaResourceRequest extends FormRequest
         'maintenance-schedules' => 'maintenance_schedules',
         'notifications' => 'notifications',
         'order-status-configs' => 'order_status_configs',
+        'overtime' => 'overtime_requests',
         'payments' => 'payment_records',
         'price-list-items' => 'price_list_items',
         'price-lists' => 'price_lists',
@@ -90,7 +91,12 @@ final class CetaResourceRequest extends FormRequest
                 'role' => ['sometimes', Rule::in(['super_admin', 'admin', 'dispatcher', 'accountant', 'viewer'])],
                 'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             ],
+            'companies' => [
+                'status' => ['sometimes', Rule::in(['active', 'inactive'])],
+                'email' => ['sometimes', 'email'],
+            ],
             'trips' => [
+
                 'status' => ['sometimes', Rule::in(['pending', 'in_progress', 'completed', 'cancelled'])],
                 'payment_status' => ['sometimes', Rule::in(['unpaid', 'invoiced', 'paid'])],
             ],
@@ -101,7 +107,7 @@ final class CetaResourceRequest extends FormRequest
                 'available_status' => ['sometimes', Rule::in(['available', 'busy', 'offline'])],
                 'status' => ['sometimes', Rule::in(['active', 'inactive', 'resigned'])],
             ],
-            'leave_requests', 'trip_costs', 'cost_approval_requests' => [
+            'leave_requests', 'trip_costs', 'cost_approval_requests', 'overtime_requests' => [
                 'status' => ['sometimes', Rule::in(['pending', 'approved', 'rejected', 'cancelled'])],
             ],
             default => [],

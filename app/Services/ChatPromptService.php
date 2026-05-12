@@ -24,26 +24,26 @@ QUY TẮC PHẢN HỒI:
 PROMPT;
 
     private const TEMPLATES = [
-        'classify' => <<<'T'
+        'classify' => <<<'TEMPLATE'
 Phân loại câu sau vào đúng 1 nhãn: ORDER | TRACKING | PAYROLL | FUEL | COMPLIANCE | PRICE | OTHER
 Chỉ trả nhãn, không giải thích.
 Câu: "{{message}}"
-T,
-        'extract' => <<<'T'
+TEMPLATE,
+        'extract' => <<<'TEMPLATE'
 Trả về JSON hợp lệ duy nhất, không có text ngoài JSON.
 Schema: {"sender_name":null,"sender_phone":null,"receiver_name":null,"receiver_phone":null,"from_address":null,"to_address":null,"item_description":null,"weight_kg":null,"note":null}
 Nội dung: "{{message}}"
-T,
-        'trip_advice' => <<<'T'
+TEMPLATE,
+        'trip_advice' => <<<'TEMPLATE'
 Hàng: "{{item}}", từ "{{from}}" đến "{{to}}", phương tiện: {{vehicle_type}}, quãng đường: {{distance_km}} km.
 Đưa ra 1 khuyến nghị đóng gói hoặc lưu ý vận chuyển, tối đa 25 từ.
-T,
-        'fuel_check' => <<<'T'
+TEMPLATE,
+        'fuel_check' => <<<'TEMPLATE'
 Phương tiện: {{vehicle_type}}, quãng đường: {{distance_km}} km.
 Định mức: {{fuel_quota_l}} lít. Thực tế: {{fuel_actual_l}} lít.
 Nhận xét kết quả đối soát và hành động tiếp theo. Tối đa 3 câu.
-T,
-        'payroll_query' => <<<'T'
+TEMPLATE,
+        'payroll_query' => <<<'TEMPLATE'
 Tài xế: {{driver_name}}.
 Lương cơ bản: {{base_salary}} VNĐ. Ngày công: {{working_days}} / {{standard_days}} ngày chuẩn.
 Thưởng chuyến: {{bonus_km}} VNĐ. Tổng khấu trừ: {{deductions}}.
@@ -51,14 +51,14 @@ Dữ liệu chi tiết từ hệ thống đã có trong block bên trên.
 Dựa vào dữ liệu đó, giải thích cách tính lương: lương cơ bản, các khoản thưởng, từng khoản khấu trừ, và thực lĩnh.
 Nếu có proration (ngày công < ngày chuẩn), giải thích hệ số.
 Tối đa 6 gạch đầu dòng.
-T,
-        'compliance' => <<<'T'
+TEMPLATE,
+        'compliance' => <<<'TEMPLATE'
 Tài xế: {{driver_name}}. Chứng chỉ: {{cert_name}}. Hết hạn: {{expiry_date}}.
 Dữ liệu chi tiết tất cả chứng chỉ có trong block bên trên.
 Dựa vào đó: (1) liệt kê chứng chỉ nào sắp hết hạn hoặc đã hết hạn, (2) nêu rủi ro khi phân công, (3) hành động cần làm ngay.
 Tối đa 5 gạch đầu dòng.
-T,
-        'chat' => <<<'T'
+TEMPLATE,
+        'chat' => <<<'TEMPLATE'
 Câu hỏi: "{{message}}"
 
 Hướng dẫn trả lời:
@@ -66,7 +66,7 @@ Hướng dẫn trả lời:
 - Nếu có cảnh báo giấy tờ sắp hết hạn, nêu ở dòng đầu tiên.
 - Không suy đoán nếu dữ liệu không có trong context; thay bằng câu ngắn gọn nói rõ.
 - Định dạng: mỗi ý 1 dòng bắt đầu "- ", tối đa 5 gạch đầu dòng, mỗi dòng ≤ 15 từ.
-T,
+TEMPLATE,
         'fallback' => 'Viết 1 câu xin lỗi lịch sự, cực ngắn, báo hệ thống đang bận và mời thử lại sau.',
     ];
 

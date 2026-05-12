@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Invoice;
 
+use App\Http\Requests\AppFormRequest;
 use App\Models\Invoice;
 use App\Models\Trip;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
-class UpdateInvoiceRequest extends FormRequest
+class UpdateInvoiceRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('accounting', 'edit');
     }
 
     public function rules(): array
@@ -22,8 +22,8 @@ class UpdateInvoiceRequest extends FormRequest
 
         return [
             'code' => 'sometimes|string|max:50|unique:invoices,code,'.$id,
-            'trip_id' => 'nullable|exists:trips,id',
-            'customer_id' => 'sometimes|exists:customers,id',
+            'trip_id' => ['nullable', 'integer', $this->existsInCompany('trips')],
+            'customer_id' => ['sometimes', 'integer', $this->existsInCompany('customers')],
             'subtotal' => 'sometimes|numeric|min:0',
             'vat_rate' => 'nullable|numeric|min:0|max:100',
             'vat_amount' => 'nullable|numeric|min:0',
@@ -37,8 +37,11 @@ class UpdateInvoiceRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $companyId = $this->tenantCompanyId();
             $invoiceId = (int) $this->route('invoice');
-            $invoice = Invoice::query()->find($invoiceId);
+            $invoice = Invoice::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
+                ->find($invoiceId);
 
             if (! $invoice) {
                 return;
@@ -48,7 +51,9 @@ class UpdateInvoiceRequest extends FormRequest
             $customerId = (int) $this->input('customer_id', $invoice->customer_id);
 
             if ($tripId) {
-                $trip = Trip::query()->find($tripId);
+                $trip = Trip::query()
+                    ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
+                    ->find($tripId);
                 if ($trip) {
                     if ($trip->status !== 'completed') {
                         $validator->errors()->add('trip_id', 'Chỉ được gắn hóa đơn với chuyến đã completed.');
@@ -59,6 +64,7 @@ class UpdateInvoiceRequest extends FormRequest
                     }
 
                     if (Invoice::query()
+                        ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                         ->where('id', '!=', $invoiceId)
                         ->where('trip_id', $tripId)
                         ->exists()) {

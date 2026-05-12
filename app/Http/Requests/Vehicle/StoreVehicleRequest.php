@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Vehicle;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AppFormRequest;
 
-class StoreVehicleRequest extends FormRequest
+class StoreVehicleRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('vehicles', 'create');
     }
 
     public function rules(): array
     {
         return [
-            'office_id' => 'required|exists:offices,id',
+            'office_id' => ['required', 'integer', $this->existsInCompany('offices')],
             'plate_number' => 'required|string|max:20|unique:vehicles,plate_number',
             'type' => 'required|in:truck,van,car,motorcycle',
             'brand' => 'nullable|string|max:100',

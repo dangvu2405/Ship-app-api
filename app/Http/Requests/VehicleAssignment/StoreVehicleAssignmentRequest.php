@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\VehicleAssignment;
 
+use App\Http\Requests\AppFormRequest;
 use App\Models\VehicleAssignment;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
-class StoreVehicleAssignmentRequest extends FormRequest
+class StoreVehicleAssignmentRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('vehicles', 'edit');
     }
 
     public function rules(): array
     {
         return [
-            'vehicle_id' => 'required|exists:vehicles,id',
-            'driver_id' => 'required|exists:employees,id',
+            'vehicle_id' => ['required', 'integer', $this->existsInCompany('vehicles')],
+            'driver_id' => ['required', 'integer', $this->existsInCompany('drivers')],
             'from_date' => 'required|date',
             'to_date' => 'nullable|date|after_or_equal:from_date',
         ];
@@ -28,6 +28,7 @@ class StoreVehicleAssignmentRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            $companyId = $this->tenantCompanyId();
             $vehicleId = (int) $this->input('vehicle_id');
             $driverId = (int) $this->input('driver_id');
             $fromDate = (string) $this->input('from_date');
@@ -40,6 +41,7 @@ class StoreVehicleAssignmentRequest extends FormRequest
             $toDate = $toDate ?: '9999-12-31';
 
             $vehicleOverlapped = VehicleAssignment::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                 ->where('vehicle_id', $vehicleId)
                 ->whereDate('from_date', '<=', $toDate)
                 ->where(function ($query) use ($fromDate): void {
@@ -52,6 +54,7 @@ class StoreVehicleAssignmentRequest extends FormRequest
             }
 
             $driverOverlapped = VehicleAssignment::query()
+                ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
                 ->where('driver_id', $driverId)
                 ->whereDate('from_date', '<=', $toDate)
                 ->where(function ($query) use ($fromDate): void {

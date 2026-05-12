@@ -8,6 +8,11 @@ use App\Http\Requests\AppFormRequest;
 
 class StoreDriverRequest extends AppFormRequest
 {
+    public function authorize(): bool
+    {
+        return $this->authorizePermission('drivers', 'create');
+    }
+
     public function rules(): array
     {
         return [
@@ -27,9 +32,9 @@ class StoreDriverRequest extends AppFormRequest
             'health_insurance_no' => 'nullable|string|max:30',
             'insurance_registered_at' => 'nullable|date',
             // Tổ chức
-            'office_id' => 'required|exists:offices,id',
-            'department_id' => 'nullable|exists:departments,id',
-            'position_id' => 'required|exists:positions,id',
+            'office_id' => ['required', 'integer', $this->existsInCompany('offices')],
+            'department_id' => ['nullable', 'integer', $this->existsInCompany('departments')],
+            'position_id' => ['required', 'integer', $this->existsInCompany('positions')],
             // Trạng thái
             'status' => 'required|in:active,inactive,resigned',
             'join_date' => 'required|date',
