@@ -4,58 +4,75 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\CostCategory\StoreCostCategoryRequest;
-use App\Http\Requests\CostCategory\UpdateCostCategoryRequest;
-use App\Http\Resources\CostCategoryResource;
 use App\Models\CostCategory;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\JsonResponse;
+use App\Http\Resources\CostCategoryResource;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
-final class CostCategoryController extends BaseController
+class CostCategoryController extends BaseController
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function __construct()
     {
-        $query = CostCategory::query();
-
-        if ($request->filled('keyword')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->input('keyword') . '%')
-                    ->orWhere('code', 'like', '%' . $request->input('keyword') . '%');
-            });
-        }
-        if ($request->filled('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
-        $perPage = (int) $request->input('per_page', 15);
-        $sortBy = $request->input('sort_by', 'sort_order');
-        $sortOrder = $request->input('sort_order', 'asc');
-
-        $query->orderBy($sortBy, $sortOrder);
-
-        return CostCategoryResource::collection($query->paginate($perPage));
+        $this->authorizeResource(CostCategory::class, 'cost_category');
     }
 
-    public function store(StoreCostCategoryRequest $request): CostCategoryResource
+    public function index(Request $request): JsonResource
     {
-        $costCategory = CostCategory::create($request->validated());
+        $costCategories = CostCategory::query()
+            ->where('company_id', auth()->user()->company_id)
+            ->paginate(15);
+
+        return CostCategoryResource::collection($costCategories);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $costCategory = DB::transaction(function () use ($validated) {
+            $costCategory = CostCategory::create(array_merge($validated, [
+                'company_id' => auth()->user()->company_id,
+            ]));
+            return $costCategory;
+        });
+
+        return (new CostCategoryResource($costCategory))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function show(CostCategory $costCategory): JsonResource
+    {
         return new CostCategoryResource($costCategory);
     }
 
-    public function update(UpdateCostCategoryRequest $request, CostCategory $costCategory): CostCategoryResource
+    public function update(Request $request, CostCategory $costCategory): JsonResource
     {
-        $costCategory->update($request->validated());
-        return new CostCategoryResource($costCategory->fresh());
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'is_active' => 'sometimes|nullable|boolean',
+        ]);
+
+        DB::transaction(function () use ($validated, $costCategory) {
+            $costCategory->update($validated);
+        });
+
+        return new CostCategoryResource($costCategory);
     }
 
-    public function destroy(CostCategory $costCategory): Response
+    public function destroy(CostCategory $costCategory): JsonResponse
     {
-        if ($costCategory->tripCosts()->exists()) {
-            abort(422, 'Không thể xóa loại chi phí này vì đã có dữ liệu phát sinh trong các chuyến xe.');
-        }
+        DB::transaction(function () use ($costCategory) {
+            $costCategory->delete();
+        });
 
-        $costCategory->delete();
-        return response()->noContent();
+        return response()->json(null, 204);
     }
 }

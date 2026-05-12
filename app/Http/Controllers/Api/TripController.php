@@ -4,163 +4,105 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\DTOs\Trip\CreateTripDTO;
-use App\Http\Resources\Trip\TripResource;
 use App\Models\Trip;
-use App\Services\Trip\TripService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\JsonResponse;
+use App\Http\Resources\TripResource;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
 class TripController extends BaseController
 {
-    public function __construct(
-        protected TripService $tripService
-    ) {
-    }
-
-    /**
-     * Display a listing of the resource.
-     */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResource
     {
-        $this->authorize('viewAny', Trip::class);
-
-        $trips = Trip::with(['customer', 'driver', 'vehicle'])
-            ->latest()
-            ->paginate($request->integer('per_page', 15));
+        // TODO: Add filtering, sorting, and searching
+        $trips = Trip::query()
+            ->where('company_id', auth()->user()->company_id)
+            ->with(['customer', 'driver', 'vehicle'])
+            ->paginate(15);
 
         return TripResource::collection($trips);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(StoreTripRequest $request): TripResource
+    public function store(Request $request): JsonResponse
     {
-        $this->authorize('create', Trip::class);
-
-        $dto = CreateTripDTO::fromArray($request->validated());
-        
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        
-        $trip = $this->tripService->createTrip($dto, $user);
-
-        return new TripResource($trip->load(['customer', 'stops', 'surcharges']));
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Trip $trip): TripResource
-    {
-        $this->authorize('view', $trip);
-
-        return new TripResource($trip->load(['customer', 'driver', 'vehicle', 'stops', 'surcharges']));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Trip $trip): TripResource
-    {
-        $this->authorize('update', $trip);
-
-        $trip->update($request->all());
-
-        return new TripResource($trip->fresh());
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Trip $trip): JsonResponse
-    {
-        $this->authorize('delete', $trip);
-
-        $trip->delete();
-
-        return $this->successResponse(null, 'api.trip.deleted');
-    }
-
-    /**
-     * Assign driver and vehicle.
-     */
-    public function assign(Request $request, int $id): TripResource
-    {
-        $trip = Trip::findOrFail($id);
-        $this->authorize('assign', $trip);
-
-        $data = $request->validate([
-            'driver_id' => ['required', 'integer', 'exists:drivers,id'],
-            'vehicle_id' => ['required', 'integer', 'exists:vehicles,id'],
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'received_date' => 'required|date',
+            'scheduled_date' => 'required|date',
+            'base_price' => 'required|numeric|min:0',
+            'stops' => 'required|array|min:1',
+            'stops.*.stop_type' => 'required|string|in:pickup,delivery',
+            'stops.*.sequence' => 'required|integer',
+            'stops.*.address' => 'required|string|max:255',
+            'surcharges' => 'nullable|array',
+            'surcharges.*.name' => 'required|string|max:255',
+            'surcharges.*.amount' => 'required|numeric|min:0',
         ]);
 
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
+        $trip = DB::transaction(function () use ($validated) {
+            $totalSurcharge = collect($validated['surcharges'] ?? [])->sum('amount');
+            $totalRevenue = $validated['base_price'] + $totalSurcharge;
 
-        $trip = $this->tripService->assignDriverAndVehicle(
-            (int) $id,
-            (int) $data['driver_id'],
-            (int) $data['vehicle_id'],
-            $user
-        );
+            $trip = Trip::create([
+                'company_id' => auth()->user()->company_id,
+                'customer_id' => $validated['customer_id'],
+                'received_date' => $validated['received_date'],
+                'scheduled_date' => $validated['scheduled_date'],
+                'base_price' => $validated['base_price'],
+                'surcharge_amount' => $totalSurcharge,
+                'total_revenue' => $totalRevenue,
+                'status' => 'new', // Default status
+            ]);
 
-        return new TripResource($trip);
+            if (!empty($validated['stops'])) {
+                $trip->stops()->createMany($validated['stops']);
+            }
+
+            if (!empty($validated['surcharges'])) {
+                $trip->surcharges()->createMany($validated['surcharges']);
+            }
+
+            return $trip;
+        });
+
+        return (new TripResource($trip->load(['stops', 'surcharges'])))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    /**
-     * Transition status to 'in_progress' (Start).
-     */
-    public function start(int $id): TripResource
+    public function show(Trip $trip): JsonResource
     {
-        $trip = Trip::findOrFail($id);
-        $this->authorize('update', $trip);
+        $this->authorize('view', $trip); // Requires TripPolicy
 
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        
-        $trip = $this->tripService->transitionStatus($id, 'in_progress', $user, 'Trip started');
-
-        return new TripResource($trip);
+        return new TripResource($trip->load(['customer', 'driver', 'vehicle', 'stops', 'surcharges', 'costs', 'documents']));
     }
 
-    /**
-     * Transition status to 'completed'.
-     */
-    public function complete(int $id): TripResource
+    public function update(Request $request, Trip $trip): JsonResource
     {
-        $trip = Trip::findOrFail($id);
-        $this->authorize('update', $trip);
+        $this->authorize('update', $trip); // Requires TripPolicy
 
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        
-        $trip = $this->tripService->transitionStatus($id, 'completed', $user, 'Trip completed');
+        // TODO: Add validation and logic
+        // This is a placeholder implementation
+        $trip->update($request->all());
 
         return new TripResource($trip);
     }
 
-    /**
-     * Cancel a trip.
-     */
-    public function cancel(Request $request, int $id): TripResource
+    public function destroy(Trip $trip): JsonResponse
     {
-        $trip = Trip::findOrFail($id);
-        $this->authorize('update', $trip);
+        $this->authorize('delete', $trip); // Requires TripPolicy
 
-        $data = $request->validate(['reason' => ['nullable', 'string']]);
+        DB::transaction(function () use ($trip) {
+            // Manually delete related records if no cascade is set
+            $trip->stops()->delete();
+            $trip->surcharges()->delete();
+            $trip->costs()->delete();
+            $trip->documents()->delete();
+            $trip->delete();
+        });
 
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        
-        $trip = $this->tripService->transitionStatus($id, 'cancelled', $user, $data['reason'] ?? 'Cancelled');
-
-        return new TripResource($trip);
+        return response()->json(null, 204);
     }
-    
-    // Additional methods (pickup, transit, arrive, etc.) would follow the same pattern:
-    // authorization check -> call service method -> return resource.
 }

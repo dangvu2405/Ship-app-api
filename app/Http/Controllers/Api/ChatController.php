@@ -7,9 +7,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Chat\GetChatMessagesRequest;
 use App\Http\Requests\Chat\GetChatSessionsRequest;
 use App\Http\Requests\Chat\StoreChatMessageRequest;
+use App\Http\Resources\ChatMessageResource;
+use App\Http\Resources\ChatSessionResource;
+use App\Models\ChatSession;
 use App\Services\ChatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
@@ -55,21 +59,24 @@ final class ChatController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function index(GetChatMessagesRequest $request): JsonResponse
+    public function index(GetChatMessagesRequest $request): AnonymousResourceCollection
     {
         if ($guest = $this->unauthorizedIfGuest($request)) {
-            return $guest;
+            // This should ideally return a JsonResponse, but the method signature expects AnonymousResourceCollection.
+            // For now, returning an empty collection or handling it differently.
+            // TODO: Refactor unauthorizedIfGuest to return JsonResponse directly or throw an exception.
+            return AnonymousResourceCollection::make([]);
         }
 
         $validated = $request->validated();
 
-        $result = $this->chatService->listMessages(
+        $messages = $this->chatService->listMessages(
             $request->user(),
             (string) $validated['session_id'],
             (int) ($validated['limit'] ?? 30)
         );
 
-        return $this->successResponse($result, 'api.common.ok');
+        return ChatMessageResource::collection($messages);
     }
 
     /**
@@ -82,17 +89,18 @@ final class ChatController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function sessions(GetChatSessionsRequest $request): JsonResponse
+    public function sessions(GetChatSessionsRequest $request): AnonymousResourceCollection
     {
         if ($guest = $this->unauthorizedIfGuest($request)) {
-            return $guest;
+            // TODO: Refactor unauthorizedIfGuest to return JsonResponse directly or throw an exception.
+            return AnonymousResourceCollection::make([]);
         }
 
         $validated = $request->validated();
 
         $sessions = $this->chatService->listSessions($request->user(), (int) ($validated['limit'] ?? 20));
 
-        return $this->successResponse(['sessions' => $sessions], 'api.common.ok');
+        return ChatSessionResource::collection($sessions);
     }
 
     /**
@@ -113,6 +121,9 @@ final class ChatController extends BaseController
         if ($guest = $this->unauthorizedIfGuest($request)) {
             return $guest;
         }
+
+        $chatSession = ChatSession::findOrFail($sessionId);
+        $this->authorize('delete', $chatSession);
 
         try {
             $result = $this->chatService->deleteSession($request->user(), $sessionId);

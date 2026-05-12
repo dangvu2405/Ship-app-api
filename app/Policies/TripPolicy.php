@@ -1,21 +1,21 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Policies;
 
 use App\Models\Trip;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 class TripPolicy
 {
+    use HandlesAuthorization;
+
     /**
      * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return true; // Global scope BelongsToTenant handles filtering
+        return true; // Anyone in a company can see the list of trips for that company
     }
 
     /**
@@ -31,7 +31,7 @@ class TripPolicy
      */
     public function create(User $user): bool
     {
-        return true; // Any logged in user in a company can create
+        return true; // Anyone can create a trip for their company
     }
 
     /**
@@ -51,9 +51,17 @@ class TripPolicy
     }
 
     /**
-     * Determine whether the user can assign driver/vehicle.
+     * Determine whether the user can restore the model.
      */
-    public function assign(User $user, Trip $trip): bool
+    public function restore(User $user, Trip $trip): bool
+    {
+        return $user->company_id === $trip->company_id;
+    }
+
+    /**
+     * Determine whether the user can permanently delete the model.
+     */
+    public function forceDelete(User $user, Trip $trip): bool
     {
         return $user->company_id === $trip->company_id;
     }

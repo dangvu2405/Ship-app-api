@@ -4,37 +4,89 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Traits\HasIndexQuery;
 use App\Models\CustomerGroup;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Http\Resources\CustomerGroupResource;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
-/**
- * @OA\Tag(name="Customer Groups", description="Quản lý nhóm khách hàng")
- */
-final class CustomerGroupController extends BaseController
+class CustomerGroupController extends BaseController
 {
-    use HasIndexQuery;
-
-    protected array $allowedSortColumns = ['id', 'name', 'created_at'];
-
-    /**
-     * @OA\Get(
-     *     path="/api/customer-groups",
-     *     tags={"Customer Groups"},
-     *     summary="Danh sách nhóm khách hàng",
-     *
-     *     @OA\Parameter(name="search", in="query", description="Tìm theo name, description", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Thành công")
-     * )
-     */
-    public function index(Request $request): JsonResponse
+    public function __construct()
     {
-        $result = $this->indexQuery($request, CustomerGroup::query(), ['name', 'description'], []);
+        $this->authorizeResource(CustomerGroup::class, 'customer_group');
+    }
 
-        return $this->successResponse($result, 'OK');
+    public function index(Request $request): JsonResource
+    {
+        $query = CustomerGroup::query()
+            ->where('company_id', auth()->user()->company_id);
+
+        if ($request->filled('keyword')) {
+            $query->where('name', 'like', '%' . $request->input('keyword') . '%');
+        }
+
+        $perPage = (int) $request->input('per_page', 15);
+        $sortBy = $request->input('sort_by', 'name');
+        $sortOrder = $request->input('sort_order', 'asc');
+
+        $allowedSortColumns = ['name', 'created_at'];
+        if (!in_array($sortBy, $allowedSortColumns)) {
+            $sortBy = 'name';
+        }
+
+        $query->orderBy($sortBy, $sortOrder);
+
+        $customerGroups = $query->paginate($perPage);
+
+        return CustomerGroupResource::collection($customerGroups);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $customerGroup = DB::transaction(function () use ($validated) {
+            $customerGroup = CustomerGroup::create(array_merge($validated, [
+                'company_id' => auth()->user()->company_id,
+            ]));
+            return $customerGroup;
+        });
+
+        return (new CustomerGroupResource($customerGroup))
+            ->response()
+            ->setStatusCode(201);
+    }
+
+    public function show(CustomerGroup $customerGroup): JsonResource
+    {
+        return new CustomerGroupResource($customerGroup);
+    }
+
+    public function update(Request $request, CustomerGroup $customerGroup): JsonResource
+    {
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($validated, $customerGroup) {
+            $customerGroup->update($validated);
+        });
+
+        return new CustomerGroupResource($customerGroup);
+    }
+
+    public function destroy(CustomerGroup $customerGroup): JsonResponse
+    {
+        DB::transaction(function () use ($customerGroup) {
+            $customerGroup->delete();
+        });
+
+        return response()->json(null, 204);
     }
 }

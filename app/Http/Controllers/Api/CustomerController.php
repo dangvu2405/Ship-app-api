@@ -4,158 +4,88 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\Customer\StoreCustomerRequest;
-use App\Http\Requests\Customer\UpdateCustomerRequest;
-use App\Http\Traits\HasIndexQuery;
 use App\Models\Customer;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Http\Resources\CustomerResource;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
-/**
- * @OA\Tag(name="Customers", description="Quản lý khách hàng")
- */
 class CustomerController extends BaseController
 {
-    use HasIndexQuery;
-
-    protected array $allowedSortColumns = ['id', 'name', 'type', 'tax_code', 'created_at'];
-
-    /**
-     * @OA\Get(
-     *     path="/api/customers",
-     *     tags={"Customers"},
-     *     summary="Danh sách khách hàng",
-     *
-     *     @OA\Parameter(name="search", in="query", description="Tìm theo name, tax_code, email", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="type", in="query", description="Lọc theo loại khách hàng", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Thành công")
-     * )
-     */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResource
     {
-        $query = Customer::query();
-        $result = $this->indexQuery($request, $query, ['name', 'tax_code', 'email'], ['type' => 'type']);
+        $customers = Customer::query()
+            ->where('company_id', auth()->user()->company_id)
+            ->paginate(15);
 
-        return $this->successResponse($result, 'OK');
+        return CustomerResource::collection($customers);
     }
 
-    /**
-     * @OA\Post(
-     *     path="/api/customers",
-     *     tags={"Customers"},
-     *     summary="Tạo khách hàng mới",
-     *
-     *     @OA\RequestBody(
-     *         required=true,
-     *
-     *         @OA\JsonContent(
-     *             required={"name"},
-     *
-     *             @OA\Property(property="name", type="string", example="Công ty XYZ"),
-     *             @OA\Property(property="type", type="string", enum={"company","individual"}, example="company"),
-     *             @OA\Property(property="tax_code", type="string"),
-     *             @OA\Property(property="email", type="string", format="email"),
-     *             @OA\Property(property="phone", type="string"),
-     *             @OA\Property(property="address", type="string"),
-     *             @OA\Property(property="contact_person", type="string")
-     *         )
-     *     ),
-     *
-     *     @OA\Response(response=201, description="Tạo thành công"),
-     *     @OA\Response(response=422, description="Validation lỗi")
-     * )
-     */
-    public function store(StoreCustomerRequest $request): JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $customer = Customer::create($request->validated());
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|string|email|max:255|unique:customers',
+            'phone' => 'nullable|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'type' => 'required|string|in:individual,company',
+            'company_name' => 'nullable|string|max:255',
+            'tax_code' => 'nullable|string|max:255',
+            'is_active' => 'nullable|boolean',
+        ]);
 
-        return $this->successResponse($customer, 'Customer created successfully', 201);
+        $customer = DB::transaction(function () use ($validated) {
+            $customer = Customer::create(array_merge($validated, [
+                'company_id' => auth()->user()->company_id,
+            ]));
+            return $customer;
+        });
+
+        return (new CustomerResource($customer))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    /**
-     * @OA\Get(
-     *     path="/api/customers/{id}",
-     *     tags={"Customers"},
-     *     summary="Chi tiết khách hàng",
-     *
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Thành công"),
-     *     @OA\Response(response=404, description="Không tìm thấy")
-     * )
-     */
-    public function show(string $customer): JsonResponse
+    public function show(Customer $customer): JsonResource
     {
-        $model = Customer::find($customer);
-        if (! $model) {
-            return $this->notFoundResponse('Customer not found');
-        }
+        $this->authorize('view', $customer);
 
-        return $this->successResponse($model);
+        return new CustomerResource($customer);
     }
 
-    /**
-     * @OA\Put(
-     *     path="/api/customers/{id}",
-     *     tags={"Customers"},
-     *     summary="Cập nhật khách hàng",
-     *
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
-     *     @OA\RequestBody(
-     *         required=true,
-     *
-     *         @OA\JsonContent(
-     *
-     *             @OA\Property(property="name", type="string"),
-     *             @OA\Property(property="type", type="string"),
-     *             @OA\Property(property="tax_code", type="string"),
-     *             @OA\Property(property="email", type="string", format="email"),
-     *             @OA\Property(property="phone", type="string"),
-     *             @OA\Property(property="address", type="string"),
-     *             @OA\Property(property="contact_person", type="string")
-     *         )
-     *     ),
-     *
-     *     @OA\Response(response=200, description="Cập nhật thành công"),
-     *     @OA\Response(response=404, description="Không tìm thấy"),
-     *     @OA\Response(response=422, description="Validation lỗi")
-     * )
-     */
-    public function update(UpdateCustomerRequest $request, string $customer): JsonResponse
+    public function update(Request $request, Customer $customer): JsonResource
     {
-        $model = Customer::find($customer);
-        if (! $model) {
-            return $this->notFoundResponse('Customer not found');
-        }
-        $model->update($request->validated());
+        $this->authorize('update', $customer);
 
-        return $this->successResponse($model->fresh(), 'Customer updated successfully');
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|nullable|string|email|max:255|unique:customers,email,' . $customer->id,
+            'phone' => 'sometimes|nullable|string|max:255',
+            'address' => 'sometimes|nullable|string|max:255',
+            'type' => 'sometimes|required|string|in:individual,company',
+            'company_name' => 'sometimes|nullable|string|max:255',
+            'tax_code' => 'sometimes|nullable|string|max:255',
+            'is_active' => 'sometimes|nullable|boolean',
+        ]);
+
+        DB::transaction(function () use ($validated, $customer) {
+            $customer->update($validated);
+        });
+
+        return new CustomerResource($customer);
     }
 
-    /**
-     * @OA\Delete(
-     *     path="/api/customers/{id}",
-     *     tags={"Customers"},
-     *     summary="Xóa khách hàng",
-     *
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Xóa thành công"),
-     *     @OA\Response(response=404, description="Không tìm thấy")
-     * )
-     */
-    public function destroy(string $customer): JsonResponse
+    public function destroy(Customer $customer): JsonResponse
     {
-        $model = Customer::find($customer);
-        if (! $model) {
-            return $this->notFoundResponse('Customer not found');
-        }
-        $model->delete();
+        $this->authorize('delete', $customer);
 
-        return $this->successResponse(null, 'Customer deleted successfully');
+        DB::transaction(function () use ($customer) {
+            $customer->delete();
+        });
+
+        return response()->json(null, 204);
     }
 }

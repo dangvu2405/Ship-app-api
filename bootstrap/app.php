@@ -17,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // API middleware
         $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \App\Http\Middleware\SetApiLocale::class,
             \App\Http\Middleware\HandleApiErrors::class,
         ]);

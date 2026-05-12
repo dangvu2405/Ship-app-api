@@ -4,169 +4,86 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Requests\Vehicle\StoreVehicleRequest;
-use App\Http\Requests\Vehicle\UpdateVehicleRequest;
-use App\Http\Traits\HasIndexQuery;
 use App\Models\Vehicle;
-use App\Models\VehicleAssignment;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use App\Http\Resources\VehicleResource;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\DB;
 
-/**
- * @OA\Tag(name="Vehicles", description="Quản lý phương tiện")
- */
 class VehicleController extends BaseController
 {
-    use HasIndexQuery;
-
-    protected array $allowedSortColumns = ['id', 'plate_number', 'type', 'status', 'office_id', 'year', 'created_at'];
-
-    /**
-     * @OA\Get(
-     *     path="/api/vehicles",
-     *     tags={"Vehicles"},
-     *     summary="Danh sách phương tiện",
-     *
-     *     @OA\Parameter(name="search", in="query", description="Tìm theo plate_number, brand, model", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="office_id", in="query", description="Lọc theo văn phòng", @OA\Schema(type="integer")),
-     *     @OA\Parameter(name="status", in="query", description="Lọc theo trạng thái", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="sort", in="query", description="Sắp xếp", @OA\Schema(type="string")),
-     *     @OA\Parameter(name="per_page", in="query", description="Số bản ghi/trang", @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Thành công")
-     * )
-     */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResource
     {
-        $query = Vehicle::query()->with('office');
-        $result = $this->indexQuery($request, $query, ['plate_number', 'brand', 'model'], [
-            'office_id' => 'office_id',
-            'status' => 'status',
+        $vehicles = Vehicle::query()
+            ->where('company_id', auth()->user()->company_id)
+            ->paginate(15);
+
+        return VehicleResource::collection($vehicles);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'plate_number' => 'required|string|max:255|unique:vehicles',
+            'type' => 'required|string|max:255',
+            'brand' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:255',
+            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'capacity' => 'nullable|integer|min:0',
+            'status' => 'nullable|string|in:active,maintenance,inactive',
         ]);
 
-        return $this->successResponse($result, 'OK');
+        $vehicle = DB::transaction(function () use ($validated) {
+            $vehicle = Vehicle::create(array_merge($validated, [
+                'company_id' => auth()->user()->company_id,
+            ]));
+            return $vehicle;
+        });
+
+        return (new VehicleResource($vehicle))
+            ->response()
+            ->setStatusCode(201);
     }
 
-    /**
-     * @OA\Post(
-     *     path="/api/vehicles",
-     *     tags={"Vehicles"},
-     *     summary="Tạo phương tiện mới",
-     *
-     *     @OA\RequestBody(
-     *         required=true,
-     *
-     *         @OA\JsonContent(
-     *             required={"plate_number","office_id"},
-     *
-     *             @OA\Property(property="plate_number", type="string", example="51A-12345"),
-     *             @OA\Property(property="office_id", type="integer", example=1),
-     *             @OA\Property(property="type", type="string", example="truck"),
-     *             @OA\Property(property="brand", type="string", example="Toyota"),
-     *             @OA\Property(property="model", type="string", example="Hilux"),
-     *             @OA\Property(property="year", type="integer", example=2022),
-     *             @OA\Property(property="capacity", type="number"),
-     *             @OA\Property(property="status", type="string", enum={"active","maintenance","inactive"})
-     *         )
-     *     ),
-     *
-     *     @OA\Response(response=201, description="Tạo thành công"),
-     *     @OA\Response(response=422, description="Validation lỗi")
-     * )
-     */
-    public function store(StoreVehicleRequest $request): JsonResponse
+    public function show(Vehicle $vehicle): JsonResource
     {
-        $vehicle = Vehicle::create($request->validated());
+        $this->authorize('view', $vehicle);
 
-        return $this->successResponse($vehicle->load('office'), 'Vehicle created successfully', 201);
+        return new VehicleResource($vehicle);
     }
 
-    /**
-     * @OA\Get(
-     *     path="/api/vehicles/{id}",
-     *     tags={"Vehicles"},
-     *     summary="Chi tiết phương tiện",
-     *
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Thành công"),
-     *     @OA\Response(response=404, description="Không tìm thấy")
-     * )
-     */
-    public function show(string $vehicle): JsonResponse
+    public function update(Request $request, Vehicle $vehicle): JsonResource
     {
-        $model = Vehicle::with('office')->find($vehicle);
-        if (! $model) {
-            return $this->notFoundResponse('Vehicle not found');
-        }
+        $this->authorize('update', $vehicle);
 
-        return $this->successResponse($model);
+        // TODO: Replace with a dedicated FormRequest
+        $validated = $request->validate([
+            'plate_number' => 'sometimes|required|string|max:255|unique:vehicles,plate_number,' . $vehicle->id,
+            'type' => 'sometimes|required|string|max:255',
+            'brand' => 'sometimes|nullable|string|max:255',
+            'model' => 'sometimes|nullable|string|max:255',
+            'year' => 'sometimes|nullable|integer|min:1900|max:' . (date('Y') + 1),
+            'capacity' => 'sometimes|nullable|integer|min:0',
+            'status' => 'sometimes|nullable|string|in:active,maintenance,inactive',
+        ]);
+
+        DB::transaction(function () use ($validated, $vehicle) {
+            $vehicle->update($validated);
+        });
+
+        return new VehicleResource($vehicle);
     }
 
-    /**
-     * @OA\Put(
-     *     path="/api/vehicles/{id}",
-     *     tags={"Vehicles"},
-     *     summary="Cập nhật phương tiện",
-     *
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
-     *     @OA\RequestBody(
-     *         required=true,
-     *
-     *         @OA\JsonContent(
-     *
-     *             @OA\Property(property="plate_number", type="string"),
-     *             @OA\Property(property="office_id", type="integer"),
-     *             @OA\Property(property="type", type="string"),
-     *             @OA\Property(property="brand", type="string"),
-     *             @OA\Property(property="model", type="string"),
-     *             @OA\Property(property="year", type="integer"),
-     *             @OA\Property(property="capacity", type="number"),
-     *             @OA\Property(property="status", type="string")
-     *         )
-     *     ),
-     *
-     *     @OA\Response(response=200, description="Cập nhật thành công"),
-     *     @OA\Response(response=404, description="Không tìm thấy"),
-     *     @OA\Response(response=422, description="Validation lỗi")
-     * )
-     */
-    public function update(UpdateVehicleRequest $request, string $vehicle): JsonResponse
+    public function destroy(Vehicle $vehicle): JsonResponse
     {
-        $model = Vehicle::find($vehicle);
-        if (! $model) {
-            return $this->notFoundResponse('Vehicle not found');
-        }
-        $model->update($request->validated());
+        $this->authorize('delete', $vehicle);
 
-        return $this->successResponse($model->fresh('office'), 'Vehicle updated successfully');
-    }
+        DB::transaction(function () use ($vehicle) {
+            $vehicle->delete();
+        });
 
-    /**
-     * @OA\Delete(
-     *     path="/api/vehicles/{id}",
-     *     tags={"Vehicles"},
-     *     summary="Xóa phương tiện",
-     *
-     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *
-     *     @OA\Response(response=200, description="Xóa thành công"),
-     *     @OA\Response(response=404, description="Không tìm thấy"),
-     *     @OA\Response(response=422, description="Không thể xóa do đang được gán")
-     * )
-     */
-    public function destroy(string $vehicle): JsonResponse
-    {
-        $model = Vehicle::find($vehicle);
-        if (! $model) {
-            return $this->notFoundResponse('Vehicle not found');
-        }
-        if (VehicleAssignment::where('vehicle_id', $vehicle)->exists()) {
-            return $this->errorResponse('Cannot delete vehicle that is assigned', 422);
-        }
-        $model->delete();
-
-        return $this->successResponse(null, 'Vehicle deleted successfully');
+        return response()->json(null, 204);
     }
 }

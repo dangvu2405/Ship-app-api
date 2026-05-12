@@ -11,10 +11,7 @@ final class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            CurrentSchemaAllTablesSeeder::class,
-            EnsureAdminAbcTransportSeeder::class,
-            KnowledgeArticleSeeder::class,
-            CloudinaryImageSeeder::class,
+            CleanDatabaseSeeder::class,
         ]);
     }
 }
