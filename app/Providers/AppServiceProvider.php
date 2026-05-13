@@ -11,6 +11,7 @@ use App\Observers\TripObserver;
 use App\Observers\TripRagObserver;
 use App\Tenancy\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -45,5 +46,10 @@ class AppServiceProvider extends ServiceProvider
                 \App\Listeners\LogSuccessfulLogin::class
             );
         }
+
+        // Implicitly grant "super_admin" role all permissions
+        Gate::before(function ($user, $ability) {
+            return $user->hasRole('super_admin') ? true : null;
+        });
     }
 }

@@ -16,7 +16,7 @@ class CustomerController extends BaseController
     public function index(Request $request): JsonResource
     {
         $customers = Customer::query()
-            ->where('company_id', auth()->user()->company_id)
+            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId())
             ->paginate(15);
 
         return CustomerResource::collection($customers);
@@ -34,11 +34,19 @@ class CustomerController extends BaseController
             'company_name' => 'nullable|string|max:255',
             'tax_code' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
+            'group_id' => 'nullable|integer|exists:customer_groups,id',
+            'credit_limit' => 'nullable|numeric|min:0',
+            'payment_terms_days' => 'nullable|integer|min:0',
+            'contract_start_date' => 'nullable|date',
+            'contract_end_date' => 'nullable|date',
+            'notes' => 'nullable|string',
+            'extra_contact_name' => 'nullable|string|max:255',
+            'extra_contact_phone' => 'nullable|string|max:255',
         ]);
 
         $customer = DB::transaction(function () use ($validated) {
             $customer = Customer::create(array_merge($validated, [
-                'company_id' => auth()->user()->company_id,
+                'company_id' => app(\App\Tenancy\TenantContext::class)->getCompanyId() ?? 1,
             ]));
             return $customer;
         });
@@ -69,6 +77,14 @@ class CustomerController extends BaseController
             'company_name' => 'sometimes|nullable|string|max:255',
             'tax_code' => 'sometimes|nullable|string|max:255',
             'is_active' => 'sometimes|nullable|boolean',
+            'group_id' => 'sometimes|nullable|integer|exists:customer_groups,id',
+            'credit_limit' => 'sometimes|nullable|numeric|min:0',
+            'payment_terms_days' => 'sometimes|nullable|integer|min:0',
+            'contract_start_date' => 'sometimes|nullable|date',
+            'contract_end_date' => 'sometimes|nullable|date',
+            'notes' => 'sometimes|nullable|string',
+            'extra_contact_name' => 'sometimes|nullable|string|max:255',
+            'extra_contact_phone' => 'sometimes|nullable|string|max:255',
         ]);
 
         DB::transaction(function () use ($validated, $customer) {

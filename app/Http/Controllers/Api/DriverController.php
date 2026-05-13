@@ -17,7 +17,7 @@ class DriverController extends BaseController
     public function index(Request $request): JsonResource
     {
         $drivers = Driver::query()
-            ->where('company_id', auth()->user()->company_id)
+            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId())
             ->paginate(15);
 
         return DriverResource::collection($drivers);
@@ -40,6 +40,17 @@ class DriverController extends BaseController
             'resign_date' => 'nullable|date',
             'status' => 'nullable|string|in:active,inactive,resigned',
             'available_status' => 'nullable|string|in:available,busy,offline',
+            'employee_id' => 'required|integer',
+            'id_card_no' => 'nullable|string|max:50',
+            'id_card_issue_date' => 'nullable|date',
+            'permanent_address' => 'nullable|string|max:500',
+            'id_card_front_url' => 'nullable|string',
+            'id_card_back_url' => 'nullable|string',
+            'insurance_provider' => 'nullable|string|max:255',
+            'insurance_policy_no' => 'nullable|string|max:255',
+            'insurance_expiry_date' => 'nullable|date',
+            'insurance_doc_url' => 'nullable|string',
+            'profile_notes' => 'nullable|string',
         ]);
 
         $driver = DB::transaction(function () use ($validated) {
@@ -82,6 +93,17 @@ class DriverController extends BaseController
             'resign_date' => 'sometimes|nullable|date',
             'status' => 'sometimes|nullable|string|in:active,inactive,resigned',
             'available_status' => 'sometimes|nullable|string|in:available,busy,offline',
+            'employee_id' => 'sometimes|required|integer',
+            'id_card_no' => 'sometimes|nullable|string|max:50',
+            'id_card_issue_date' => 'sometimes|nullable|date',
+            'permanent_address' => 'sometimes|nullable|string|max:500',
+            'id_card_front_url' => 'sometimes|nullable|string',
+            'id_card_back_url' => 'sometimes|nullable|string',
+            'insurance_provider' => 'sometimes|nullable|string|max:255',
+            'insurance_policy_no' => 'sometimes|nullable|string|max:255',
+            'insurance_expiry_date' => 'sometimes|nullable|date',
+            'insurance_doc_url' => 'sometimes|nullable|string',
+            'profile_notes' => 'sometimes|nullable|string',
         ]);
 
         DB::transaction(function () use ($validated, $driver) {

@@ -19,6 +19,8 @@ use App\Http\Controllers\Api\VehicleTypeController; // Added VehicleTypeControll
 use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\PayrollsController;
 use App\Http\Controllers\Api\ActivityLogsController;
+use App\Http\Controllers\Api\LeaveController;
+use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\FallbackController;
 use App\Http\Controllers\Api\AutoStubsController;
@@ -55,43 +57,20 @@ Route::fallback([FallbackController::class, 'handle']);
 // Note: Public auth endpoints (login, register, etc.) are registered separately in AuthController section.
 Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(function (): void {
     $paths = [
-        'activity-logs',
         'admin/companies',
         'attendance/check-out',
         'attendances',
         'attendances/late/list',
         'attendances/late/notify',
         'auth/actions',
-        'auth/sessions',
-        'auth/sessions/summary',
         'customers/search',
-        'dispatch/board',
-        'dispatch/daily-summary',
-        'dispatch/unassigned-trips',
         'documentation',
         'leave/balance',
-        'notifications',
-        'notifications/read-all',
-        'notifications/unread-count',
         'payments',
         'payroll-adjustments',
-        'payrolls/export',
-        'payrolls/generate',
         'price-lists',
         'public-holidays',
-        'reports/costs',
-        'reports/debt',
-        'reports/drivers',
-        'reports/export',
-        'reports/maintenance',
-        'reports/payroll/export',
-        'reports/profit',
-        'reports/revenue',
-        'reports/revenue-summary',
-        'reports/trips',
-        'reports/vehicles',
         'salary-adjustments',
-        'upload',
         'v2/employees',
         'workforce/absences',
     ];
@@ -134,8 +113,8 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
         Route::get('/actions', 'actions');
         Route::get('/sessions', 'sessions');
         Route::get('/sessions/summary', 'sessionsSummary');
-        Route::post('/sessions/{sessionId}/revoke', 'revokeSession');
-        Route::post('/sessions/{sessionId}/lock-account', 'lockAccountForSession');
+        Route::patch('/sessions/{sessionId}/revoke', 'revokeSession');
+        Route::patch('/sessions/{sessionId}/lock-account', 'lockAccountForSession');
     });
 
     Route::apiResource('users', UserController::class);
@@ -148,6 +127,10 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     //     ->defaults('resource', 'users')->defaults('actionName', 'reset-password');
 
     Route::apiResource('companies', CompanyController::class);
+    Route::patch('companies/{company}/status', [CompanyController::class, 'updateStatus']);
+    Route::patch('users/{user}/status', [UserController::class, 'updateStatus']);
+    Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword']);
+    Route::match(['get', 'put'], 'users/{user}/permissions', [UserController::class, 'permissions']);
     // Route::patch('companies/{id}/status', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
     //     ->defaults('resource', 'companies')->defaults('actionName', 'status');
     // endregion
@@ -202,10 +185,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
 
     // region Customers & Pricing
     Route::apiResource('customers', CustomerController::class);
-    // Route::get('customers/{customer}/trips', [CetaSpecController::class, 'nestedIndex']) // Commented out as CetaSpecController is removed
-    //     ->defaults('parent', 'customers')->defaults('child', 'trips');
-    // Route::get('customers/{customer}/debt', [CetaSpecController::class, 'debtOverview']); // Commented out as CetaSpecController is removed
-    // Route::get('debt-overview', [CetaSpecController::class, 'debtOverview']); // Commented out as CetaSpecController is removed
+    Route::get('debt-overview', [\App\Http\Controllers\Api\DebtOverviewController::class, 'index']);
 
     Route::apiResource('customer-groups', CustomerGroupController::class);
 
@@ -227,6 +207,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
 
     // region Fleet (Đội xe)
     Route::apiResource('vehicles', VehicleController::class);
+    Route::get('vehicle-expenses', fn() => response()->json(['success' => true, 'data' => [], 'message' => 'Migrated to trip-costs']));
     Route::get('vehicles/available', [VehicleController::class, 'available']);
     Route::patch('vehicles/{vehicle}/status', [VehicleController::class, 'updateStatus']);
     // NOTE: Các route RPC như 'expiring-documents' nên được thay bằng filter trên resource chính.
@@ -239,6 +220,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // });
 
     Route::apiResource('vehicle-assignments', VehicleAssignmentController::class);
+    Route::patch('vehicle-assignments/{vehicle_assignment}/release', [VehicleAssignmentController::class, 'release']);
 
     // Route::group(['defaults' => ['parent' => 'vehicles', 'child' => 'maintenance-schedules']], function () { // Commented out as CetaSpecController is removed
     //     Route::apiResource('vehicles.maintenance-schedules', CetaSpecController::class)->shallow();
@@ -357,9 +339,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     //     Route::apiResource('customers.payments', CetaSpecController::class)->shallow();
     // });
 
-    // Route::group(['defaults' => ['resource' => 'invoices']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('invoices', CetaSpecController::class);
-    // });
+    Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
     // Route::prefix('invoices/{id}')->controller(CetaSpecController::class)->group(function () { // Commented out as CetaSpecController is removed
     //     Route::patch('/issue', 'action')->defaults('resource', 'invoices')->defaults('actionName', 'issue');
     //     Route::patch('/mark-paid', 'action')->defaults('resource', 'invoices')->defaults('actionName', 'mark-paid');
@@ -372,6 +352,14 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // endregion
 
     // region Notifications
+    Route::prefix('notifications')->controller(NotificationController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/unread-count', 'unreadCount');
+        Route::patch('/read-all', 'markAllRead');
+        Route::patch('/{id}/read', 'markRead');
+        Route::delete('/{id}', 'destroy');
+    });
+
     // Route::prefix('notifications')->controller(CetaSpecController::class)->group(function () { // Commented out as CetaSpecController is removed
     //     Route::get('/', 'index')->defaults('resource', 'notifications');
     //     Route::get('/unread-count', 'report')->defaults('reportType', 'notifications-unread');
@@ -404,6 +392,11 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
         Route::post('/{id}/approve', 'approve');
         Route::post('/{id}/lock', 'lock');
     });
+
+    Route::apiResource('payroll-lines', \App\Http\Controllers\Api\PayrollLineController::class)->only(['index', 'show']);
+    Route::apiResource('payroll-adjustments', \App\Http\Controllers\Api\PayrollAdjustmentController::class);
+    Route::get('allowances', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'allowances'])->name('allowances.index');
+    Route::get('deductions', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'deductions'])->name('deductions.index');
     // endregion
 
     // region Legacy Workforce (tạm giữ, cần refactor)

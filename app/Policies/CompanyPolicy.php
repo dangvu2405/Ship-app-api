@@ -23,8 +23,10 @@ class CompanyPolicy
      */
     public function view(User $user, Company $company): bool
     {
-        // Users can only view their own company
-        return $user->company_id === $company->id;
+        // Check if user is associated with this company
+        return $user->companies()->where('companies.id', $company->id)->exists() 
+            || $user->hasRole('admin') 
+            || $user->hasRole('super_admin');
     }
 
     /**
@@ -32,10 +34,8 @@ class CompanyPolicy
      */
     public function create(User $user): bool
     {
-        // Only super-admins or specific roles might create new companies
-        // For now, let's assume only super-admin can create companies
-        // return $user->isSuperAdmin(); // Placeholder
-        return false; // Assuming company creation is not allowed via API for regular users
+        // Only super-admins can create new companies
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -43,8 +43,9 @@ class CompanyPolicy
      */
     public function update(User $user, Company $company): bool
     {
-        // Users can only update their own company's details
-        return $user->company_id === $company->id;
+        // Only admins of this company or super-admins can update
+        return ($user->companies()->where('companies.id', $company->id)->exists() && $user->hasRole('admin'))
+            || $user->hasRole('super_admin');
     }
 
     /**

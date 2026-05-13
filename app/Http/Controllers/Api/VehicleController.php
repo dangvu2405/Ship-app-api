@@ -16,7 +16,7 @@ class VehicleController extends BaseController
     public function index(Request $request): JsonResource
     {
         $vehicles = Vehicle::query()
-            ->where('company_id', auth()->user()->company_id)
+            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId())
             ->paginate(15);
 
         return VehicleResource::collection($vehicles);
@@ -32,12 +32,17 @@ class VehicleController extends BaseController
             'model' => 'nullable|string|max:255',
             'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
             'capacity' => 'nullable|integer|min:0',
-            'status' => 'nullable|string|in:active,maintenance,inactive',
+            'max_load_ton' => 'nullable|numeric|min:0',
+            'current_odometer_km' => 'nullable|numeric|min:0',
+            'status' => 'nullable|string|in:active,maintenance,inactive,broken,out_of_service',
+            'office_id' => 'required|integer',
+            'vehicle_type_id' => 'nullable|integer',
+            'image_url' => 'nullable|string',
         ]);
 
         $vehicle = DB::transaction(function () use ($validated) {
             $vehicle = Vehicle::create(array_merge($validated, [
-                'company_id' => auth()->user()->company_id,
+                'company_id' => app(\App\Tenancy\TenantContext::class)->getCompanyId() ?? 1,
             ]));
             return $vehicle;
         });
@@ -66,7 +71,12 @@ class VehicleController extends BaseController
             'model' => 'sometimes|nullable|string|max:255',
             'year' => 'sometimes|nullable|integer|min:1900|max:' . (date('Y') + 1),
             'capacity' => 'sometimes|nullable|integer|min:0',
-            'status' => 'sometimes|nullable|string|in:active,maintenance,inactive',
+            'max_load_ton' => 'sometimes|nullable|numeric|min:0',
+            'current_odometer_km' => 'sometimes|nullable|numeric|min:0',
+            'status' => 'sometimes|nullable|string|in:active,maintenance,inactive,broken,out_of_service',
+            'office_id' => 'sometimes|required|integer',
+            'vehicle_type_id' => 'sometimes|nullable|integer',
+            'image_url' => 'sometimes|nullable|string',
         ]);
 
         DB::transaction(function () use ($validated, $vehicle) {

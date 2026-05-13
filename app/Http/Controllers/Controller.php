@@ -42,7 +42,7 @@ use Illuminate\Foundation\Validation\ValidatesRequests;
  *     )
  * )
  */
-abstract class Controller
+abstract class Controller extends \Illuminate\Routing\Controller
 {
     use AuthorizesRequests, ValidatesRequests;
 }

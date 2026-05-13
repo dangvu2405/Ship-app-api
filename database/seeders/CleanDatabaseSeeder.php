@@ -18,10 +18,11 @@ class CleanDatabaseSeeder extends Seeder
         $company = Company::factory()->create(['name' => 'ABC Transport']);
 
         $user = User::factory()->create([
-            'company_id' => $company->id,
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        $user->companies()->attach($company->id, ['is_default' => true]);
 
         Customer::factory()->count(10)->create(['company_id' => $company->id]);
         Driver::factory()->count(5)->create(['company_id' => $company->id]);

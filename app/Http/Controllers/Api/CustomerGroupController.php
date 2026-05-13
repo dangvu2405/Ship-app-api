@@ -21,7 +21,7 @@ class CustomerGroupController extends BaseController
     public function index(Request $request): JsonResource
     {
         $query = CustomerGroup::query()
-            ->where('company_id', auth()->user()->company_id);
+            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId());
 
         if ($request->filled('keyword')) {
             $query->where('name', 'like', '%' . $request->input('keyword') . '%');
@@ -52,7 +52,7 @@ class CustomerGroupController extends BaseController
 
         $customerGroup = DB::transaction(function () use ($validated) {
             $customerGroup = CustomerGroup::create(array_merge($validated, [
-                'company_id' => auth()->user()->company_id,
+                'company_id' => app(\App\Tenancy\TenantContext::class)->getCompanyId() ?? 1,
             ]));
             return $customerGroup;
         });

@@ -186,6 +186,7 @@ return new class extends Migration
         if (! Schema::hasTable('locations')) {
             Schema::create('locations', function (Blueprint $table): void {
                 $table->id();
+                $table->string('code', 50)->nullable();
                 $table->foreignId('company_id')->constrained()->cascadeOnDelete();
                 $table->string('name', 200);
                 $table->text('address');
@@ -260,6 +261,7 @@ return new class extends Migration
         if (! Schema::hasTable('customer_groups')) {
             Schema::create('customer_groups', function (Blueprint $table): void {
                 $table->id();
+                $table->string('code', 50)->nullable();
                 $table->foreignId('company_id')->constrained()->cascadeOnDelete();
                 $table->string('name', 100);
                 $table->text('description')->nullable();

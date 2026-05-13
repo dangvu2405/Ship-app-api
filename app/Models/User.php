@@ -136,6 +136,11 @@ class User extends Authenticatable
             ->orderBy('name');
     }
 
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'user_roles');
+    }
+
     /**
      * Return all companies this user can access, formatted as tenant objects
      * for the frontend tenant-selection flow.
@@ -172,11 +177,15 @@ class User extends Authenticatable
      */
     public function hasRole(string $roleName, ?int $companyId = null): bool
     {
+        // Check legacy role column
         if (Schema::hasColumn('users', 'role') && is_string($this->role) && $this->role !== '') {
-            return $this->role === $roleName;
+            if ($this->role === $roleName) {
+                return true;
+            }
         }
 
-        return false;
+        // Check many-to-many roles table
+        return $this->roles()->where('name', $roleName)->exists();
     }
 
     /**

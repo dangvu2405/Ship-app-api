@@ -21,7 +21,7 @@ class VehicleAssignmentController extends BaseController
     public function index(Request $request): JsonResource
     {
         $vehicleAssignments = VehicleAssignment::query()
-            ->where('company_id', auth()->user()->company_id)
+            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId())
             ->paginate(15);
 
         return VehicleAssignmentResource::collection($vehicleAssignments);
@@ -33,14 +33,14 @@ class VehicleAssignmentController extends BaseController
         $validated = $request->validate([
             'vehicle_id' => 'required|exists:vehicles,id',
             'driver_id' => 'required|exists:drivers,id',
-            'assigned_at' => 'required|date',
-            'released_at' => 'nullable|date|after_or_equal:assigned_at',
+            'from_date' => 'required|date',
+            'to_date' => 'nullable|date|after_or_equal:from_date',
             'notes' => 'nullable|string|max:500',
         ]);
 
         $vehicleAssignment = DB::transaction(function () use ($validated) {
             $vehicleAssignment = VehicleAssignment::create(array_merge($validated, [
-                'company_id' => auth()->user()->company_id,
+                'company_id' => app(\App\Tenancy\TenantContext::class)->getCompanyId() ?? 1,
             ]));
             return $vehicleAssignment;
         });
@@ -61,8 +61,8 @@ class VehicleAssignmentController extends BaseController
         $validated = $request->validate([
             'vehicle_id' => 'sometimes|required|exists:vehicles,id',
             'driver_id' => 'sometimes|required|exists:drivers,id',
-            'assigned_at' => 'sometimes|required|date',
-            'released_at' => 'sometimes|nullable|date|after_or_equal:assigned_at',
+            'from_date' => 'sometimes|required|date',
+            'to_date' => 'sometimes|nullable|date|after_or_equal:from_date',
             'notes' => 'sometimes|nullable|string|max:500',
         ]);
 
@@ -80,5 +80,21 @@ class VehicleAssignmentController extends BaseController
         });
 
         return response()->json(null, 204);
+    }
+
+    public function release(Request $request, VehicleAssignment $vehicleAssignment): JsonResource
+    {
+        $validated = $request->validate([
+            'release_reason' => 'required|string|max:500',
+        ]);
+
+        DB::transaction(function () use ($validated, $vehicleAssignment) {
+            $vehicleAssignment->update([
+                'to_date' => now()->toDateString(),
+                'release_reason' => $validated['release_reason'],
+            ]);
+        });
+
+        return new VehicleAssignmentResource($vehicleAssignment);
     }
 }

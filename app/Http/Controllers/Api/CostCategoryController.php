@@ -21,7 +21,7 @@ class CostCategoryController extends BaseController
     public function index(Request $request): JsonResource
     {
         $costCategories = CostCategory::query()
-            ->where('company_id', auth()->user()->company_id)
+            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId())
             ->paginate(15);
 
         return CostCategoryResource::collection($costCategories);
@@ -31,13 +31,17 @@ class CostCategoryController extends BaseController
     {
         // TODO: Replace with a dedicated FormRequest
         $validated = $request->validate([
+            'code' => 'required|string|max:50|unique:cost_categories',
             'name' => 'required|string|max:255',
+            'requires_receipt' => 'nullable|boolean',
+            'approval_threshold' => 'nullable|numeric|min:0',
+            'sort_order' => 'nullable|integer',
             'is_active' => 'nullable|boolean',
         ]);
 
         $costCategory = DB::transaction(function () use ($validated) {
             $costCategory = CostCategory::create(array_merge($validated, [
-                'company_id' => auth()->user()->company_id,
+                'company_id' => app(\App\Tenancy\TenantContext::class)->getCompanyId() ?? 1,
             ]));
             return $costCategory;
         });
@@ -56,7 +60,11 @@ class CostCategoryController extends BaseController
     {
         // TODO: Replace with a dedicated FormRequest
         $validated = $request->validate([
+            'code' => 'sometimes|required|string|max:50|unique:cost_categories,code,' . $costCategory->id,
             'name' => 'sometimes|required|string|max:255',
+            'requires_receipt' => 'sometimes|nullable|boolean',
+            'approval_threshold' => 'sometimes|nullable|numeric|min:0',
+            'sort_order' => 'sometimes|nullable|integer',
             'is_active' => 'sometimes|nullable|boolean',
         ]);
 

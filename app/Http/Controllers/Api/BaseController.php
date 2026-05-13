@@ -11,9 +11,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class BaseController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Success response
      *

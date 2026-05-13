@@ -20,8 +20,7 @@ class CompanyController extends BaseController
 
     public function index(Request $request): JsonResource
     {
-        $query = Company::query()
-            ->where('id', auth()->user()->company_id); // Scope to the authenticated user's company
+        $query = Company::query(); // Rely on Auth Policy and User->resolveTenants() logic
 
         // Apply status filter
         if ($request->filled('status')) {
@@ -102,5 +101,12 @@ class CompanyController extends BaseController
         });
 
         return response()->json(null, 204);
+    }
+
+    public function updateStatus(Request $request, Company $company): JsonResource
+    {
+        $validated = $request->validate(['status' => 'required|string|in:active,inactive']);
+        $company->update(['status' => $validated['status']]);
+        return new CompanyResource($company);
     }
 }
