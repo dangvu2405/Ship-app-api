@@ -30,7 +30,8 @@ final class ReportsController extends BaseController
                 (string) $reportType,
                 $request->user()?->id ?? null,
                 $dateFrom,
-                $dateTo
+                $dateTo,
+                $request->only(['status', 'cost_category_id'])
             );
 
             return $this->successResponse($data, 'api.common.ok');

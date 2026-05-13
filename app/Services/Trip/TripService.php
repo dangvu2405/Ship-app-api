@@ -17,8 +17,7 @@ class TripService
 {
     public function __construct(
         protected TripRepository $tripRepository
-    ) {
-    }
+    ) {}
 
     /**
      * Create a new trip with business logic.
@@ -34,13 +33,13 @@ class TripService
     public function assignDriverAndVehicle(int $tripId, int $driverId, int $vehicleId, User $actingUser): Trip
     {
         $trip = $this->tripRepository->find($tripId);
-        if (!$trip) {
-            throw new \Exception("Trip not found");
+        if (! $trip) {
+            throw new \Exception('Trip not found');
         }
 
         if (in_array($trip->status, ['completed', 'cancelled'], true)) {
             throw ValidationException::withMessages([
-                'status' => ["Cannot assign to a trip that is already {$trip->status}."]
+                'status' => ["Cannot assign to a trip that is already {$trip->status}."],
             ]);
         }
 
@@ -56,15 +55,15 @@ class TripService
         $trip->update([
             'driver_id' => $driverId,
             'vehicle_id' => $vehicleId,
-            'status' => 'in_progress', // Usually transitions to in_progress or assigned
+            'status' => 'assigned',
             'assigned_at' => $trip->assigned_at ?? now(),
         ]);
 
         $this->tripRepository->recordStatusHistory(
-            $trip->id, 
-            $fromStatus, 
-            'in_progress', 
-            $actingUser->id, 
+            $trip->id,
+            $fromStatus,
+            'assigned',
+            $actingUser->id,
             'Assigned driver and vehicle via Service'
         );
 
@@ -77,9 +76,9 @@ class TripService
     protected function validateVehicle(int $vehicleId, int $tripId, string $date): void
     {
         $vehicle = Vehicle::find($vehicleId);
-        if (!$vehicle || $vehicle->status !== 'active') {
+        if (! $vehicle || $vehicle->status !== 'active') {
             throw ValidationException::withMessages([
-                'vehicle_id' => ["Vehicle is not active or not found."]
+                'vehicle_id' => ['Vehicle is not active or not found.'],
             ]);
         }
 
@@ -89,7 +88,7 @@ class TripService
             ->exists();
         if ($hasOpenMaintenance) {
             throw ValidationException::withMessages([
-                'vehicle_id' => ["Vehicle is currently in maintenance."]
+                'vehicle_id' => ['Vehicle is currently in maintenance.'],
             ]);
         }
 
@@ -102,7 +101,7 @@ class TripService
 
         if ($vehicleBusy) {
             throw ValidationException::withMessages([
-                'vehicle_id' => ["Vehicle is already booked for another trip on this date."]
+                'vehicle_id' => ['Vehicle is already booked for another trip on this date.'],
             ]);
         }
     }
@@ -113,9 +112,9 @@ class TripService
     protected function validateDriver(int $driverId, int $tripId, string $date): void
     {
         $driver = Driver::find($driverId);
-        if (!$driver || $driver->status !== 'active') {
+        if (! $driver || $driver->status !== 'active') {
             throw ValidationException::withMessages([
-                'driver_id' => ["Driver is not active or not found."]
+                'driver_id' => ['Driver is not active or not found.'],
             ]);
         }
 
@@ -130,13 +129,13 @@ class TripService
             ->where('status', 'approved')
             ->where(function ($query) use ($date) {
                 $query->whereDate('from_date', '<=', $date)
-                      ->whereDate('to_date', '>=', $date);
+                    ->whereDate('to_date', '>=', $date);
             })
             ->exists();
 
         if ($isOnLeave) {
             throw ValidationException::withMessages([
-                'driver_id' => ["Driver is on approved leave during the scheduled trip date."]
+                'driver_id' => ['Driver is on approved leave during the scheduled trip date.'],
             ]);
         }
 
@@ -149,7 +148,7 @@ class TripService
 
         if ($driverBusy) {
             throw ValidationException::withMessages([
-                'driver_id' => ["Driver is already booked for another trip on this date."]
+                'driver_id' => ['Driver is already booked for another trip on this date.'],
             ]);
         }
     }
@@ -160,14 +159,14 @@ class TripService
     public function transitionStatus(int $tripId, string $newStatus, User $actingUser, ?string $note = null): Trip
     {
         $trip = $this->tripRepository->find($tripId);
-        if (!$trip) {
-            throw new \Exception("Trip not found");
+        if (! $trip) {
+            throw new \Exception('Trip not found');
         }
 
         $fromStatus = $trip->status;
-        
+
         // Add state machine logic here if needed
-        
+
         $updateData = ['status' => $newStatus];
         if ($newStatus === 'completed') {
             $updateData['end_time'] = $trip->end_time ?? now();

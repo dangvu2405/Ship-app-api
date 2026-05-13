@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\ChatMessage;
 use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -15,7 +16,11 @@ use Throwable;
 
 class ChatService
 {
-    public function __construct(private readonly GeminiService $geminiService) {}
+    public function __construct(
+        private readonly GeminiService $geminiService,
+        private readonly ChatRagService $chatRagService,
+        private readonly TenantContext $tenantContext,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -84,7 +89,11 @@ class ChatService
             ->reverse()
             ->values();
 
-        $prompt = $this->buildPrompt($history, $message, $context, $task);
+        $ragDocs = $task === 'chat'
+            ? $this->chatRagService->search($message, 'GENERAL', $this->tenantContext->getCompanyId())
+            : [];
+
+        $prompt = $this->buildPrompt($history, $message, $context, $task, $ragDocs);
 
         try {
             $result = $this->geminiService->generateContent($prompt, [
@@ -125,6 +134,7 @@ class ChatService
                     'session_id' => $sessionId,
                     'message' => $chat,
                     'response_text' => (string) $chat->response,
+                    'sources' => $this->sourcesFromRagDocs($ragDocs),
                     'cached' => false,
                     'guarded' => true,
                 ];
@@ -171,6 +181,7 @@ class ChatService
             'session_id' => $sessionId,
             'message' => $chat,
             'response_text' => (string) $chat->response,
+            'sources' => $this->sourcesFromRagDocs($ragDocs),
             'cached' => false,
             'guarded' => false,
         ];
@@ -284,8 +295,9 @@ class ChatService
     /**
      * @param  Collection<int, ChatMessage>  $history
      * @param  array<string, mixed>  $context
+     * @param  list<array{title: string, snippet: string, category: string}>  $ragDocs
      */
-    private function buildPrompt(Collection $history, string $message, array $context, string $task): string
+    private function buildPrompt(Collection $history, string $message, array $context, string $task, array $ragDocs = []): string
     {
         if ($task === 'classify') {
             return str_replace('{input}', $message, "Bạn là bộ lọc tin nhắn cho ứng dụng Ship-app. Phân tích tin nhắn sau và chỉ trả về 1 từ khóa duy nhất trong danh sách: [ORDER, PRICE, TRACKING, OTHER].\n\nORDER: Khách muốn đặt giao hàng.\nPRICE: Khách hỏi giá tiền.\nTRACKING: Khách tìm đơn hàng.\nOTHER: Tin nhắn chào hỏi hoặc không liên quan.\n\nTin nhắn: {input}");
@@ -308,6 +320,20 @@ class ChatService
             'Trả lời cực ngắn, rõ ràng, tập trung nghiệp vụ logistics, nhân sự, chấm công, payroll.',
             'Nếu câu hỏi thiếu dữ liệu, hãy nói rõ giả định.',
         ];
+
+        if ($ragDocs !== []) {
+            $lines[] = 'Tài liệu nội bộ liên quan:';
+            foreach ($ragDocs as $index => $doc) {
+                $lines[] = sprintf(
+                    '[%d] %s (%s): %s',
+                    $index + 1,
+                    $doc['title'],
+                    $doc['category'],
+                    $doc['snippet']
+                );
+            }
+            $lines[] = 'Ưu tiên trả lời dựa trên tài liệu nội bộ ở trên; nếu tài liệu không đủ, nói rõ phần thiếu dữ liệu.';
+        }
 
         if ($context !== []) {
             $lines[] = 'Context bổ sung: '.json_encode($context, JSON_UNESCAPED_UNICODE);
@@ -342,5 +368,22 @@ class ChatService
         ], JSON_UNESCAPED_UNICODE);
 
         return sprintf('chat:%d:%s', $userId, sha1((string) $fingerprint));
+    }
+
+    /**
+     * @param  list<array{title: string, snippet: string, category: string}>  $ragDocs
+     * @return list<array{id: string, title: string, content: string, category: string}>
+     */
+    private function sourcesFromRagDocs(array $ragDocs): array
+    {
+        return array_map(
+            fn (array $doc): array => [
+                'id' => sha1($doc['category'].'|'.$doc['title']),
+                'title' => $doc['title'],
+                'content' => $doc['snippet'],
+                'category' => $doc['category'],
+            ],
+            $ragDocs
+        );
     }
 }

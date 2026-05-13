@@ -7,11 +7,19 @@ namespace App\Http\Controllers\Api;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Controller;
 use Exception;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class BaseController extends Controller
 {
@@ -24,6 +32,18 @@ class BaseController extends Controller
      */
     protected function successResponse($data = null, string $message = 'api.success', int $code = 200): JsonResponse
     {
+        if ($data instanceof LengthAwarePaginator) {
+            $data = [
+                'data' => $data->items(),
+                'meta' => [
+                    'current_page' => $data->currentPage(),
+                    'last_page' => $data->lastPage(),
+                    'per_page' => $data->perPage(),
+                    'total' => $data->total(),
+                ],
+            ];
+        }
+
         $response = [
             'success' => true,
             'message' => $this->translateMessage($message),
@@ -109,14 +129,14 @@ class BaseController extends Controller
     protected function handleException(Throwable $e, ?string $customMessage = null): JsonResponse
     {
         $level = match (true) {
-            $e instanceof \Illuminate\Database\QueryException,
+            $e instanceof QueryException,
             $e instanceof \PDOException => 'critical',
-            $e instanceof \Illuminate\Auth\AuthenticationException => 'info',
-            $e instanceof \Illuminate\Auth\Access\AuthorizationException,
-            $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException,
-            $e instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException,
+            $e instanceof AuthenticationException => 'info',
+            $e instanceof AuthorizationException,
+            $e instanceof ModelNotFoundException,
+            $e instanceof NotFoundHttpException,
             $e instanceof ApiException => 'warning',
-            $e instanceof \Illuminate\Validation\ValidationException => 'notice',
+            $e instanceof ValidationException => 'notice',
             default => 'error',
         };
 
@@ -135,7 +155,7 @@ class BaseController extends Controller
             );
         }
 
-        if ($e instanceof \Illuminate\Database\QueryException) {
+        if ($e instanceof QueryException) {
             // Never expose query/table details to the client
             $message = config('app.debug')
                 ? ($customMessage ?: __('api.database_error_debug', ['error' => $e->getMessage()]))
@@ -154,7 +174,7 @@ class BaseController extends Controller
 
     private function translateMessage(string $message): string
     {
-        if (\Illuminate\Support\Facades\Lang::has($message)) {
+        if (Lang::has($message)) {
             return __($message);
         }
 

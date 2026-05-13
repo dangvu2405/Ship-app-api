@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
@@ -28,7 +29,7 @@ final class WorkforceService
     public function paginateSchedulesForWorkforce(Request $request, array $validated): LengthAwarePaginator
     {
         $query = DriverWorkSchedule::query()
-            ->with(['driver.user', 'vehicle', 'office'])
+            ->with(['driver.user', 'vehicle'])
             ->whereBetween('work_date', [(string) $validated['from'], (string) $validated['to']]);
 
         $company_id = $this->resolveCompanyId($request);
@@ -39,7 +40,7 @@ final class WorkforceService
         if (isset($validated['driver_id'])) {
             $query->where('driver_id', (int) $validated['driver_id']);
         }
-        if (isset($validated['office_id'])) {
+        if (isset($validated['office_id']) && Schema::hasColumn('driver_work_schedules', 'office_id')) {
             $query->where('office_id', (int) $validated['office_id']);
         }
         if (isset($validated['shift_code'])) {
@@ -130,7 +131,7 @@ final class WorkforceService
 
     /**
      * @param  array<string, mixed>  $validated  WorkforceAbsencesIndexRequest
-     * @return array{current_page: int, last_page: int, per_page: int, total: int, data: \Illuminate\Support\Collection<int, array<string, mixed>>}
+     * @return array{current_page: int, last_page: int, per_page: int, total: int, data: Collection<int, array<string, mixed>>}
      */
     public function absencesPayloadForWorkforce(Request $request, array $validated): array
     {

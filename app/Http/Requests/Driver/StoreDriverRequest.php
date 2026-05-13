@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Driver;
 
 use App\Http\Requests\AppFormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreDriverRequest extends AppFormRequest
 {
@@ -16,75 +17,55 @@ class StoreDriverRequest extends AppFormRequest
     public function rules(): array
     {
         return [
-            // Thông tin cá nhân
-            'code' => 'required|string|max:50|unique:drivers,code',
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255|unique:drivers,email',
-            'phone' => 'nullable|string|max:20|regex:/^0[0-9]{9,10}$/',
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('drivers', 'email')],
+            'phone' => ['required', 'string', 'max:255', Rule::unique('drivers', 'phone')],
             'dob' => 'nullable|date',
-            'gender' => 'nullable|in:male,female,other',
-            'address' => 'nullable|string|max:500',
+            'gender' => 'nullable|string|in:male,female,other',
+            'address' => 'nullable|string|max:255',
             'avatar_url' => 'nullable|url|max:255',
             'national_id_no' => 'nullable|string|max:30',
             'national_id_issue_date' => 'nullable|date',
             'national_id_issue_place' => 'nullable|string|max:255',
             'social_insurance_no' => 'nullable|string|max:30',
-            'health_insurance_no' => 'nullable|string|max:30',
-            'insurance_registered_at' => 'nullable|date',
-            // Tổ chức
-            'office_id' => ['required', 'integer', $this->existsInCompany('offices')],
-            'department_id' => ['nullable', 'integer', $this->existsInCompany('departments')],
-            'position_id' => ['required', 'integer', $this->existsInCompany('positions')],
-            // Trạng thái
-            'status' => 'required|in:active,inactive,resigned',
-            'join_date' => 'required|date',
+            'status' => 'nullable|string|in:active,inactive,resigned',
+            'join_date' => 'nullable|date',
             'resign_date' => 'nullable|date|after_or_equal:join_date',
-            // Ngân hàng
             'bank_name' => 'nullable|string|max:255',
             'bank_account_no' => 'nullable|string|max:50',
             'bank_account_name' => 'nullable|string|max:255',
-            // Thông tin tài xế
-            'license_no' => 'required|string|max:50|unique:drivers,license_no',
+            'license_no' => ['required', 'string', 'max:255', Rule::unique('drivers', 'license_no')],
             'license_image_url' => 'nullable|url|max:255',
-            'identity_image_url' => 'nullable|url|max:255',
-            'driver_insurance_no' => 'nullable|string|max:30',
-            'driver_insurance_expired_date' => 'nullable|date',
             'health_certificate_no' => 'nullable|string|max:30',
             'health_certificate_expired_date' => 'nullable|date',
-            'license_class' => 'nullable|string|max:20',
+            'license_class' => 'required|string|max:255',
             'expired_date' => 'nullable|date',
-            'available_status' => 'required|in:available,busy,offline',
+            'license_alert_days' => 'nullable|integer|min:0|max:365',
+            'available_status' => 'nullable|string|in:available,busy,offline',
+            'annual_leave_days' => 'nullable|integer|min:0|max:365',
         ];
     }
 
     public function messages(): array
     {
         return [
-            'code.required' => __('api.validation.required'),
-            'code.max' => __('api.validation.max.string'),
-            'code.unique' => __('api.validation.unique'),
             'name.required' => __('api.validation.required'),
             'name.max' => __('api.validation.max.string'),
+            'email.required' => __('api.validation.required'),
             'email.email' => __('api.validation.email'),
             'email.max' => __('api.validation.max.string'),
             'email.unique' => __('api.validation.unique'),
-            'phone.regex' => __('api.validation.phone_vn'),
+            'phone.required' => __('api.validation.required'),
+            'phone.unique' => __('api.validation.unique'),
             'dob.date' => __('api.validation.date'),
             'gender.in' => __('api.validation.in'),
-            'office_id.required' => __('api.validation.required'),
-            'office_id.exists' => __('api.validation.exists'),
-            'position_id.required' => __('api.validation.required'),
-            'position_id.exists' => __('api.validation.exists'),
-            'status.required' => __('api.validation.required'),
             'status.in' => __('api.validation.in'),
-            'join_date.required' => __('api.validation.required'),
             'join_date.date' => __('api.validation.date'),
             'resign_date.date' => __('api.validation.date'),
             'resign_date.after_or_equal' => __('api.validation.after_or_equal'),
             'license_no.required' => __('api.validation.required'),
             'license_no.max' => __('api.validation.max.string'),
             'license_no.unique' => __('api.validation.unique'),
-            'available_status.required' => __('api.validation.required'),
             'available_status.in' => __('api.validation.in'),
         ];
     }

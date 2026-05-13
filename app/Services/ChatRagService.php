@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\KnowledgeArticle;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
@@ -25,6 +26,10 @@ final class ChatRagService
     {
         $query = trim($query);
         if ($query === '') {
+            return [];
+        }
+
+        if (! Schema::hasTable('knowledge_articles')) {
             return [];
         }
 
@@ -112,7 +117,7 @@ final class ChatRagService
         return $dbQuery->limit(self::MAX_DOCS)->get();
     }
 
-    private function applyTenantPriorityOrdering(\Illuminate\Database\Eloquent\Builder $query, ?int $companyId): void
+    private function applyTenantPriorityOrdering(Builder $query, ?int $companyId): void
     {
         if ($companyId !== null) {
             $query->orderByRaw('CASE WHEN company_id = ? THEN 0 WHEN company_id IS NULL THEN 1 ELSE 2 END', [$companyId]);

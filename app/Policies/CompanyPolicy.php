@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
+use Illuminate\Support\Facades\Schema;
 
 class CompanyPolicy
 {
@@ -24,8 +25,8 @@ class CompanyPolicy
     public function view(User $user, Company $company): bool
     {
         // Check if user is associated with this company
-        return $user->companies()->where('companies.id', $company->id)->exists() 
-            || $user->hasRole('admin') 
+        return $this->belongsToCompany($user, $company)
+            || $user->hasRole('admin')
             || $user->hasRole('super_admin');
     }
 
@@ -44,7 +45,7 @@ class CompanyPolicy
     public function update(User $user, Company $company): bool
     {
         // Only admins of this company or super-admins can update
-        return ($user->companies()->where('companies.id', $company->id)->exists() && $user->hasRole('admin'))
+        return ($this->belongsToCompany($user, $company) && $user->hasRole('admin'))
             || $user->hasRole('super_admin');
     }
 
@@ -72,5 +73,14 @@ class CompanyPolicy
     public function forceDelete(User $user, Company $company): bool
     {
         return false; // Not typically allowed via API for regular users
+    }
+
+    private function belongsToCompany(User $user, Company $company): bool
+    {
+        if (Schema::hasTable('user_companies')) {
+            return $user->companies()->where('companies.id', $company->id)->exists();
+        }
+
+        return (int) $user->getAttribute('company_id') === (int) $company->id;
     }
 }

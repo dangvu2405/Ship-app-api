@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Vehicle;
 
 use App\Http\Requests\AppFormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreVehicleRequest extends AppFormRequest
 {
@@ -16,18 +17,16 @@ class StoreVehicleRequest extends AppFormRequest
     public function rules(): array
     {
         return [
-            'office_id' => ['required', 'integer', $this->existsInCompany('offices')],
-            'plate_number' => 'required|string|max:20|unique:vehicles,plate_number',
-            'type' => 'required|in:truck,van,car,motorcycle',
-            'brand' => 'nullable|string|max:100',
-            'model' => 'nullable|string|max:100',
-            'year' => 'nullable|integer|min:1900|max:2100',
+            'plate_number' => ['required', 'string', 'max:255', Rule::unique('vehicles', 'plate_number')],
+            'type' => 'required|string|max:255',
+            'brand' => 'nullable|string|max:255',
+            'model' => 'nullable|string|max:255',
+            'year' => 'nullable|integer|min:1900|max:'.(date('Y') + 1),
             'capacity' => 'nullable|integer|min:0',
-            'status' => 'required|in:active,maintenance,inactive',
-            'image_front' => 'nullable|url|max:255',
-            'image_back' => 'nullable|url|max:255',
-            'image_side' => 'nullable|url|max:255',
-            'image_other' => 'nullable|url|max:255',
+            'max_load_ton' => 'nullable|numeric|min:0',
+            'current_odometer_km' => 'nullable|numeric|min:0',
+            'status' => 'nullable|string|in:active,maintenance,inactive,broken',
+            'vehicle_type_id' => ['nullable', 'integer', $this->existsInCompany('vehicle_types')],
         ];
     }
 }

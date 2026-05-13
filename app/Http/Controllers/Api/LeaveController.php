@@ -8,13 +8,16 @@ use App\Http\Requests\Leave\ApproveLeaveRequest;
 use App\Http\Requests\Leave\CancelLeaveRequest;
 use App\Http\Requests\Leave\RejectLeaveRequest;
 use App\Http\Requests\Leave\StoreLeaveRequest;
+use App\Http\Resources\LeaveRequestResource;
+use App\Http\Resources\LeaveTypeResource;
+use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Services\LeaveService;
-use App\Http\Resources\LeaveTypeResource;
-use App\Http\Resources\LeaveRequestResource;
+use App\Tenancy\TenantContext;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 use InvalidArgumentException;
 use Throwable;
 
@@ -23,9 +26,7 @@ use Throwable;
  */
 class LeaveController extends BaseController
 {
-    public function __construct(private readonly LeaveService $leaveService)
-    {
-    }
+    public function __construct(private readonly LeaveService $leaveService) {}
 
     /**
      * @OA\Get(
@@ -37,11 +38,11 @@ class LeaveController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function types(): AnonymousResourceCollection
+    public function types(): JsonResponse
     {
         $types = LeaveType::query()->active()->orderBy('name')->get();
 
-        return LeaveTypeResource::collection($types);
+        return $this->successResponse(LeaveTypeResource::collection($types)->resolve(), 'api.common.ok');
     }
 
     /**
@@ -59,7 +60,7 @@ class LeaveController extends BaseController
      *     @OA\Response(response=200, description="Thành công")
      * )
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): JsonResponse
     {
         $query = LeaveRequest::query()->with(['driver', 'leaveType', 'approver']);
 
@@ -76,9 +77,64 @@ class LeaveController extends BaseController
             $query->where('to_date', '<=', $request->input('to'));
         }
 
-        $requests = $query->orderByDesc('from_date')->paginate(20);
+        $perPage = min(max((int) $request->integer('per_page', 20), 1), 100);
+        $requests = $query->orderByDesc('from_date')->paginate($perPage);
 
-        return LeaveRequestResource::collection($requests);
+        return $this->successResponse([
+            'data' => LeaveRequestResource::collection($requests)->resolve(),
+            'meta' => [
+                'current_page' => $requests->currentPage(),
+                'last_page' => $requests->lastPage(),
+                'per_page' => $requests->perPage(),
+                'total' => $requests->total(),
+            ],
+        ], 'api.common.ok');
+    }
+
+    public function balance(Request $request): JsonResponse
+    {
+        if ($guest = $this->unauthorizedIfGuest($request)) {
+            return $guest;
+        }
+
+        $companyId = app(TenantContext::class)->getCompanyId();
+        $driverRule = Rule::exists('drivers', 'id');
+        if ($companyId !== null) {
+            $driverRule->where('company_id', $companyId);
+        }
+
+        $validated = $request->validate([
+            'driver_id' => ['required', 'integer', $driverRule],
+            'leave_type_id' => ['required', 'integer', 'exists:leave_types,id'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $driverId = (int) $validated['driver_id'];
+        $leaveTypeId = (int) $validated['leave_type_id'];
+        $year = (int) ($validated['year'] ?? now()->year);
+
+        $balance = LeaveBalance::query()
+            ->where('driver_id', $driverId)
+            ->where('leave_type_id', $leaveTypeId)
+            ->where('year', $year)
+            ->first();
+
+        $pending = (float) LeaveRequest::query()
+            ->where('driver_id', $driverId)
+            ->where('leave_type_id', $leaveTypeId)
+            ->whereYear('from_date', $year)
+            ->where('status', 'pending')
+            ->sum('total_days');
+
+        $total = (float) (($balance?->entitled_days ?? 0) + ($balance?->carried_forward_days ?? 0));
+        $used = (float) ($balance?->used_days ?? 0);
+
+        return $this->successResponse([
+            'total' => $total,
+            'used' => $used,
+            'pending' => $pending,
+            'available' => max(0.0, $total - $used - $pending),
+        ], 'api.common.ok');
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Tenancy\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 abstract class AppFormRequest extends FormRequest
 {
@@ -45,7 +46,7 @@ abstract class AppFormRequest extends FormRequest
         return $user->hasPermission("{$module}:{$action}", $this->tenantCompanyId());
     }
 
-    protected function existsInCompany(string $table, string $column = 'id'): Rule
+    protected function existsInCompany(string $table, string $column = 'id'): Exists
     {
         $rule = Rule::exists($table, $column);
         $companyId = $this->tenantCompanyId();

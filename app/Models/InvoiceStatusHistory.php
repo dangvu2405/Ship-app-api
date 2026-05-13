@@ -25,6 +25,11 @@ final class InvoiceStatusHistory extends Model
         'metadata',
     ];
 
+    public static function getTenantThroughRelation(): ?string
+    {
+        return 'invoice';
+    }
+
     protected function casts(): array
     {
         return [

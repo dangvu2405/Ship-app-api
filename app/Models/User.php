@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -21,7 +23,7 @@ use Laravel\Sanctum\HasApiTokens;
  */
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
+    /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     /**
@@ -184,8 +186,15 @@ class User extends Authenticatable
             }
         }
 
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('user_roles')) {
+            return false;
+        }
+
         // Check many-to-many roles table
-        return $this->roles()->where('name', $roleName)->exists();
+        return $this->roles()
+            ->where('name', $roleName)
+            ->when($companyId !== null && Schema::hasColumn('roles', 'company_id'), fn ($query) => $query->where('roles.company_id', $companyId))
+            ->exists();
     }
 
     /**
@@ -236,7 +245,7 @@ class User extends Authenticatable
         return $this->hasMany(UserPermission::class);
     }
 
-    private function resolveAssignedCompanies(): \Illuminate\Support\Collection
+    private function resolveAssignedCompanies(): Collection
     {
         if (Schema::hasTable('user_permissions')) {
             $ids = UserPermission::query()

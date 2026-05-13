@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Models\PayrollAdjustment;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class PayrollAdjustmentController extends BaseController
 {
     public function index(Request $request): JsonResponse
     {
+        if (! Schema::hasTable('payroll_adjustments')) {
+            return $this->successResponse($this->emptyPaginatedData($request), 'OK');
+        }
+
         $query = PayrollAdjustment::query()
             ->with(['payroll', 'driver', 'approvedBy'])
             ->where('company_id', $this->getCompanyId());
@@ -25,36 +30,32 @@ class PayrollAdjustmentController extends BaseController
             $query->where('driver_id', $request->input('driver_id'));
         }
 
-        $perPage = (int) $request->input('per_page', 15);
+        $perPage = $this->perPage($request);
         $adjustments = $query->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'OK',
-            'data' => $adjustments->items(),
-            'meta' => [
-                'current_page' => $adjustments->currentPage(),
-                'last_page' => $adjustments->lastPage(),
-                'per_page' => $adjustments->perPage(),
-                'total' => $adjustments->total(),
-            ],
-        ]);
+        return $this->successResponse($adjustments, 'OK');
     }
 
     public function allowances(Request $request): JsonResponse
     {
         $request->merge(['type' => 'addition']);
+
         return $this->index($request);
     }
 
     public function deductions(Request $request): JsonResponse
     {
         $request->merge(['type' => 'deduction']);
+
         return $this->index($request);
     }
 
     public function store(Request $request): JsonResponse
     {
+        if (! Schema::hasTable('payroll_adjustments')) {
+            return $this->errorResponse('Payroll adjustments table is not available.', 501);
+        }
+
         $validated = $request->validate([
             'payroll_id' => 'required|exists:payrolls,id',
             'driver_id' => 'required|exists:drivers,id',
@@ -75,9 +76,13 @@ class PayrollAdjustmentController extends BaseController
 
     public function show(string $id): JsonResponse
     {
+        if (! Schema::hasTable('payroll_adjustments')) {
+            return $this->notFoundResponse('Adjustment not found');
+        }
+
         $adjustment = PayrollAdjustment::with(['payroll', 'driver', 'approvedBy'])->find($id);
 
-        if (!$adjustment || $adjustment->company_id !== $this->getCompanyId()) {
+        if (! $adjustment || $adjustment->company_id !== $this->getCompanyId()) {
             return $this->notFoundResponse('Adjustment not found');
         }
 
@@ -86,9 +91,13 @@ class PayrollAdjustmentController extends BaseController
 
     public function update(Request $request, string $id): JsonResponse
     {
+        if (! Schema::hasTable('payroll_adjustments')) {
+            return $this->notFoundResponse('Adjustment not found');
+        }
+
         $adjustment = PayrollAdjustment::find($id);
 
-        if (!$adjustment || $adjustment->company_id !== $this->getCompanyId()) {
+        if (! $adjustment || $adjustment->company_id !== $this->getCompanyId()) {
             return $this->notFoundResponse('Adjustment not found');
         }
 
@@ -106,9 +115,13 @@ class PayrollAdjustmentController extends BaseController
 
     public function destroy(string $id): JsonResponse
     {
+        if (! Schema::hasTable('payroll_adjustments')) {
+            return $this->notFoundResponse('Adjustment not found');
+        }
+
         $adjustment = PayrollAdjustment::find($id);
 
-        if (!$adjustment || $adjustment->company_id !== $this->getCompanyId()) {
+        if (! $adjustment || $adjustment->company_id !== $this->getCompanyId()) {
             return $this->notFoundResponse('Adjustment not found');
         }
 
@@ -119,6 +132,32 @@ class PayrollAdjustmentController extends BaseController
 
     private function getCompanyId(): ?int
     {
-        return app(\App\Tenancy\TenantContext::class)->getCompanyId();
+        return app(TenantContext::class)->getCompanyId();
+    }
+
+    private function perPage(Request $request): int
+    {
+        $perPage = (int) $request->input('per_page', 15);
+
+        return min(max($perPage, 1), 100);
+    }
+
+    /**
+     * The payroll adjustment module was removed in some migrated databases.
+     * Returning the standard empty paginator keeps read-only screens usable without hiding real schema drift from writes.
+     *
+     * @return array{data: array<int, never>, meta: array{current_page: int, last_page: int, per_page: int, total: int}}
+     */
+    private function emptyPaginatedData(Request $request): array
+    {
+        return [
+            'data' => [],
+            'meta' => [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => $this->perPage($request),
+                'total' => 0,
+            ],
+        ];
     }
 }

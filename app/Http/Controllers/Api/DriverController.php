@@ -4,63 +4,34 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Driver;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use App\Http\Requests\Driver\StoreDriverRequest;
+use App\Http\Requests\Driver\UpdateDriverRequest;
 use App\Http\Resources\DriverResource;
+use App\Models\Driver;
+use App\Services\Driver\DriverService;
+use App\Tenancy\TenantContext;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Http\Response;
 
 class DriverController extends BaseController
 {
+    public function __construct(
+        private readonly DriverService $drivers,
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     public function index(Request $request): JsonResource
     {
-        $drivers = Driver::query()
-            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId())
-            ->paginate(15);
-
-        return DriverResource::collection($drivers);
+        return DriverResource::collection(
+            $this->drivers->paginateForCompany($this->companyId($request))
+        );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreDriverRequest $request): JsonResponse
     {
-        // TODO: Replace with a dedicated FormRequest
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:drivers',
-            'phone' => 'required|string|max:255|unique:drivers',
-            'dob' => 'nullable|date',
-            'gender' => 'nullable|string|in:male,female,other',
-            'address' => 'nullable|string|max:255',
-            'license_no' => 'required|string|max:255|unique:drivers',
-            'license_class' => 'required|string|max:255',
-            'expired_date' => 'nullable|date',
-            'join_date' => 'nullable|date',
-            'resign_date' => 'nullable|date',
-            'status' => 'nullable|string|in:active,inactive,resigned',
-            'available_status' => 'nullable|string|in:available,busy,offline',
-            'employee_id' => 'required|integer',
-            'id_card_no' => 'nullable|string|max:50',
-            'id_card_issue_date' => 'nullable|date',
-            'permanent_address' => 'nullable|string|max:500',
-            'id_card_front_url' => 'nullable|string',
-            'id_card_back_url' => 'nullable|string',
-            'insurance_provider' => 'nullable|string|max:255',
-            'insurance_policy_no' => 'nullable|string|max:255',
-            'insurance_expiry_date' => 'nullable|date',
-            'insurance_doc_url' => 'nullable|string',
-            'profile_notes' => 'nullable|string',
-        ]);
-
-        $driver = DB::transaction(function () use ($validated) {
-            $code = 'DRV-' . strtoupper(Str::random(8));
-            $driver = Driver::create(array_merge($validated, [
-                'company_id' => auth()->user()->company_id,
-                'code'       => $code,
-            ]));
-            return $driver;
-        });
+        $driver = $this->drivers->create($request->validated(), $this->companyId($request));
 
         return (new DriverResource($driver))
             ->response()
@@ -74,53 +45,31 @@ class DriverController extends BaseController
         return new DriverResource($driver);
     }
 
-    public function update(Request $request, Driver $driver): JsonResource
+    public function update(UpdateDriverRequest $request, Driver $driver): JsonResource
     {
         $this->authorize('update', $driver);
 
-        // TODO: Replace with a dedicated FormRequest
-        $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|max:255|unique:drivers,email,' . $driver->id,
-            'phone' => 'sometimes|required|string|max:255|unique:drivers,phone,' . $driver->id,
-            'dob' => 'sometimes|nullable|date',
-            'gender' => 'sometimes|nullable|string|in:male,female,other',
-            'address' => 'sometimes|nullable|string|max:255',
-            'license_no' => 'sometimes|required|string|max:255|unique:drivers,license_no,' . $driver->id,
-            'license_class' => 'sometimes|required|string|max:255',
-            'expired_date' => 'sometimes|nullable|date',
-            'join_date' => 'sometimes|nullable|date',
-            'resign_date' => 'sometimes|nullable|date',
-            'status' => 'sometimes|nullable|string|in:active,inactive,resigned',
-            'available_status' => 'sometimes|nullable|string|in:available,busy,offline',
-            'employee_id' => 'sometimes|required|integer',
-            'id_card_no' => 'sometimes|nullable|string|max:50',
-            'id_card_issue_date' => 'sometimes|nullable|date',
-            'permanent_address' => 'sometimes|nullable|string|max:500',
-            'id_card_front_url' => 'sometimes|nullable|string',
-            'id_card_back_url' => 'sometimes|nullable|string',
-            'insurance_provider' => 'sometimes|nullable|string|max:255',
-            'insurance_policy_no' => 'sometimes|nullable|string|max:255',
-            'insurance_expiry_date' => 'sometimes|nullable|date',
-            'insurance_doc_url' => 'sometimes|nullable|string',
-            'profile_notes' => 'sometimes|nullable|string',
-        ]);
-
-        DB::transaction(function () use ($validated, $driver) {
-            $driver->update($validated);
-        });
-
-        return new DriverResource($driver);
+        return new DriverResource($this->drivers->update($driver, $request->validated()));
     }
 
-    public function destroy(Driver $driver): JsonResponse
+    public function destroy(Driver $driver): Response
     {
         $this->authorize('delete', $driver);
 
-        DB::transaction(function () use ($driver) {
-            $driver->delete();
-        });
+        $this->drivers->delete($driver);
 
-        return response()->json(null, 204);
+        return response()->noContent();
+    }
+
+    public function available(Request $request): JsonResource
+    {
+        return DriverResource::collection(
+            $this->drivers->paginateAvailableForCompany($this->companyId($request))
+        );
+    }
+
+    private function companyId(Request $request): int
+    {
+        return (int) ($this->tenantContext->getCompanyId() ?? $request->user()?->getAttribute('company_id'));
     }
 }

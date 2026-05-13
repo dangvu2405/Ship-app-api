@@ -40,7 +40,7 @@ class IndexDriverJob implements ShouldQueue
 
     public function handle(EmbeddingService $embedder): void
     {
-        $driver = $this->driver->fresh(['office']);
+        $driver = $this->driver->fresh(['company']);
 
         if ($driver === null) {
             return;
@@ -60,7 +60,7 @@ class IndexDriverJob implements ShouldQueue
                     'code' => $driver->code,
                     'status' => $driver->status,
                     'available_status' => $driver->available_status,
-                    'office_code' => $driver->office?->code,
+                    'company_code' => $driver->company?->code,
                     'license_class' => $driver->license_class,
                     'license_expiry' => $driver->expired_date?->toDateString(),
                 ],
@@ -82,10 +82,10 @@ class IndexDriverJob implements ShouldQueue
         $parts = [];
 
         $parts[] = sprintf(
-            'Tài xế %s (mã: %s), làm việc tại văn phòng %s.',
+            'Tài xế %s (mã: %s), thuộc công ty %s.',
             $driver->name,
             $driver->code,
-            $driver->office?->code ?? 'chưa phân công',
+            $driver->company?->code ?? 'chưa xác định',
         );
 
         $parts[] = sprintf(

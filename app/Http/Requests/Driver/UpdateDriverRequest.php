@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Requests\Driver;
 
 use App\Http\Requests\AppFormRequest;
+use App\Models\Driver;
+use Illuminate\Validation\Rule;
 
 class UpdateDriverRequest extends AppFormRequest
 {
@@ -15,47 +17,36 @@ class UpdateDriverRequest extends AppFormRequest
 
     public function rules(): array
     {
-        $id = $this->route('driver');
+        $driver = $this->route('driver');
+        $driverId = $driver instanceof Driver ? $driver->getKey() : $driver;
 
         return [
-            // Thông tin cá nhân
-            'code' => 'sometimes|string|max:50|unique:drivers,code,'.$id,
-            'name' => 'sometimes|string|max:255',
-            'email' => 'nullable|email|max:255|unique:drivers,email,'.$id,
-            'phone' => 'nullable|string|max:20|regex:/^0[0-9]{9,10}$/',
-            'dob' => 'nullable|date',
-            'gender' => 'nullable|in:male,female,other',
-            'address' => 'nullable|string|max:500',
-            'avatar_url' => 'nullable|url|max:255',
-            'national_id_no' => 'nullable|string|max:30',
-            'national_id_issue_date' => 'nullable|date',
-            'national_id_issue_place' => 'nullable|string|max:255',
-            'social_insurance_no' => 'nullable|string|max:30',
-            'health_insurance_no' => 'nullable|string|max:30',
-            'insurance_registered_at' => 'nullable|date',
-            // Tổ chức
-            'office_id' => ['sometimes', 'integer', $this->existsInCompany('offices')],
-            'department_id' => ['nullable', 'integer', $this->existsInCompany('departments')],
-            'position_id' => ['sometimes', 'integer', $this->existsInCompany('positions')],
-            // Trạng thái
-            'status' => 'sometimes|in:active,inactive,resigned',
-            'join_date' => 'sometimes|date',
-            'resign_date' => 'nullable|date|after_or_equal:join_date',
-            // Ngân hàng
-            'bank_name' => 'nullable|string|max:255',
-            'bank_account_no' => 'nullable|string|max:50',
-            'bank_account_name' => 'nullable|string|max:255',
-            // Thông tin tài xế
-            'license_no' => 'sometimes|string|max:50|unique:drivers,license_no,'.$id,
-            'license_image_url' => 'nullable|url|max:255',
-            'identity_image_url' => 'nullable|url|max:255',
-            'driver_insurance_no' => 'nullable|string|max:30',
-            'driver_insurance_expired_date' => 'nullable|date',
-            'health_certificate_no' => 'nullable|string|max:30',
-            'health_certificate_expired_date' => 'nullable|date',
-            'license_class' => 'nullable|string|max:20',
-            'expired_date' => 'nullable|date',
-            'available_status' => 'sometimes|in:available,busy,offline',
+            'name' => 'sometimes|required|string|max:255',
+            'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('drivers', 'email')->ignore($driverId)],
+            'phone' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('drivers', 'phone')->ignore($driverId)],
+            'dob' => 'sometimes|nullable|date',
+            'gender' => 'sometimes|nullable|string|in:male,female,other',
+            'address' => 'sometimes|nullable|string|max:255',
+            'avatar_url' => 'sometimes|nullable|url|max:255',
+            'national_id_no' => 'sometimes|nullable|string|max:30',
+            'national_id_issue_date' => 'sometimes|nullable|date',
+            'national_id_issue_place' => 'sometimes|nullable|string|max:255',
+            'social_insurance_no' => 'sometimes|nullable|string|max:30',
+            'status' => 'sometimes|nullable|string|in:active,inactive,resigned',
+            'join_date' => 'sometimes|nullable|date',
+            'resign_date' => 'sometimes|nullable|date|after_or_equal:join_date',
+            'bank_name' => 'sometimes|nullable|string|max:255',
+            'bank_account_no' => 'sometimes|nullable|string|max:50',
+            'bank_account_name' => 'sometimes|nullable|string|max:255',
+            'license_no' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('drivers', 'license_no')->ignore($driverId)],
+            'license_image_url' => 'sometimes|nullable|url|max:255',
+            'health_certificate_no' => 'sometimes|nullable|string|max:30',
+            'health_certificate_expired_date' => 'sometimes|nullable|date',
+            'license_class' => 'sometimes|required|string|max:255',
+            'expired_date' => 'sometimes|nullable|date',
+            'license_alert_days' => 'sometimes|nullable|integer|min:0|max:365',
+            'available_status' => 'sometimes|nullable|string|in:available,busy,offline',
+            'annual_leave_days' => 'sometimes|nullable|integer|min:0|max:365',
         ];
     }
 
@@ -68,10 +59,8 @@ class UpdateDriverRequest extends AppFormRequest
             'email.email' => __('api.validation.email'),
             'email.max' => __('api.validation.max.string'),
             'email.unique' => __('api.validation.unique'),
-            'phone.regex' => __('api.validation.phone_vn'),
+            'phone.unique' => __('api.validation.unique'),
             'gender.in' => __('api.validation.in'),
-            'office_id.exists' => __('api.validation.exists'),
-            'position_id.exists' => __('api.validation.exists'),
             'status.in' => __('api.validation.in'),
             'resign_date.after_or_equal' => __('api.validation.after_or_equal'),
             'license_no.max' => __('api.validation.max.string'),

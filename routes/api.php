@@ -1,29 +1,39 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogsController;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\CargoTypeController;
 // use App\Http\Controllers\Api\CetaSpecController; // Removed CetaSpecController
+use App\Http\Controllers\Api\AutoStubsController;
+use App\Http\Controllers\Api\CargoTypeController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\CostApprovalController;
 use App\Http\Controllers\Api\CostCategoryController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\CustomerGroupController;
+use App\Http\Controllers\Api\DebtOverviewController;
+use App\Http\Controllers\Api\DispatchBoardController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\DriverWorkScheduleController;
+use App\Http\Controllers\Api\FallbackController;
+use App\Http\Controllers\Api\FleetDocumentController;
+use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\LeaveController;
+use App\Http\Controllers\Api\MaintenanceController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PayrollAdjustmentController;
+use App\Http\Controllers\Api\PayrollLineController;
+use App\Http\Controllers\Api\PayrollsController;
+use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\ShippingFeeController;
 use App\Http\Controllers\Api\TripController;
+use App\Http\Controllers\Api\TripCostController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Api\VehicleAssignmentController;
-use App\Http\Controllers\Api\VehicleTypeController; // Added VehicleTypeController
-use App\Http\Controllers\Api\ReportsController;
-use App\Http\Controllers\Api\PayrollsController;
-use App\Http\Controllers\Api\ActivityLogsController;
-use App\Http\Controllers\Api\LeaveController;
-use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\VehicleController;
+use App\Http\Controllers\Api\VehicleTypeController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\FallbackController;
-use App\Http\Controllers\Api\AutoStubsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,12 +72,9 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
         'attendances',
         'attendances/late/list',
         'attendances/late/notify',
-        'auth/actions',
         'customers/search',
         'documentation',
-        'leave/balance',
         'payments',
-        'payroll-adjustments',
         'price-lists',
         'public-holidays',
         'salary-adjustments',
@@ -80,17 +87,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     }
 });
 
-// --- Public Auth Endpoints (non-breaking stubs for unimplemented auth endpoints) ---
-// These endpoints don't require authentication but may accept public data
-Route::controller(AutoStubsController::class)->prefix('auth')->group(function (): void {
-    Route::post('/check-otp', 'notImplemented');
-    Route::post('/forgot-password', 'notImplemented')->middleware('throttle:3,1');
-    Route::post('/reset-password', 'notImplemented')->middleware('throttle:5,1');
-    Route::post('/social/login', 'notImplemented')->middleware('throttle:10,1');
-    Route::post('/me', 'notImplemented');
-});
-
-Route::get('/health', fn() => response()->json(['success' => true, 'message' => 'API is running', 'timestamp' => now()->toDateTimeString()]));
+Route::get('/health', fn () => response()->json(['success' => true, 'message' => 'API is running', 'timestamp' => now()->toDateTimeString()]));
 
 Route::controller(AuthController::class)->prefix('auth')->group(function (): void {
     Route::post('/login', 'login')->middleware('throttle:5,1');
@@ -185,7 +182,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
 
     // region Customers & Pricing
     Route::apiResource('customers', CustomerController::class);
-    Route::get('debt-overview', [\App\Http\Controllers\Api\DebtOverviewController::class, 'index']);
+    Route::get('debt-overview', [DebtOverviewController::class, 'index']);
 
     Route::apiResource('customer-groups', CustomerGroupController::class);
 
@@ -206,38 +203,31 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // endregion
 
     // region Fleet (Đội xe)
-    Route::apiResource('vehicles', VehicleController::class);
-    Route::get('vehicle-expenses', fn() => response()->json(['success' => true, 'data' => [], 'message' => 'Migrated to trip-costs']));
+    Route::get('vehicle-expenses', fn () => response()->json(['success' => true, 'data' => [], 'message' => 'Migrated to trip-costs']));
     Route::get('vehicles/available', [VehicleController::class, 'available']);
+    Route::get('vehicles/expiring-documents', [FleetDocumentController::class, 'expiringVehicleDocuments']);
+    Route::apiResource('vehicles', VehicleController::class);
     Route::patch('vehicles/{vehicle}/status', [VehicleController::class, 'updateStatus']);
-    // NOTE: Các route RPC như 'expiring-documents' nên được thay bằng filter trên resource chính.
-    // Ví dụ: GET /vehicle-documents?status=expiring
-    // Route::get('vehicles/expiring-documents', [CetaSpecController::class, 'index'])->defaults('resource', 'vehicle-documents'); // Commented out as CetaSpecController is removed
     // Route::get('vehicles/maintenance-due', [CetaSpecController::class, 'index'])->defaults('resource', 'maintenance-schedules'); // Commented out as CetaSpecController is removed
 
-    // Route::group(['defaults' => ['parent' => 'vehicles', 'child' => 'vehicle-documents']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('vehicles.documents', CetaSpecController::class)->shallow();
-    // });
+    Route::get('vehicle-documents', [FleetDocumentController::class, 'vehicleDocuments']);
+    Route::post('vehicle-documents', [FleetDocumentController::class, 'storeVehicleDocument']);
 
     Route::apiResource('vehicle-assignments', VehicleAssignmentController::class);
-    Route::patch('vehicle-assignments/{vehicle_assignment}/release', [VehicleAssignmentController::class, 'release']);
+    Route::patch('vehicle-assignments/{vehicleAssignment}/release', [VehicleAssignmentController::class, 'release']);
 
-    // Route::group(['defaults' => ['parent' => 'vehicles', 'child' => 'maintenance-schedules']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('vehicles.maintenance-schedules', CetaSpecController::class)->shallow();
-    // });
-    // Route::group(['defaults' => ['parent' => 'vehicles', 'child' => 'maintenance-records']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('vehicles.maintenance-records', CetaSpecController::class)->shallow();
-    // });
-    // Route::patch('maintenance-records/{id}/complete', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'maintenance-records')->defaults('actionName', 'complete');
+    Route::get('maintenance-schedules', [MaintenanceController::class, 'schedules']);
+    Route::get('maintenance-records', [MaintenanceController::class, 'records']);
+    Route::post('maintenance-records', [MaintenanceController::class, 'storeRecord']);
+    Route::patch('maintenance-records/{maintenanceRecord}/complete', [MaintenanceController::class, 'completeRecord']);
     // endregion
 
     // region Drivers (Tài xế)
+    Route::get('drivers/available', [DriverController::class, 'available']);
+    Route::get('drivers/expiring-documents', [FleetDocumentController::class, 'expiringDriverDocuments']);
     Route::apiResource('drivers', DriverController::class);
-    // Route::get('drivers/available', [CetaSpecController::class, 'available'])->defaults('resource', 'drivers'); // Commented out as CetaSpecController is removed
     // Route::patch('drivers/{id}/status', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
     //     ->defaults('resource', 'drivers')->defaults('actionName', 'status');
-    // Route::get('drivers/expiring-documents', [CetaSpecController::class, 'index'])->defaults('resource', 'driver-documents'); // Commented out as CetaSpecController is removed
     // Route::group(['defaults' => ['parent' => 'drivers', 'child' => 'driver-documents']], function () { // Commented out as CetaSpecController is removed
     //     Route::apiResource('drivers.documents', CetaSpecController::class)->shallow();
     // });
@@ -247,27 +237,25 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // endregion
 
     // region Schedules & Leave (Lịch làm việc & Nghỉ phép)
-    // NOTE: Đổi tên 'work-schedules' thành 'driver-work-schedules' cho nhất quán.
-    // Route::group(['defaults' => ['resource' => 'driver-work-schedules']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('driver-work-schedules', CetaSpecController::class)->except(['show', 'update']);
-    // });
-    // Route::post('driver-work-schedules/generate', [CetaSpecController::class, 'store'])->defaults('resource', 'driver-work-schedules'); // Commented out as CetaSpecController is removed
-    // Route::patch('driver-work-schedules/{id}/submit', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'driver-work-schedules')->defaults('actionName', 'submit');
-    // Route::patch('driver-work-schedules/{id}/approve', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'driver-work-schedules')->defaults('actionName', 'approve');
-    // Route::patch('driver-work-schedules/{id}/reject', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'driver-work-schedules')->defaults('actionName', 'reject');
+    Route::post('driver-work-schedules/generate', [DriverWorkScheduleController::class, 'generate']);
+    Route::patch('driver-work-schedules/{driverWorkSchedule}/submit', [DriverWorkScheduleController::class, 'submit']);
+    Route::patch('driver-work-schedules/{driverWorkSchedule}/approve', [DriverWorkScheduleController::class, 'approve']);
+    Route::patch('driver-work-schedules/{driverWorkSchedule}/reject', [DriverWorkScheduleController::class, 'reject']);
+    Route::patch('driver-work-schedules/{driverWorkSchedule}/lock', [DriverWorkScheduleController::class, 'lock']);
+    Route::patch('driver-work-schedules/{driverWorkSchedule}/override', [DriverWorkScheduleController::class, 'override']);
+    Route::get('driver-work-schedules/{driverWorkSchedule}/hos-check', [DriverWorkScheduleController::class, 'hosCheck']);
+    Route::apiResource('driver-work-schedules', DriverWorkScheduleController::class)
+        ->parameters(['driver-work-schedules' => 'driverWorkSchedule']);
 
-    // Route::group(['defaults' => ['resource' => 'leave-requests']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('leave-requests', CetaSpecController::class);
-    // });
-    // Route::patch('leave-requests/{id}/approve', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'leave-requests')->defaults('actionName', 'approve');
-    // Route::patch('leave-requests/{id}/reject', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'leave-requests')->defaults('actionName', 'reject');
-    // Route::patch('leave-requests/{id}/cancel', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'leave-requests')->defaults('actionName', 'cancel');
+    Route::get('leave/types', [LeaveController::class, 'types']);
+    Route::get('leave/balance', [LeaveController::class, 'balance']);
+    Route::get('leave-types', [LeaveController::class, 'types']);
+    Route::apiResource('leave-requests', LeaveController::class)
+        ->only(['index', 'store', 'show'])
+        ->parameters(['leave-requests' => 'leaveRequest']);
+    Route::patch('leave-requests/{leaveRequest}/approve', [LeaveController::class, 'approve']);
+    Route::patch('leave-requests/{leaveRequest}/reject', [LeaveController::class, 'reject']);
+    Route::patch('leave-requests/{leaveRequest}/cancel', [LeaveController::class, 'cancel']);
 
     // Route::group(['defaults' => ['resource' => 'leave-types']], function () { // Commented out as CetaSpecController is removed
     //     Route::apiResource('leave-types', CetaSpecController::class)->except('show');
@@ -289,11 +277,15 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // Route::group(['defaults' => ['resource' => 'transport-requests']], function () { // Commented out as CetaSpecController is removed
     //     Route::apiResource('transport-requests', CetaSpecController::class);
     // });
-    // Route::prefix('trips/{id}')->controller(CetaSpecController::class)->group(function () { // Commented out as CetaSpecController is removed
-    //     foreach (['assign', 'start', 'deliver', 'complete', 'cancel', 'change-vehicle', 'change-driver'] as $tripAction) {
-    //         Route::patch("/{$tripAction}", 'action')->defaults('resource', 'trips')->defaults('actionName', $tripAction);
-    //     }
-    // });
+    Route::prefix('trips/{id}')->controller(TripController::class)->group(function (): void {
+        Route::patch('/assign', 'assign');
+        Route::patch('/start', 'start');
+        Route::patch('/deliver', 'deliver');
+        Route::patch('/complete', 'complete');
+        Route::patch('/cancel', 'cancel');
+        Route::patch('/change-vehicle', 'changeVehicle');
+        Route::patch('/change-driver', 'changeDriver');
+    });
 
     // Route::group(['defaults' => ['parent' => 'trips', 'child' => 'trip-stops']], function () { // Commented out as CetaSpecController is removed
     //     Route::apiResource('trips.stops', CetaSpecController::class)->shallow();
@@ -309,20 +301,14 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // Route::group(['defaults' => ['parent' => 'trips', 'child' => 'trip-documents']], function () { // Commented out as CetaSpecController is removed
     //     Route::apiResource('trips.documents', CetaSpecController::class)->shallow();
     // });
-    // Route::group(['defaults' => ['parent' => 'trips', 'child' => 'trip-costs']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('trips.costs', CetaSpecController::class)->shallow();
-    // });
-    // Route::group(['defaults' => ['resource' => 'trip-costs']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('trip-costs', CetaSpecController::class);
-    // });
+    Route::get('trip-costs', [TripCostController::class, 'index']);
+    Route::post('trip-costs', [TripCostController::class, 'store']);
+    Route::get('trips/{id}/costs', [TripCostController::class, 'index']);
+    Route::post('trips/{id}/costs', [TripCostController::class, 'store']);
 
-    // Route::group(['defaults' => ['resource' => 'cost-approvals']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('cost-approvals', CetaSpecController::class)->only(['index', 'show']);
-    // });
-    // Route::patch('cost-approvals/{id}/approve', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'cost-approvals')->defaults('actionName', 'approve');
-    // Route::patch('cost-approvals/{id}/reject', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'cost-approvals')->defaults('actionName', 'reject');
+    Route::get('cost-approvals', [CostApprovalController::class, 'index']);
+    Route::patch('cost-approvals/{costApproval}/approve', [CostApprovalController::class, 'approve']);
+    Route::patch('cost-approvals/{costApproval}/reject', [CostApprovalController::class, 'reject']);
     // endregion
 
     // region Accounting (Kế toán)
@@ -339,16 +325,16 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     //     Route::apiResource('customers.payments', CetaSpecController::class)->shallow();
     // });
 
-    Route::apiResource('invoices', \App\Http\Controllers\Api\InvoiceController::class);
-    // Route::prefix('invoices/{id}')->controller(CetaSpecController::class)->group(function () { // Commented out as CetaSpecController is removed
-    //     Route::patch('/issue', 'action')->defaults('resource', 'invoices')->defaults('actionName', 'issue');
-    //     Route::patch('/mark-paid', 'action')->defaults('resource', 'invoices')->defaults('actionName', 'mark-paid');
-    //     Route::patch('/cancel', 'action')->defaults('resource', 'invoices')->defaults('actionName', 'cancel');
-    //     Route::patch('/email', 'action')->defaults('resource', 'invoices')->defaults('actionName', 'email');
-    //     Route::get('/status-histories', 'nestedIndex')->defaults('parent', 'invoices')->defaults('child', 'invoice-status-histories');
-    //     Route::get('/cqt', 'show')->defaults('resource', 'invoices');
-    //     Route::get('/pdf', 'show')->defaults('resource', 'invoices');
-    // });
+    Route::apiResource('invoices', InvoiceController::class);
+    Route::prefix('invoices/{invoice}')->controller(InvoiceController::class)->group(function (): void {
+        Route::patch('/issue', 'issue');
+        Route::patch('/mark-paid', 'markPaid');
+        Route::patch('/cancel', 'cancel');
+        Route::patch('/email', 'email');
+        Route::get('/cqt', 'cqt');
+        Route::get('/pdf', 'pdf');
+        Route::get('/status-histories', 'statusHistories');
+    });
     // endregion
 
     // region Notifications
@@ -378,7 +364,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
         Route::get('/payroll/export', 'report')->defaults('reportType', 'payroll-export');
     });
 
-    Route::prefix('dispatch')->controller(\App\Http\Controllers\Api\DispatchBoardController::class)->group(function () {
+    Route::prefix('dispatch')->controller(DispatchBoardController::class)->group(function () {
         Route::get('/board', 'board');
         Route::get('/unassigned-trips', 'unassignedTrips');
         Route::get('/daily-summary', 'dailySummary');
@@ -389,14 +375,17 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
         Route::post('/generate', 'generate');
         Route::get('/export', 'export');
         Route::get('/my-salary', 'mySalary');
+        Route::patch('/{id}/approve', 'approve');
+        Route::patch('/{id}/lock', 'lock');
         Route::post('/{id}/approve', 'approve');
         Route::post('/{id}/lock', 'lock');
     });
 
-    Route::apiResource('payroll-lines', \App\Http\Controllers\Api\PayrollLineController::class)->only(['index', 'show']);
-    Route::apiResource('payroll-adjustments', \App\Http\Controllers\Api\PayrollAdjustmentController::class);
-    Route::get('allowances', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'allowances'])->name('allowances.index');
-    Route::get('deductions', [\App\Http\Controllers\Api\PayrollAdjustmentController::class, 'deductions'])->name('deductions.index');
+    Route::apiResource('payroll-lines', PayrollLineController::class)->only(['index', 'show']);
+    Route::apiResource('payroll-driver-lines', PayrollLineController::class)->only(['index', 'show']);
+    Route::apiResource('payroll-adjustments', PayrollAdjustmentController::class);
+    Route::get('allowances', [PayrollAdjustmentController::class, 'allowances'])->name('allowances.index');
+    Route::get('deductions', [PayrollAdjustmentController::class, 'deductions'])->name('deductions.index');
     // endregion
 
     // region Legacy Workforce (tạm giữ, cần refactor)

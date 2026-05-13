@@ -6,6 +6,8 @@ namespace App\Http\Requests\Vehicle;
 
 use App\Http\Requests\AppFormRequest;
 use App\Models\Trip;
+use App\Models\Vehicle;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateVehicleRequest extends AppFormRequest
@@ -17,22 +19,20 @@ class UpdateVehicleRequest extends AppFormRequest
 
     public function rules(): array
     {
-        $id = $this->route('vehicle');
+        $vehicle = $this->route('vehicle');
+        $vehicleId = $vehicle instanceof Vehicle ? $vehicle->getKey() : $vehicle;
 
         return [
-            'office_id' => ['sometimes', 'integer', $this->existsInCompany('offices')],
-            'plate_number' => 'sometimes|string|max:20|unique:vehicles,plate_number,'.$id,
-            'type' => 'sometimes|in:truck,van,car,motorcycle',
-            'brand' => 'nullable|string|max:100',
-            'model' => 'nullable|string|max:100',
-            'year' => 'nullable|integer|min:1900|max:2100',
-            'capacity' => 'nullable|integer|min:0',
+            'plate_number' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('vehicles', 'plate_number')->ignore($vehicleId)],
+            'type' => 'sometimes|required|string|max:255',
+            'brand' => 'sometimes|nullable|string|max:255',
+            'model' => 'sometimes|nullable|string|max:255',
+            'year' => 'sometimes|nullable|integer|min:1900|max:'.(date('Y') + 1),
+            'capacity' => 'sometimes|nullable|integer|min:0',
+            'max_load_ton' => 'sometimes|nullable|numeric|min:0',
             'current_odometer_km' => 'sometimes|numeric|min:0',
-            'status' => 'sometimes|in:active,maintenance,inactive,broken,out_of_service',
-            'image_front' => 'nullable|url|max:255',
-            'image_back' => 'nullable|url|max:255',
-            'image_side' => 'nullable|url|max:255',
-            'image_other' => 'nullable|url|max:255',
+            'status' => 'sometimes|nullable|string|in:active,maintenance,inactive,broken',
+            'vehicle_type_id' => ['sometimes', 'nullable', 'integer', $this->existsInCompany('vehicle_types')],
         ];
     }
 
@@ -43,7 +43,8 @@ class UpdateVehicleRequest extends AppFormRequest
                 return;
             }
 
-            $vehicleId = $this->route('vehicle');
+            $vehicle = $this->route('vehicle');
+            $vehicleId = $vehicle instanceof Vehicle ? $vehicle->getKey() : $vehicle;
             if ($vehicleId === null) {
                 return;
             }

@@ -4,48 +4,35 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Vehicle;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use App\Http\Requests\Vehicle\StoreVehicleRequest;
+use App\Http\Requests\Vehicle\UpdateVehicleRequest;
+use App\Http\Requests\Vehicle\UpdateVehicleStatusRequest;
 use App\Http\Resources\VehicleResource;
+use App\Models\Vehicle;
+use App\Services\Vehicle\VehicleService;
+use App\Tenancy\TenantContext;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Response;
 
 class VehicleController extends BaseController
 {
+    public function __construct(
+        private readonly VehicleService $vehicles,
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     public function index(Request $request): JsonResource
     {
-        $vehicles = Vehicle::query()
-            ->where('company_id', app(\App\Tenancy\TenantContext::class)->getCompanyId())
-            ->paginate(15);
-
-        return VehicleResource::collection($vehicles);
+        return VehicleResource::collection(
+            $this->vehicles->paginateForCompany($this->companyId($request))
+        );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreVehicleRequest $request): JsonResponse
     {
-        // TODO: Replace with a dedicated FormRequest
-        $validated = $request->validate([
-            'plate_number' => 'required|string|max:255|unique:vehicles',
-            'type' => 'required|string|max:255',
-            'brand' => 'nullable|string|max:255',
-            'model' => 'nullable|string|max:255',
-            'year' => 'nullable|integer|min:1900|max:' . (date('Y') + 1),
-            'capacity' => 'nullable|integer|min:0',
-            'max_load_ton' => 'nullable|numeric|min:0',
-            'current_odometer_km' => 'nullable|numeric|min:0',
-            'status' => 'nullable|string|in:active,maintenance,inactive,broken,out_of_service',
-            'office_id' => 'required|integer',
-            'vehicle_type_id' => 'nullable|integer',
-            'image_url' => 'nullable|string',
-        ]);
-
-        $vehicle = DB::transaction(function () use ($validated) {
-            $vehicle = Vehicle::create(array_merge($validated, [
-                'company_id' => app(\App\Tenancy\TenantContext::class)->getCompanyId() ?? 1,
-            ]));
-            return $vehicle;
-        });
+        $vehicle = $this->vehicles->create($request->validated(), $this->companyId($request));
 
         return (new VehicleResource($vehicle))
             ->response()
@@ -59,66 +46,40 @@ class VehicleController extends BaseController
         return new VehicleResource($vehicle);
     }
 
-    public function update(Request $request, Vehicle $vehicle): JsonResource
+    public function update(UpdateVehicleRequest $request, Vehicle $vehicle): JsonResource
     {
         $this->authorize('update', $vehicle);
 
-        // TODO: Replace with a dedicated FormRequest
-        $validated = $request->validate([
-            'plate_number' => 'sometimes|required|string|max:255|unique:vehicles,plate_number,' . $vehicle->id,
-            'type' => 'sometimes|required|string|max:255',
-            'brand' => 'sometimes|nullable|string|max:255',
-            'model' => 'sometimes|nullable|string|max:255',
-            'year' => 'sometimes|nullable|integer|min:1900|max:' . (date('Y') + 1),
-            'capacity' => 'sometimes|nullable|integer|min:0',
-            'max_load_ton' => 'sometimes|nullable|numeric|min:0',
-            'current_odometer_km' => 'sometimes|nullable|numeric|min:0',
-            'status' => 'sometimes|nullable|string|in:active,maintenance,inactive,broken,out_of_service',
-            'office_id' => 'sometimes|required|integer',
-            'vehicle_type_id' => 'sometimes|nullable|integer',
-            'image_url' => 'sometimes|nullable|string',
-        ]);
-
-        DB::transaction(function () use ($validated, $vehicle) {
-            $vehicle->update($validated);
-        });
-
-        return new VehicleResource($vehicle);
+        return new VehicleResource($this->vehicles->update($vehicle, $request->validated()));
     }
 
-    public function destroy(Vehicle $vehicle): JsonResponse
+    public function destroy(Vehicle $vehicle): Response
     {
         $this->authorize('delete', $vehicle);
 
-        DB::transaction(function () use ($vehicle) {
-            $vehicle->delete();
-        });
+        $this->vehicles->delete($vehicle);
 
-        return response()->json(null, 204);
+        return response()->noContent();
     }
 
     public function available(Request $request): JsonResource
     {
-        $vehicles = Vehicle::query()
-            ->where('company_id', auth()->user()->company_id)
-            ->where('status', 'active')
-            ->paginate(15);
-
-        return VehicleResource::collection($vehicles);
+        return VehicleResource::collection(
+            $this->vehicles->paginateAvailableForCompany($this->companyId($request))
+        );
     }
 
-    public function updateStatus(Request $request, Vehicle $vehicle): JsonResource
+    public function updateStatus(UpdateVehicleStatusRequest $request, Vehicle $vehicle): JsonResource
     {
         $this->authorize('update', $vehicle);
 
-        $validated = $request->validate([
-            'status' => 'required|string|in:active,maintenance,inactive',
-        ]);
+        return new VehicleResource(
+            $this->vehicles->updateStatus($vehicle, (string) $request->validated('status'))
+        );
+    }
 
-        DB::transaction(function () use ($validated, $vehicle) {
-            $vehicle->update(['status' => $validated['status']]);
-        });
-
-        return new VehicleResource($vehicle);
+    private function companyId(Request $request): int
+    {
+        return (int) ($this->tenantContext->getCompanyId() ?? $request->user()?->getAttribute('company_id'));
     }
 }

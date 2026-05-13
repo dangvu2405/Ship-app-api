@@ -10,10 +10,13 @@ use Illuminate\Support\Facades\Schema;
 
 final class ReportService extends BaseService
 {
-    public function getReportData(string $type, ?int $userId = null, ?string $dateFrom = null, ?string $dateTo = null): array
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function getReportData(string $type, ?int $userId = null, ?string $dateFrom = null, ?string $dateTo = null, array $filters = []): array
     {
         $companyId = $this->companyId();
-        
+
         // Date range validation
         if ($dateFrom && $dateTo && strtotime($dateFrom) > strtotime($dateTo)) {
             throw new \InvalidArgumentException('date_from must be before date_to');
@@ -22,7 +25,7 @@ final class ReportService extends BaseService
         return match ($type) {
             'dashboard' => $this->getDashboardReport($companyId),
             'revenue' => $this->getRevenueReport($companyId, $dateFrom, $dateTo),
-            'costs' => $this->getCostsReport($companyId, $dateFrom, $dateTo),
+            'costs' => $this->getCostsReport($companyId, $dateFrom, $dateTo, $filters),
             'profit' => $this->getProfitReport($companyId, $dateFrom, $dateTo),
             'trips' => $this->getTripsReport($companyId, $dateFrom, $dateTo),
             'vehicles' => $this->getVehiclesReport($companyId),
@@ -55,7 +58,7 @@ final class ReportService extends BaseService
     private function getRevenueReport(int $companyId, ?string $dateFrom, ?string $dateTo): array
     {
         $query = DB::table('trips')->where('company_id', $companyId);
-        
+
         if ($dateFrom) {
             $query->whereDate('created_at', '>=', $dateFrom);
         }
@@ -73,23 +76,104 @@ final class ReportService extends BaseService
         ];
     }
 
-    private function getCostsReport(int $companyId, ?string $dateFrom = null, ?string $dateTo = null): array
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function getCostsReport(int $companyId, ?string $dateFrom = null, ?string $dateTo = null, array $filters = []): array
     {
-        $query = DB::table('cost_approvals')->where('company_id', $companyId);
-        
+        if (! Schema::hasTable('trip_costs')) {
+            return [
+                'type' => 'costs',
+                'total_costs' => 0,
+                'costs_count' => 0,
+                'approved_costs' => 0,
+                'pending_costs' => 0,
+                'rejected_costs' => 0,
+                'rows' => [],
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+            ];
+        }
+
+        $base = DB::table('trip_costs as tc')
+            ->leftJoin('trips as t', 't.id', '=', 'tc.trip_id')
+            ->leftJoin('vehicles as v', 'v.id', '=', 't.vehicle_id')
+            ->leftJoin('drivers as d', 'd.id', '=', 't.driver_id')
+            ->leftJoin('cost_categories as cc', 'cc.id', '=', 'tc.cost_category_id')
+            ->where('tc.company_id', $companyId);
+
+        if (Schema::hasColumn('trip_costs', 'deleted_at')) {
+            $base->whereNull('tc.deleted_at');
+        }
+
         if ($dateFrom) {
-            $query->whereDate('created_at', '>=', $dateFrom);
+            $base->whereDate('tc.incurred_date', '>=', $dateFrom);
         }
         if ($dateTo) {
-            $query->whereDate('created_at', '<=', $dateTo);
+            $base->whereDate('tc.incurred_date', '<=', $dateTo);
         }
+        if (! empty($filters['status'])) {
+            $base->where('tc.status', (string) $filters['status']);
+        }
+        if (! empty($filters['cost_category_id'])) {
+            $base->where('tc.cost_category_id', (int) $filters['cost_category_id']);
+        }
+
+        $rows = (clone $base)
+            ->select([
+                'tc.id',
+                'tc.trip_id',
+                't.code as trip_code',
+                't.vehicle_id',
+                'v.plate_number as vehicle_plate_number',
+                't.driver_id',
+                'd.name as driver_name',
+                'tc.cost_category_id',
+                'cc.name as cost_category_name',
+                'tc.amount',
+                'tc.norm_amount',
+                'tc.incurred_date',
+                'tc.status',
+                'tc.approval_required',
+                'tc.description',
+                'tc.notes',
+                'tc.created_at',
+            ])
+            ->orderByDesc('tc.incurred_date')
+            ->orderByDesc('tc.id')
+            ->limit(500)
+            ->get()
+            ->map(fn ($row): array => [
+                'id' => (int) $row->id,
+                'trip_id' => (int) $row->trip_id,
+                'trip_code' => $row->trip_code,
+                'vehicle_id' => $row->vehicle_id !== null ? (int) $row->vehicle_id : null,
+                'vehicle_plate_number' => $row->vehicle_plate_number,
+                'driver_id' => $row->driver_id !== null ? (int) $row->driver_id : null,
+                'driver_name' => $row->driver_name,
+                'cost_category_id' => (int) $row->cost_category_id,
+                'cost_category_name' => $row->cost_category_name,
+                'amount' => (float) $row->amount,
+                'norm_amount' => $row->norm_amount !== null ? (float) $row->norm_amount : null,
+                'incurred_date' => $row->incurred_date,
+                'status' => $row->status,
+                'approval_required' => (bool) $row->approval_required,
+                'description' => $row->description,
+                'notes' => $row->notes,
+                'created_at' => $row->created_at,
+            ])
+            ->all();
 
         return [
             'type' => 'costs',
-            'total_costs' => $query->sum('amount') ?? 0,
-            'costs_count' => $query->count(),
-            'approved_costs' => $query->where('status', 'approved')->sum('amount') ?? 0,
-            'pending_costs' => $query->where('status', 'pending')->sum('amount') ?? 0,
+            'total_costs' => (float) ((clone $base)->sum('tc.amount') ?? 0),
+            'costs_count' => (clone $base)->count(),
+            'approved_costs' => (float) ((clone $base)->where('tc.status', 'approved')->sum('tc.amount') ?? 0),
+            'pending_costs' => (float) ((clone $base)->where('tc.status', 'pending')->sum('tc.amount') ?? 0),
+            'rejected_costs' => (float) ((clone $base)->where('tc.status', 'rejected')->sum('tc.amount') ?? 0),
+            'rows' => $rows,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
         ];
     }
 
@@ -111,7 +195,7 @@ final class ReportService extends BaseService
     private function getTripsReport(int $companyId, ?string $dateFrom = null, ?string $dateTo = null): array
     {
         $query = DB::table('trips')->where('company_id', $companyId);
-        
+
         if ($dateFrom) {
             $query->whereDate('created_at', '>=', $dateFrom);
         }

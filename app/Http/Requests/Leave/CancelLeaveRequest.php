@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Leave;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\AppFormRequest;
 
-class CancelLeaveRequest extends FormRequest
+class CancelLeaveRequest extends AppFormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->authorizePermission('drivers', 'edit');
     }
 
     /** @return array<string, mixed> */

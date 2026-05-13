@@ -209,7 +209,7 @@ final class ScheduleService
      */
     public function paginateSchedulesForIndex(array $filters, int $per_page = 50): LengthAwarePaginator
     {
-        $query = DriverWorkSchedule::query()->with(['driver', 'vehicle', 'office']);
+        $query = DriverWorkSchedule::query()->with(['driver', 'vehicle']);
 
         if (isset($filters['driver_id'])) {
             $query->forDriverId((int) $filters['driver_id']);
@@ -259,7 +259,7 @@ final class ScheduleService
         $schedule->locked_at = null;
         $schedule->save();
 
-        return $schedule->fresh(['driver', 'vehicle', 'office']);
+        return $schedule->fresh(['driver', 'vehicle']);
     }
 
     /**

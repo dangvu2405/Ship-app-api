@@ -21,6 +21,8 @@ class VehicleAssignment extends Model
         'driver_id',
         'from_date',
         'to_date',
+        'release_reason',
+        'notes',
     ];
 
     protected $casts = [
