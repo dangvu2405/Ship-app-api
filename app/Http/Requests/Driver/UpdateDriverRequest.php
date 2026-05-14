@@ -40,6 +40,8 @@ class UpdateDriverRequest extends AppFormRequest
             'bank_account_name' => 'sometimes|nullable|string|max:255',
             'license_no' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('drivers', 'license_no')->ignore($driverId)],
             'license_image_url' => 'sometimes|nullable|url|max:255',
+            'driver_insurance_no' => 'sometimes|nullable|string|max:30',
+            'driver_insurance_expired_date' => 'sometimes|nullable|date',
             'health_certificate_no' => 'sometimes|nullable|string|max:30',
             'health_certificate_expired_date' => 'sometimes|nullable|date',
             'license_class' => 'sometimes|required|string|max:255',

@@ -36,6 +36,8 @@ class StoreDriverRequest extends AppFormRequest
             'bank_account_name' => 'nullable|string|max:255',
             'license_no' => ['required', 'string', 'max:255', Rule::unique('drivers', 'license_no')],
             'license_image_url' => 'nullable|url|max:255',
+            'driver_insurance_no' => 'nullable|string|max:30',
+            'driver_insurance_expired_date' => 'nullable|date',
             'health_certificate_no' => 'nullable|string|max:30',
             'health_certificate_expired_date' => 'nullable|date',
             'license_class' => 'required|string|max:255',

@@ -206,7 +206,7 @@ class DemoReleasedSeeder extends Seeder
             ['plate' => '51H-234.56', 'type' => 'truck',   'brand' => 'Hino',   'model' => 'FC9JLSW', 'year' => 2021, 'payload' => 5,  'status' => 'active'],
             ['plate' => '51H-234.57', 'type' => 'truck',   'brand' => 'Isuzu',  'model' => 'NQR 270', 'year' => 2020, 'payload' => 5,  'status' => 'active'],
             ['plate' => '29H-567.89', 'type' => 'truck',   'brand' => 'Hino',   'model' => 'GH8JMSA', 'year' => 2022, 'payload' => 8,  'status' => 'active'],
-            ['plate' => '29H-567.90', 'type' => 'trailer', 'brand' => 'Thaco',  'model' => 'Mooc 40T', 'year'=> 2019, 'payload' => 30, 'status' => 'active'],
+            ['plate' => '29H-567.90', 'type' => 'truck',   'brand' => 'Thaco',  'model' => 'Mooc 40T', 'year'=> 2019, 'payload' => 30, 'status' => 'active'],
             ['plate' => '43H-112.34', 'type' => 'truck',   'brand' => 'Mitsubishi', 'model' => 'Fuso FJ', 'year' => 2021, 'payload' => 10, 'status' => 'active'],
             ['plate' => '43H-112.35', 'type' => 'truck',   'brand' => 'Isuzu',  'model' => 'FVM 34T', 'year' => 2020, 'payload' => 14, 'status' => 'active'],
             ['plate' => '92H-998.77', 'type' => 'van',     'brand' => 'Ford',   'model' => 'Transit',  'year' => 2022, 'payload' => 2,  'status' => 'active'],

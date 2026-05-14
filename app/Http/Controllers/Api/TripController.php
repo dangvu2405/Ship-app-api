@@ -9,6 +9,7 @@ use App\Http\Requests\Trip\CancelTripRequest;
 use App\Http\Resources\TripResource;
 use App\Models\Trip;
 use App\Services\Trip\TripService;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -18,13 +19,20 @@ use Illuminate\Validation\ValidationException;
 
 class TripController extends BaseController
 {
-    public function __construct(private readonly TripService $tripService) {}
+    public function __construct(
+        private readonly TripService $tripService,
+        private readonly TenantContext $tenantContext,
+    ) {}
+
+    private function resolveCompanyId(Request $request): ?int
+    {
+        return $this->tenantContext->getCompanyId()
+            ?? $request->user()?->getAttribute('company_id');
+    }
 
     public function index(Request $request): JsonResource
     {
-        /** @var \App\Models\User $user */
-        $user = $request->user();
-        $companyId = $user->company_id;
+        $companyId = $this->resolveCompanyId($request);
         $trips = Trip::query()
             ->where('company_id', $companyId)
             ->with(['customer', 'driver', 'vehicle'])
@@ -57,9 +65,7 @@ class TripController extends BaseController
             'surcharges.*.amount' => 'required|numeric|min:0',
         ]);
 
-        /** @var \App\Models\User $user */
-        $user = $request->user();
-        $companyId = $user->company_id;
+        $companyId = $this->resolveCompanyId($request);
 
         $trip = DB::transaction(function () use ($validated, $companyId) {
             $totalSurcharge = collect($validated['surcharges'] ?? [])->sum('amount');
@@ -163,7 +169,7 @@ class TripController extends BaseController
     public function assign(AssignTripRequest $request, int $id): JsonResponse
     {
         try {
-            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $this->resolveCompanyId($request))->findOrFail($id);
             $this->authorize('update', $trip);
 
             $assigned = $this->tripService->assignDriverAndVehicle(
@@ -199,7 +205,7 @@ class TripController extends BaseController
     public function cancel(CancelTripRequest $request, int $id): JsonResponse
     {
         try {
-            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $this->resolveCompanyId($request))->findOrFail($id);
             $this->authorize('update', $trip);
 
             if (in_array($trip->status, ['completed', 'delivered'], true)) {
@@ -262,7 +268,7 @@ class TripController extends BaseController
     private function transitionTrip(Request $request, int $id, string $status, array $extra = []): JsonResponse
     {
         try {
-            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $this->resolveCompanyId($request))->findOrFail($id);
             $this->authorize('update', $trip);
 
             $fromStatus = $trip->status;
@@ -305,7 +311,7 @@ class TripController extends BaseController
     private function updateAssignmentPart(Request $request, int $id, array $attributes, string $note): JsonResponse
     {
         try {
-            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $this->resolveCompanyId($request))->findOrFail($id);
             $this->authorize('update', $trip);
 
             $updated = DB::transaction(function () use ($trip, $attributes, $request, $note): Trip {
