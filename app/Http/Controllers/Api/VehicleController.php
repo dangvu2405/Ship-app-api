@@ -26,7 +26,10 @@ class VehicleController extends BaseController
     public function index(Request $request): JsonResource
     {
         return VehicleResource::collection(
-            $this->vehicles->paginateForCompany($this->companyId($request))
+            $this->vehicles->paginateForCompany(
+                $this->companyId($request),
+                (int) $request->input('per_page', 15),
+            )
         );
     }
 
@@ -65,7 +68,11 @@ class VehicleController extends BaseController
     public function available(Request $request): JsonResource
     {
         return VehicleResource::collection(
-            $this->vehicles->paginateAvailableForCompany($this->companyId($request))
+            $this->vehicles->paginateAvailableForCompany(
+                $this->companyId($request),
+                (int) $request->input('per_page', 15),
+                $request->filled('date') ? (string) $request->input('date') : null,
+            )
         );
     }
 

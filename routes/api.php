@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\ActivityLogsController;
 use App\Http\Controllers\Api\AuthController;
 // use App\Http\Controllers\Api\CetaSpecController; // Removed CetaSpecController
+use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AutoStubsController;
 use App\Http\Controllers\Api\CargoTypeController;
 use App\Http\Controllers\Api\ChatController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\DebtOverviewController;
 use App\Http\Controllers\Api\DispatchBoardController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\DriverWorkScheduleController;
+use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\FallbackController;
 use App\Http\Controllers\Api\FleetDocumentController;
 use App\Http\Controllers\Api\InvoiceController;
@@ -24,6 +26,9 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PayrollAdjustmentController;
 use App\Http\Controllers\Api\PayrollLineController;
 use App\Http\Controllers\Api\PayrollsController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PriceListController;
+use App\Http\Controllers\Api\ReconciliationController;
 use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\ShippingFeeController;
 use App\Http\Controllers\Api\TripController;
@@ -67,19 +72,7 @@ Route::fallback([FallbackController::class, 'handle']);
 // Note: Public auth endpoints (login, register, etc.) are registered separately in AuthController section.
 Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(function (): void {
     $paths = [
-        'admin/companies',
-        'attendance/check-out',
-        'attendances',
-        'attendances/late/list',
-        'attendances/late/notify',
-        'customers/search',
-        'documentation',
-        'payments',
-        'price-lists',
-        'public-holidays',
         'salary-adjustments',
-        'v2/employees',
-        'workforce/absences',
     ];
 
     foreach ($paths as $p) {
@@ -181,22 +174,44 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // endregion
 
     // region Customers & Pricing
+    Route::get('admin/companies', [CompanyController::class, 'index']);
+    Route::post('admin/companies', [CompanyController::class, 'store']);
+    Route::get('admin/companies/{company}', [CompanyController::class, 'show']);
+    Route::put('admin/companies/{company}', [CompanyController::class, 'update']);
+    Route::patch('admin/companies/{company}', [CompanyController::class, 'update']);
+    Route::delete('admin/companies/{company}', [CompanyController::class, 'destroy']);
+    Route::patch('admin/companies/{company}/status', [CompanyController::class, 'updateStatus']);
+    Route::apiResource('admin-companies', CompanyController::class)
+        ->parameters(['admin-companies' => 'company']);
+    Route::patch('admin-companies/{company}/status', [CompanyController::class, 'updateStatus']);
+
+    Route::get('customers/search', [CustomerController::class, 'search']);
     Route::apiResource('customers', CustomerController::class);
+    Route::prefix('customers/{customer}')->controller(CustomerController::class)->group(function () {
+        Route::get('/trips', 'trips');
+        Route::get('/debt', 'debt');
+        Route::get('/payments', 'payments');
+        Route::post('/payments', 'storePayment');
+    });
+    Route::apiResource('payments', PaymentController::class);
+    Route::get('attendance', [AttendanceController::class, 'index']);
+    Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
+    Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
+    Route::patch('attendance/{id}/adjust', [AttendanceController::class, 'adjust']);
+    Route::get('attendances', [AttendanceController::class, 'index']);
+    Route::get('attendances/late/list', [AttendanceController::class, 'lateList']);
+    Route::post('attendances/late/notify', [AttendanceController::class, 'lateNotify']);
     Route::get('debt-overview', [DebtOverviewController::class, 'index']);
 
     Route::apiResource('customer-groups', CustomerGroupController::class);
 
-    // Route::prefix('price-lists')->controller(CetaSpecController::class)->group(function () { // Commented out as CetaSpecController is removed
-    //     Route::put('/{id}', 'update')->defaults('resource', 'price-lists');
-    //     Route::delete('/{id}', 'destroy')->defaults('resource', 'price-lists');
-    //     Route::get('/{id}/items', 'nestedIndex')->defaults('parent', 'price-lists')->defaults('child', 'price-list-items');
-    //     Route::post('/{id}/items', 'nestedStore')->defaults('parent', 'price-lists')->defaults('child', 'price-list-items');
-    //     Route::delete('/{id}/items/{itemId}', 'nestedDestroy')->defaults('parent', 'price-lists')->defaults('child', 'price-list-items');
-    // });
-    // Route::post('customers/{id}/price-lists', [CetaSpecController::class, 'nestedStore']) // Commented out as CetaSpecController is removed
-    //     ->defaults('parent', 'customers')->defaults('child', 'price-lists');
-    // Route::get('customers/{id}/price-lists', [CetaSpecController::class, 'nestedIndex']) // Commented out as CetaSpecController is removed
-    //     ->defaults('parent', 'customers')->defaults('child', 'price-lists');
+    Route::get('customers/{customer}/price-lists', [PriceListController::class, 'customerIndex']);
+    Route::post('customers/{customer}/price-lists', [PriceListController::class, 'customerStore']);
+    Route::get('price-lists/{priceList}/items', [PriceListController::class, 'items']);
+    Route::post('price-lists/{priceList}/items', [PriceListController::class, 'storeItem']);
+    Route::delete('price-lists/{priceList}/items/{item}', [PriceListController::class, 'destroyItem']);
+    Route::apiResource('price-lists', PriceListController::class)
+        ->parameters(['price-lists' => 'priceList']);
 
     // Route::post('prices/lookup', [CetaSpecController::class, 'priceLookup']); // Commented out as CetaSpecController is removed
     Route::post('shipping-fees/calculate', [ShippingFeeController::class, 'lookup']);
@@ -226,6 +241,8 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     Route::get('drivers/available', [DriverController::class, 'available']);
     Route::get('drivers/expiring-documents', [FleetDocumentController::class, 'expiringDriverDocuments']);
     Route::apiResource('drivers', DriverController::class);
+    Route::get('employees', [EmployeeController::class, 'index']);
+    Route::get('v2/employees', [EmployeeController::class, 'index']);
     // Route::patch('drivers/{id}/status', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
     //     ->defaults('resource', 'drivers')->defaults('actionName', 'status');
     // Route::group(['defaults' => ['parent' => 'drivers', 'child' => 'driver-documents']], function () { // Commented out as CetaSpecController is removed
@@ -246,6 +263,8 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     Route::get('driver-work-schedules/{driverWorkSchedule}/hos-check', [DriverWorkScheduleController::class, 'hosCheck']);
     Route::apiResource('driver-work-schedules', DriverWorkScheduleController::class)
         ->parameters(['driver-work-schedules' => 'driverWorkSchedule']);
+    Route::get('workforce/absences', [DriverWorkScheduleController::class, 'absences']);
+    Route::get('public-holidays', [DriverWorkScheduleController::class, 'publicHolidays']);
 
     Route::get('leave/types', [LeaveController::class, 'types']);
     Route::get('leave/balance', [LeaveController::class, 'balance']);
@@ -312,14 +331,13 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
     // endregion
 
     // region Accounting (Kế toán)
-    // Route::group(['defaults' => ['resource' => 'reconciliations']], function () { // Commented out as CetaSpecController is removed
-    //     Route::apiResource('reconciliations', CetaSpecController::class);
-    // });
-    // Route::put('reconciliations/{id}/items/{itemId}', [CetaSpecController::class, 'nestedUpdate']) // Commented out as CetaSpecController is removed
-    //     ->defaults('parent', 'reconciliations')->defaults('child', 'reconciliation-items');
-    // Route::patch('reconciliations/{id}/confirm', [CetaSpecController::class, 'action']) // Commented out as CetaSpecController is removed
-    //     ->defaults('resource', 'reconciliations')->defaults('actionName', 'confirm');
-    // Route::get('reconciliations/{id}/export', [CetaSpecController::class, 'show'])->defaults('resource', 'reconciliations'); // Commented out as CetaSpecController is removed
+    Route::apiResource('reconciliations', ReconciliationController::class);
+    Route::prefix('reconciliations/{reconciliation}')->controller(ReconciliationController::class)->group(function () {
+        Route::get('/items', 'items');
+        Route::put('/items/{item}', 'updateItem');
+        Route::patch('/confirm', 'confirm');
+        Route::patch('/lock', 'lock');
+    });
 
     // Route::group(['defaults' => ['parent' => 'customers', 'child' => 'payments']], function () { // Commented out as CetaSpecController is removed
     //     Route::apiResource('customers.payments', CetaSpecController::class)->shallow();
@@ -375,15 +393,21 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'track.actions'])->group(fu
         Route::post('/generate', 'generate');
         Route::get('/export', 'export');
         Route::get('/my-salary', 'mySalary');
+        Route::get('/driver/{id}', 'driverHistory');
         Route::patch('/{id}/approve', 'approve');
         Route::patch('/{id}/lock', 'lock');
-        Route::post('/{id}/approve', 'approve');
-        Route::post('/{id}/lock', 'lock');
+        Route::patch('/{id}/mark-paid', 'markPaid');
+        Route::get('/{id}/export', 'exportById');
+        Route::get('/{id}/export-bhxh', 'exportBhxh');
+        Route::get('/{id}/export-pit', 'exportPit');
+        Route::get('/{id}/export-payslips', 'exportPayslips');
     });
 
     Route::apiResource('payroll-lines', PayrollLineController::class)->only(['index', 'show']);
     Route::apiResource('payroll-driver-lines', PayrollLineController::class)->only(['index', 'show']);
     Route::apiResource('payroll-adjustments', PayrollAdjustmentController::class);
+    Route::patch('payroll-adjustments/{id}/approve', [PayrollAdjustmentController::class, 'approve']);
+    Route::patch('payroll-adjustments/{id}/reject', [PayrollAdjustmentController::class, 'reject']);
     Route::get('allowances', [PayrollAdjustmentController::class, 'allowances'])->name('allowances.index');
     Route::get('deductions', [PayrollAdjustmentController::class, 'deductions'])->name('deductions.index');
     // endregion

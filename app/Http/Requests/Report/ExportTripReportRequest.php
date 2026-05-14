@@ -76,7 +76,7 @@ class ExportTripReportRequest extends AppFormRequest
                 return;
             }
 
-            $allowed = ['pending', 'in_progress', 'completed', 'cancelled'];
+            $allowed = ['pending', 'assigned', 'in_progress', 'delivered', 'completed', 'cancelled'];
             $parts = array_map('trim', explode(',', (string) $raw));
             foreach ($parts as $p) {
                 if ($p !== '' && ! in_array($p, $allowed, true)) {

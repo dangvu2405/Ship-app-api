@@ -17,7 +17,7 @@ use Throwable;
 class ChatService
 {
     public function __construct(
-        private readonly GeminiService $geminiService,
+        private readonly GroqService $groqService,
         private readonly ChatRagService $chatRagService,
         private readonly TenantContext $tenantContext,
     ) {}
@@ -32,7 +32,10 @@ class ChatService
         $message = trim((string) ($payload['message'] ?? ''));
         $context = is_array($payload['context'] ?? null) ? $payload['context'] : [];
         $task = (string) ($payload['task'] ?? Arr::get($context, 'task', 'chat'));
-        $resolvedModel = (string) ($payload['model'] ?? config('services.gemini.model', 'gemini-2.0-flash'));
+        $requestedModel = (string) ($payload['model'] ?? '');
+        $resolvedModel = $requestedModel !== '' && ! str_contains($requestedModel, 'gemini')
+            ? $requestedModel
+            : (string) config('services.groq.model', 'openai/gpt-oss-20b');
 
         if ($message === '') {
             throw new ApiException('Message is required', 422);
@@ -52,6 +55,7 @@ class ChatService
             return [
                 'session_id' => $sessionId,
                 'message' => $chat,
+                'answer' => (string) $chat->response,
                 'response_text' => (string) $chat->response,
                 'cached' => false,
                 'guarded' => true,
@@ -74,6 +78,7 @@ class ChatService
             return [
                 'session_id' => $sessionId,
                 'message' => $chat,
+                'answer' => (string) $chat->response,
                 'response_text' => (string) $chat->response,
                 'cached' => true,
                 'guarded' => false,
@@ -96,16 +101,17 @@ class ChatService
         $prompt = $this->buildPrompt($history, $message, $context, $task, $ragDocs);
 
         try {
-            $result = $this->geminiService->generateContent($prompt, [
+            $result = $this->groqService->generateContent($prompt, [
                 'model' => $payload['model'] ?? null,
                 'generation_config' => [
                     'temperature' => 0.2,
                     'topP' => 0.8,
-                    'maxOutputTokens' => 80,
+                    'maxOutputTokens' => 512,
                 ],
             ]);
 
             $responseText = trim((string) ($result['text'] ?? ''));
+            $resolvedModel = (string) ($result['model'] ?? $resolvedModel);
             Cache::put($cacheKey, $responseText, now()->addMinutes(5));
 
             $chat = ChatMessage::create([
@@ -133,10 +139,35 @@ class ChatService
                 return [
                     'session_id' => $sessionId,
                     'message' => $chat,
+                    'answer' => (string) $chat->response,
                     'response_text' => (string) $chat->response,
                     'sources' => $this->sourcesFromRagDocs($ragDocs),
                     'cached' => false,
                     'guarded' => true,
+                ];
+            }
+
+            if ($e->getStatusCode() >= 500 || str_contains($e->getMessage(), 'GROQ_API_KEY')) {
+                $fallback = $this->buildLocalRagFallback($ragDocs);
+                $chat = ChatMessage::create([
+                    'user_id' => $user->id,
+                    'session_id' => $sessionId,
+                    'message' => $message,
+                    'response' => $fallback,
+                    'context' => $context,
+                    'model' => 'local-rag-fallback',
+                    'status' => 'success',
+                ]);
+
+                return [
+                    'session_id' => $sessionId,
+                    'message' => $chat,
+                    'answer' => (string) $chat->response,
+                    'response_text' => (string) $chat->response,
+                    'sources' => $this->sourcesFromRagDocs($ragDocs),
+                    'cached' => false,
+                    'guarded' => true,
+                    'llm_unavailable' => true,
                 ];
             }
 
@@ -161,6 +192,30 @@ class ChatService
 
             throw new ApiException($e->getMessage(), $e->getStatusCode(), $mergedErrors);
         } catch (Throwable $e) {
+            if ($ragDocs !== []) {
+                $fallback = $this->buildLocalRagFallback($ragDocs);
+                $chat = ChatMessage::create([
+                    'user_id' => $user->id,
+                    'session_id' => $sessionId,
+                    'message' => $message,
+                    'response' => $fallback,
+                    'context' => $context,
+                    'model' => 'local-rag-fallback',
+                    'status' => 'success',
+                ]);
+
+                return [
+                    'session_id' => $sessionId,
+                    'message' => $chat,
+                    'answer' => (string) $chat->response,
+                    'response_text' => (string) $chat->response,
+                    'sources' => $this->sourcesFromRagDocs($ragDocs),
+                    'cached' => false,
+                    'guarded' => true,
+                    'llm_unavailable' => true,
+                ];
+            }
+
             $chat = ChatMessage::create([
                 'user_id' => $user->id,
                 'session_id' => $sessionId,
@@ -180,6 +235,7 @@ class ChatService
         return [
             'session_id' => $sessionId,
             'message' => $chat,
+            'answer' => (string) $chat->response,
             'response_text' => (string) $chat->response,
             'sources' => $this->sourcesFromRagDocs($ragDocs),
             'cached' => false,
@@ -295,7 +351,7 @@ class ChatService
     /**
      * @param  Collection<int, ChatMessage>  $history
      * @param  array<string, mixed>  $context
-     * @param  list<array{title: string, snippet: string, category: string}>  $ragDocs
+     * @param  list<array{title: string, snippet: string, category: string, score?: float}>  $ragDocs
      */
     private function buildPrompt(Collection $history, string $message, array $context, string $task, array $ragDocs = []): string
     {
@@ -371,8 +427,8 @@ class ChatService
     }
 
     /**
-     * @param  list<array{title: string, snippet: string, category: string}>  $ragDocs
-     * @return list<array{id: string, title: string, content: string, category: string}>
+     * @param  list<array{title: string, snippet: string, category: string, score?: float}>  $ragDocs
+     * @return list<array{id: string, title: string, content: string, content_preview: string, category: string, score: float}>
      */
     private function sourcesFromRagDocs(array $ragDocs): array
     {
@@ -381,9 +437,29 @@ class ChatService
                 'id' => sha1($doc['category'].'|'.$doc['title']),
                 'title' => $doc['title'],
                 'content' => $doc['snippet'],
+                'content_preview' => $doc['snippet'],
                 'category' => $doc['category'],
+                'score' => (float) ($doc['score'] ?? 0.5),
             ],
             $ragDocs
         );
+    }
+
+    /**
+     * @param  list<array{title: string, snippet: string, category: string, score?: float}>  $ragDocs
+     */
+    private function buildLocalRagFallback(array $ragDocs): string
+    {
+        if ($ragDocs === []) {
+            return 'Hiện chưa có đủ dữ liệu knowledge base để trả lời chính xác. Vui lòng bổ sung tài liệu nội bộ hoặc cấu hình GROQ_API_KEY để dùng AI.';
+        }
+
+        $lines = ['Dựa trên tài liệu nội bộ hiện có:'];
+        foreach (array_slice($ragDocs, 0, 3) as $doc) {
+            $lines[] = '- '.$doc['title'].': '.$doc['snippet'];
+        }
+        $lines[] = 'Lưu ý: đây là câu trả lời fallback khi dịch vụ AI chưa sẵn sàng.';
+
+        return implode("\n", $lines);
     }
 }

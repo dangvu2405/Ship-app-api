@@ -336,17 +336,19 @@ final class ScheduleService
         ?int $vehicleId,
         ?int $excludeId,
     ): void {
+        $normalizedWorkDate = Carbon::parse($workDate)->toDateString();
+
         // Check driver conflict: same driver + same date + same shift
         $driverConflict = DriverWorkSchedule::query()
             ->where('driver_id', $driverId)
-            ->where('work_date', $workDate)
+            ->whereDate('work_date', $normalizedWorkDate)
             ->where('shift_code', $shiftCode)
             ->when($excludeId !== null, fn ($q) => $q->where('id', '!=', $excludeId))
             ->first();
 
         if ($driverConflict) {
             throw new InvalidArgumentException(
-                "Driver #{$driverId} already has an active schedule on {$workDate} for shift '{$shiftCode}'.",
+                "Driver #{$driverId} already has an active schedule on {$normalizedWorkDate} for shift '{$shiftCode}'.",
                 422,
             );
         }
@@ -355,14 +357,14 @@ final class ScheduleService
         if ($vehicleId !== null) {
             $vehicleConflict = DriverWorkSchedule::query()
                 ->where('vehicle_id', $vehicleId)
-                ->where('work_date', $workDate)
+                ->whereDate('work_date', $normalizedWorkDate)
                 ->whereNotIn('status', ['draft'])
                 ->when($excludeId !== null, fn ($q) => $q->where('id', '!=', $excludeId))
                 ->first();
 
             if ($vehicleConflict) {
                 throw new InvalidArgumentException(
-                    "Vehicle #{$vehicleId} is already assigned on {$workDate}.",
+                    "Vehicle #{$vehicleId} is already assigned on {$normalizedWorkDate}.",
                     409,
                 );
             }

@@ -11,8 +11,6 @@ use Illuminate\Support\Facades\Schema;
 
 final class ChatRagService
 {
-    private const MAX_DOCS = 3;
-
     private const SNIPPET_CHARS = 500;
 
     private static ?bool $hasTenantPriorityColumn = null;
@@ -20,7 +18,7 @@ final class ChatRagService
     /**
      * Tìm tài liệu nghiệp vụ liên quan đến câu hỏi.
      *
-     * @return list<array{title: string, snippet: string, category: string}>
+     * @return list<array{title: string, snippet: string, category: string, score: float}>
      */
     public function search(string $query, string $intent, ?int $companyId = null): array
     {
@@ -37,14 +35,14 @@ final class ChatRagService
         if (mb_strlen($query) >= 6 && $this->databaseSupportsFullText()) {
             $results = $this->fullTextSearch($query, $intent, $companyId);
             if ($results->count() >= 1) {
-                return $this->formatDocs($results);
+                return $this->formatDocs($results, $query);
             }
         }
 
         // Fallback: LIKE search theo từ khoá + lọc theo category
         $results = $this->keywordSearch($query, $intent, $companyId);
 
-        return $this->formatDocs($results);
+        return $this->formatDocs($results, $query);
     }
 
     private function databaseSupportsFullText(): bool
@@ -74,7 +72,7 @@ final class ChatRagService
             $base->orderByRaw('CASE WHEN category = ? THEN 0 ELSE 1 END', [$intent]);
         }
 
-        return $base->limit(self::MAX_DOCS)->get();
+        return $base->limit($this->maxDocs())->get();
     }
 
     private function keywordSearch(string $query, string $intent, ?int $companyId): Collection
@@ -95,7 +93,7 @@ final class ChatRagService
             $this->applyTenantPriorityOrdering($query, $companyId);
 
             return $query
-                ->limit(self::MAX_DOCS)
+                ->limit($this->maxDocs())
                 ->get();
         }
 
@@ -114,7 +112,12 @@ final class ChatRagService
             }
         });
 
-        return $dbQuery->limit(self::MAX_DOCS)->get();
+        return $dbQuery->limit($this->maxDocs())->get();
+    }
+
+    private function maxDocs(): int
+    {
+        return max(1, min((int) config('services.rag.top_k', 3), 10));
     }
 
     private function applyTenantPriorityOrdering(Builder $query, ?int $companyId): void
@@ -143,22 +146,48 @@ final class ChatRagService
 
     /**
      * @param  Collection<int, KnowledgeArticle>  $articles
-     * @return list<array{title: string, snippet: string, category: string}>
+     * @return list<array{title: string, snippet: string, category: string, score: float}>
      */
-    private function formatDocs(Collection $articles): array
+    private function formatDocs(Collection $articles, string $query): array
     {
-        return $articles->map(function (KnowledgeArticle $article): array {
+        $keywords = collect(explode(' ', mb_strtolower($query)))
+            ->map(fn (string $w): string => trim($w))
+            ->filter(fn (string $w): bool => mb_strlen($w) >= 2)
+            ->unique()
+            ->values();
+
+        return $articles->map(function (KnowledgeArticle $article) use ($keywords): array {
             $content = $article->content;
             $snippet = mb_strlen($content) > self::SNIPPET_CHARS
                 ? mb_substr($content, 0, self::SNIPPET_CHARS).'...'
                 : $content;
 
+            $score = is_numeric($article->getAttribute('score'))
+                ? (float) $article->getAttribute('score')
+                : $this->keywordScore($article, $keywords);
+
             return [
                 'title' => $article->title,
                 'snippet' => $snippet,
                 'category' => $article->category,
+                'score' => round(min(1.0, max(0.1, $score)), 2),
             ];
         })->values()->all();
+    }
+
+    /**
+     * @param  Collection<int, string>  $keywords
+     */
+    private function keywordScore(KnowledgeArticle $article, Collection $keywords): float
+    {
+        if ($keywords->isEmpty()) {
+            return 0.5;
+        }
+
+        $haystack = mb_strtolower($article->title.' '.$article->content.' '.implode(' ', $article->tags ?? []));
+        $matches = $keywords->filter(fn (string $keyword): bool => str_contains($haystack, $keyword))->count();
+
+        return $matches / max(1, $keywords->count());
     }
 
     private function sanitizeFullTextQuery(string $query): string

@@ -24,10 +24,23 @@ class VehicleService
     /**
      * @return LengthAwarePaginator<int, Vehicle>
      */
-    public function paginateAvailableForCompany(int $companyId, int $perPage = 15): LengthAwarePaginator
+    public function paginateAvailableForCompany(int $companyId, int $perPage = 15, ?string $date = null): LengthAwarePaginator
     {
+        $busyVehicleIds = [];
+
+        if ($date !== null && $date !== '') {
+            $busyVehicleIds = DB::table('trips')
+                ->where('company_id', $companyId)
+                ->whereDate('scheduled_date', $date)
+                ->whereNotIn('status', ['completed', 'cancelled'])
+                ->whereNotNull('vehicle_id')
+                ->pluck('vehicle_id')
+                ->all();
+        }
+
         return $this->baseCompanyQuery($companyId)
             ->where('status', 'active')
+            ->when($busyVehicleIds !== [], fn ($query) => $query->whereNotIn('id', $busyVehicleIds))
             ->latest('id')
             ->paginate($perPage);
     }

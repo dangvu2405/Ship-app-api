@@ -22,7 +22,7 @@ class TripRepository
         return DB::transaction(function () use ($dto, $companyId) {
             $tripData = $dto->toArray();
             $tripData['company_id'] = $companyId;
-            $tripData['status'] = 'new'; // Initial status
+            $tripData['status'] = 'pending';
 
             // Calculate surcharge amount and total revenue
             $surchargeAmount = 0;

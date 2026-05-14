@@ -22,11 +22,20 @@ class TripController extends BaseController
 
     public function index(Request $request): JsonResource
     {
-        // TODO: Add filtering, sorting, and searching
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+        $companyId = $user->company_id;
         $trips = Trip::query()
-            ->where('company_id', auth()->user()->company_id)
+            ->where('company_id', $companyId)
             ->with(['customer', 'driver', 'vehicle'])
-            ->paginate(15);
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
+            ->when($request->filled('customer_id'), fn ($q) => $q->where('customer_id', $request->input('customer_id')))
+            ->when($request->filled('driver_id'), fn ($q) => $q->where('driver_id', $request->input('driver_id')))
+            ->when($request->filled('vehicle_id'), fn ($q) => $q->where('vehicle_id', $request->input('vehicle_id')))
+            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('scheduled_date', '>=', $request->input('date_from')))
+            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('scheduled_date', '<=', $request->input('date_to')))
+            ->latest('id')
+            ->paginate((int) $request->input('per_page', 15));
 
         return TripResource::collection($trips);
     }
@@ -48,7 +57,11 @@ class TripController extends BaseController
             'surcharges.*.amount' => 'required|numeric|min:0',
         ]);
 
-        $trip = DB::transaction(function () use ($validated) {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+        $companyId = $user->company_id;
+
+        $trip = DB::transaction(function () use ($validated, $companyId) {
             $totalSurcharge = collect($validated['surcharges'] ?? [])->sum('amount');
             $totalRevenue = $validated['base_price'] + $totalSurcharge;
 
@@ -57,8 +70,8 @@ class TripController extends BaseController
             $delivery = collect($stops)->firstWhere('stop_type', 'delivery');
 
             $trip = Trip::create([
-                'company_id' => auth()->user()->company_id,
-                'code' => 'TRIP-'.strtoupper(Str::random(8)),
+                'company_id' => $companyId,
+                'code' => $this->generateUniqueCode(),
                 'customer_id' => $validated['customer_id'],
                 'start_point' => $pickup['address'] ?? ($stops[0]['address'] ?? ''),
                 'end_point' => $delivery['address'] ?? (end($stops)['address'] ?? ''),
@@ -68,7 +81,7 @@ class TripController extends BaseController
                 'base_price' => $validated['base_price'],
                 'surcharge_amount' => $totalSurcharge,
                 'total_revenue' => $totalRevenue,
-                'status' => 'new',
+                'status' => 'pending',
             ]);
 
             if (! empty($validated['stops'])) {
@@ -96,21 +109,47 @@ class TripController extends BaseController
 
     public function update(Request $request, Trip $trip): JsonResource
     {
-        $this->authorize('update', $trip); // Requires TripPolicy
+        $this->authorize('update', $trip);
 
-        // TODO: Add validation and logic
-        // This is a placeholder implementation
-        $trip->update($request->all());
+        if (in_array($trip->status, ['completed', 'delivered'], true)) {
+            throw ValidationException::withMessages([
+                'status' => ['Không thể chỉnh sửa chuyến đã giao/hoàn thành.'],
+            ]);
+        }
+
+        $validated = $request->validate([
+            'customer_id'    => 'sometimes|exists:customers,id',
+            'received_date'  => 'sometimes|date',
+            'scheduled_date' => 'sometimes|date',
+            'base_price'     => 'sometimes|numeric|min:0',
+            'start_point'    => 'sometimes|string|max:255',
+            'end_point'      => 'sometimes|string|max:255',
+            'distance_km'    => 'sometimes|nullable|numeric|min:0',
+            'notes'          => 'sometimes|nullable|string',
+        ]);
+
+        if (isset($validated['base_price'])) {
+            $surchargeAmount = $trip->surcharge_amount ?? 0;
+            $validated['total_revenue'] = $validated['base_price'] + $surchargeAmount;
+        }
+
+        $trip->update($validated);
 
         return new TripResource($trip);
     }
 
     public function destroy(Trip $trip): JsonResponse
     {
-        $this->authorize('delete', $trip); // Requires TripPolicy
+        $this->authorize('delete', $trip);
+
+        // R01: không xoá trip đã hoàn thành hoặc đã giao
+        if (in_array($trip->status, ['completed', 'delivered'], true)) {
+            return response()->json([
+                'message' => 'Không thể xoá chuyến đã giao hoặc đã hoàn thành.',
+            ], 422);
+        }
 
         DB::transaction(function () use ($trip) {
-            // Manually delete related records if no cascade is set
             $trip->stops()->delete();
             $trip->surcharges()->delete();
             $trip->costs()->delete();
@@ -124,7 +163,7 @@ class TripController extends BaseController
     public function assign(AssignTripRequest $request, int $id): JsonResponse
     {
         try {
-            $trip = Trip::query()->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
             $this->authorize('update', $trip);
 
             $assigned = $this->tripService->assignDriverAndVehicle(
@@ -160,12 +199,12 @@ class TripController extends BaseController
     public function cancel(CancelTripRequest $request, int $id): JsonResponse
     {
         try {
-            $trip = Trip::query()->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
             $this->authorize('update', $trip);
 
-            if ($trip->status === 'completed') {
+            if (in_array($trip->status, ['completed', 'delivered'], true)) {
                 return $this->validationErrorResponse([
-                    'status' => ['Không thể hủy chuyến đã hoàn thành.'],
+                    'status' => ['Không thể hủy chuyến đã giao hoặc đã hoàn thành.'],
                 ]);
             }
 
@@ -223,7 +262,7 @@ class TripController extends BaseController
     private function transitionTrip(Request $request, int $id, string $status, array $extra = []): JsonResponse
     {
         try {
-            $trip = Trip::query()->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
             $this->authorize('update', $trip);
 
             $fromStatus = $trip->status;
@@ -251,13 +290,22 @@ class TripController extends BaseController
         }
     }
 
+    private function generateUniqueCode(): string
+    {
+        do {
+            $code = 'TRIP-'.strtoupper(Str::random(8));
+        } while (Trip::where('code', $code)->exists());
+
+        return $code;
+    }
+
     /**
      * @param  array<string, int>  $attributes
      */
     private function updateAssignmentPart(Request $request, int $id, array $attributes, string $note): JsonResponse
     {
         try {
-            $trip = Trip::query()->findOrFail($id);
+            $trip = Trip::query()->where('company_id', $request->user()->company_id)->findOrFail($id);
             $this->authorize('update', $trip);
 
             $updated = DB::transaction(function () use ($trip, $attributes, $request, $note): Trip {

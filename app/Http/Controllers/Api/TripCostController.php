@@ -69,12 +69,13 @@ final class TripCostController extends BaseController
 
         if ($approvalRequired) {
             CostApprovalRequest::query()->create([
-                'company_id' => $companyId,
-                'trip_id' => $trip->id,
+                'company_id'   => $companyId,
+                'trip_id'      => $trip->id,
+                'trip_cost_id' => $cost->id,
                 'requested_by' => $request->user()?->id,
                 'total_amount' => $amount,
-                'reason' => $validated['description'] ?? 'Chi phi vuot nguong phe duyet.',
-                'status' => 'pending',
+                'reason'       => $validated['description'] ?? 'Chi phí vượt ngưỡng phê duyệt.',
+                'status'       => 'pending',
             ]);
         }
 

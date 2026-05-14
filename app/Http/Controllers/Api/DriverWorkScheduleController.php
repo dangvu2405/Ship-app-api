@@ -8,6 +8,7 @@ use App\Models\Driver;
 use App\Models\DriverWorkSchedule;
 use App\Models\Vehicle;
 use App\Services\ScheduleService;
+use App\Services\WorkforceService;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +22,7 @@ final class DriverWorkScheduleController extends BaseController
 {
     public function __construct(
         private readonly ScheduleService $scheduleService,
+        private readonly WorkforceService $workforceService,
         private readonly TenantContext $tenantContext,
     ) {}
 
@@ -43,6 +45,43 @@ final class DriverWorkScheduleController extends BaseController
             ->orderBy('start_time');
 
         return $this->successResponse($query->paginate($this->perPage($request)), 'OK');
+    }
+
+    public function absences(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'driver_id' => ['nullable', 'integer', Rule::exists('drivers', 'id')],
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:500'],
+        ]);
+
+        return $this->successResponse(
+            $this->workforceService->absencesPayloadForWorkforce($request, $validated),
+            'OK',
+        );
+    }
+
+    public function publicHolidays(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'country_code' => ['nullable', 'string', 'size:2'],
+        ]);
+
+        $country = strtoupper((string) ($validated['country_code'] ?? 'VN'));
+        if ($country !== 'VN') {
+            return $this->successResponse([], 'OK');
+        }
+
+        $year = (int) $validated['year'];
+
+        return $this->successResponse([
+            ['id' => (int) "{$year}0101", 'date' => "{$year}-01-01", 'name' => 'Tết Dương lịch', 'holiday_type' => 'national'],
+            ['id' => (int) "{$year}0430", 'date' => "{$year}-04-30", 'name' => 'Ngày Giải phóng miền Nam', 'holiday_type' => 'national'],
+            ['id' => (int) "{$year}0501", 'date' => "{$year}-05-01", 'name' => 'Ngày Quốc tế Lao động', 'holiday_type' => 'national'],
+            ['id' => (int) "{$year}0902", 'date' => "{$year}-09-02", 'name' => 'Quốc khánh', 'holiday_type' => 'national'],
+        ], 'OK');
     }
 
     public function store(Request $request): JsonResponse

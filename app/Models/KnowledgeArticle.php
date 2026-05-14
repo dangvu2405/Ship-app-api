@@ -16,6 +16,11 @@ class KnowledgeArticle extends Model
         'title',
         'content',
         'tags',
+        'status',
+        'source',
+        'metadata',
+        'embedding',
+        'created_by',
         'is_active',
     ];
 
@@ -23,6 +28,9 @@ class KnowledgeArticle extends Model
         'company_id' => 'integer',
         'tenant_priority' => 'integer',
         'tags' => 'array',
+        'metadata' => 'array',
+        'embedding' => 'array',
+        'created_by' => 'integer',
         'is_active' => 'boolean',
     ];
 
@@ -30,6 +38,7 @@ class KnowledgeArticle extends Model
     public function scopeVisibleTo(Builder $query, ?int $companyId): Builder
     {
         return $query->where('is_active', true)
+            ->where('status', 'published')
             ->where(function (Builder $q) use ($companyId): void {
                 $q->whereNull('company_id');
                 if ($companyId !== null) {

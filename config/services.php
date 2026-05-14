@@ -65,6 +65,8 @@ return [
     'rag' => [
         'agent_enabled' => env('RAG_AGENT_ENABLED', false),
         'sql_enabled' => env('RAG_SQL_ENABLED', false),
+        'top_k' => (int) env('RAG_TOP_K', 3),
+        'max_context_length' => (int) env('RAG_MAX_CONTEXT_LENGTH', 4000),
     ],
 
     'map' => [
@@ -80,4 +82,3 @@ return [
     ],
 
 ];
-

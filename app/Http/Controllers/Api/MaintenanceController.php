@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\MaintenanceRecord;
 use App\Models\MaintenanceSchedule;
+use App\Models\Vehicle;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,11 +59,17 @@ final class MaintenanceController extends BaseController
             return $this->validationErrorResponse(['vehicle_id' => ['vehicle_id is required.']]);
         }
 
+        $status = $validated['status'] ?? 'open';
         $record = MaintenanceRecord::query()->create(array_merge($validated, [
             'company_id' => $this->companyId($request),
             'vehicle_id' => $vehicleId,
-            'status' => $validated['status'] ?? 'open',
+            'status' => $status,
         ]));
+
+        // Mark vehicle as under maintenance unless record is already completed on creation
+        if ($status !== 'completed') {
+            Vehicle::query()->where('id', $vehicleId)->update(['status' => 'maintenance']);
+        }
 
         return $this->successResponse($record, 'OK', 201);
     }
@@ -82,6 +89,17 @@ final class MaintenanceController extends BaseController
             'completed_date' => now()->toDateString(),
             'odometer_km' => $validated['odometer_km'],
         ]);
+
+        // Restore vehicle to active only if no other open maintenance records exist for it
+        $hasOtherOpen = MaintenanceRecord::query()
+            ->where('vehicle_id', $maintenanceRecord->vehicle_id)
+            ->where('id', '!=', $maintenanceRecord->id)
+            ->whereIn('status', ['open', 'in_progress'])
+            ->exists();
+
+        if (! $hasOtherOpen) {
+            Vehicle::query()->where('id', $maintenanceRecord->vehicle_id)->update(['status' => 'active']);
+        }
 
         return $this->successResponse($maintenanceRecord->refresh(), 'OK');
     }

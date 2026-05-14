@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Models\Company;
 use App\Models\Driver;
 use App\Models\Trip;
 use App\Observers\DriverRagObserver;
@@ -47,9 +48,45 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
-        // Implicitly grant "super_admin" role all permissions
-        Gate::before(function ($user, $ability) {
-            return $user->hasRole('super_admin') ? true : null;
+        // Legacy users.role is still the primary seeded RBAC path. Admins get
+        // full permissions only inside the resolved tenant; super_admin stays global.
+        Gate::before(function ($user, string $ability, array $arguments = []) {
+            if ($user->hasRole('super_admin')) {
+                return true;
+            }
+
+            if (! $user->hasRole('admin')) {
+                return null;
+            }
+
+            $tenantCompanyId = app(TenantContext::class)->getCompanyId()
+                ?? ($user->company_id !== null ? (int) $user->company_id : null);
+
+            if ($tenantCompanyId === null || $tenantCompanyId <= 0) {
+                return null;
+            }
+
+            $hasScopedArgument = false;
+
+            foreach ($arguments as $argument) {
+                if ($argument instanceof Company) {
+                    $hasScopedArgument = true;
+                    if ((int) $argument->getKey() !== $tenantCompanyId) {
+                        return false;
+                    }
+
+                    continue;
+                }
+
+                if (is_object($argument) && isset($argument->company_id)) {
+                    $hasScopedArgument = true;
+                    if ((int) $argument->company_id !== $tenantCompanyId) {
+                        return false;
+                    }
+                }
+            }
+
+            return $hasScopedArgument ? true : null;
         });
     }
 }

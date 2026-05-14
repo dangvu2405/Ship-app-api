@@ -46,8 +46,30 @@ class DriverService
     /**
      * @return LengthAwarePaginator<int, Driver>
      */
-    public function paginateAvailableForCompany(int $companyId, int $perPage = 15): LengthAwarePaginator
+    public function paginateAvailableForCompany(int $companyId, int $perPage = 15, ?string $date = null): LengthAwarePaginator
     {
+        $busyDriverIds = [];
+        $leaveDriverIds = [];
+
+        if ($date !== null && $date !== '') {
+            $busyDriverIds = DB::table('trips')
+                ->where('company_id', $companyId)
+                ->whereDate('scheduled_date', $date)
+                ->whereNotIn('status', ['completed', 'cancelled'])
+                ->whereNotNull('driver_id')
+                ->pluck('driver_id')
+                ->all();
+
+            $leaveDriverIds = DB::table('leave_requests')
+                ->where('company_id', $companyId)
+                ->where('status', 'approved')
+                ->whereDate('from_date', '<=', $date)
+                ->whereDate('to_date', '>=', $date)
+                ->whereNotNull('driver_id')
+                ->pluck('driver_id')
+                ->all();
+        }
+
         return Driver::query()
             ->select([
                 'id',
@@ -67,6 +89,8 @@ class DriverService
             ->where('company_id', $companyId)
             ->where('status', 'active')
             ->where('available_status', 'available')
+            ->when($busyDriverIds !== [], fn ($query) => $query->whereNotIn('id', $busyDriverIds))
+            ->when($leaveDriverIds !== [], fn ($query) => $query->whereNotIn('id', $leaveDriverIds))
             ->latest('id')
             ->paginate($perPage);
     }

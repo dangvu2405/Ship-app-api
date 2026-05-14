@@ -25,7 +25,10 @@ class DriverController extends BaseController
     public function index(Request $request): JsonResource
     {
         return DriverResource::collection(
-            $this->drivers->paginateForCompany($this->companyId($request))
+            $this->drivers->paginateForCompany(
+                $this->companyId($request),
+                (int) $request->input('per_page', 15),
+            )
         );
     }
 
@@ -64,7 +67,11 @@ class DriverController extends BaseController
     public function available(Request $request): JsonResource
     {
         return DriverResource::collection(
-            $this->drivers->paginateAvailableForCompany($this->companyId($request))
+            $this->drivers->paginateAvailableForCompany(
+                $this->companyId($request),
+                (int) $request->input('per_page', 15),
+                $request->filled('date') ? (string) $request->input('date') : null,
+            )
         );
     }
 

@@ -130,6 +130,53 @@ class PayrollAdjustmentController extends BaseController
         return $this->successResponse(null, 'Adjustment deleted successfully');
     }
 
+    public function approve(Request $request, string $id): JsonResponse
+    {
+        if (! Schema::hasTable('payroll_adjustments')) {
+            return $this->notFoundResponse('Adjustment not found');
+        }
+
+        $adjustment = PayrollAdjustment::find($id);
+
+        if (! $adjustment || $adjustment->company_id !== $this->getCompanyId()) {
+            return $this->notFoundResponse('Adjustment not found');
+        }
+
+        $adjustment->update([
+            'status' => 'approved',
+            'approved_by' => $request->user()?->id,
+            'approved_at' => now(),
+        ]);
+
+        return $this->successResponse($adjustment->fresh(['payroll', 'driver', 'approvedBy']), 'Adjustment approved successfully');
+    }
+
+    public function reject(Request $request, string $id): JsonResponse
+    {
+        if (! Schema::hasTable('payroll_adjustments')) {
+            return $this->notFoundResponse('Adjustment not found');
+        }
+
+        $adjustment = PayrollAdjustment::find($id);
+
+        if (! $adjustment || $adjustment->company_id !== $this->getCompanyId()) {
+            return $this->notFoundResponse('Adjustment not found');
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $adjustment->update([
+            'status' => 'rejected',
+            'approved_by' => $request->user()?->id,
+            'approved_at' => now(),
+            'reject_reason' => $validated['reason'] ?? null,
+        ]);
+
+        return $this->successResponse($adjustment->fresh(['payroll', 'driver', 'approvedBy']), 'Adjustment rejected');
+    }
+
     private function getCompanyId(): ?int
     {
         return app(TenantContext::class)->getCompanyId();

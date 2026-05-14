@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\Customer;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Http\Resources\CustomerResource;
+use App\Http\Resources\TripResource;
+use App\Models\Customer;
+use App\Models\PaymentRecord;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
 
@@ -98,9 +100,130 @@ class CustomerController extends BaseController
     {
         $this->authorize('delete', $customer);
 
+        // R08: không xoá customer đang có trip
+        if ($customer->trips()->count() > 0) {
+            return response()->json([
+                'message' => 'Không thể xoá khách hàng đang có chuyến vận chuyển.',
+            ], 422);
+        }
+
         DB::transaction(function () use ($customer) {
             $customer->delete();
         });
+
+        return response()->json(null, 204);
+    }
+
+    public function search(Request $request): JsonResource
+    {
+        $companyId = app(\App\Tenancy\TenantContext::class)->getCompanyId();
+        $keyword = $request->input('q', $request->input('keyword', ''));
+
+        $customers = Customer::query()
+            ->where('company_id', $companyId)
+            ->when($keyword, function ($q) use ($keyword) {
+                $q->where(function ($q2) use ($keyword) {
+                    $q2->where('name', 'like', "%{$keyword}%")
+                        ->orWhere('phone', 'like', "%{$keyword}%")
+                        ->orWhere('email', 'like', "%{$keyword}%")
+                        ->orWhere('tax_code', 'like', "%{$keyword}%");
+                });
+            })
+            ->when($request->boolean('active_only'), fn ($q) => $q->where('is_active', true))
+            ->limit((int) $request->input('limit', 20))
+            ->get();
+
+        return CustomerResource::collection($customers);
+    }
+
+    public function trips(Request $request, Customer $customer): JsonResource
+    {
+        $this->authorize('view', $customer);
+
+        $trips = $customer->trips()
+            ->with(['driver', 'vehicle'])
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
+            ->latest('id')
+            ->paginate((int) $request->input('per_page', 15));
+
+        return TripResource::collection($trips);
+    }
+
+    public function debt(Request $request, Customer $customer): JsonResponse
+    {
+        $this->authorize('view', $customer);
+
+        $totalRevenue = $customer->trips()
+            ->whereIn('status', ['completed', 'delivered'])
+            ->sum('total_revenue');
+
+        $totalPaid = PaymentRecord::query()
+            ->where('customer_id', $customer->id)
+            ->sum('amount');
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'customer_id' => $customer->id,
+                'total_revenue' => (float) $totalRevenue,
+                'total_debt' => (float) $totalRevenue,
+                'paid_amount' => (float) $totalPaid,
+                'remaining_debt' => (float) max($totalRevenue - $totalPaid, 0),
+                'debt' => (float) ($totalRevenue - $totalPaid),
+            ],
+        ]);
+    }
+
+    public function payments(Request $request, Customer $customer): JsonResponse
+    {
+        $this->authorize('view', $customer);
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('payment_records')) {
+            return response()->json(['success' => true, 'data' => [], 'message' => 'OK']);
+        }
+
+        $payments = PaymentRecord::query()
+            ->where('customer_id', $customer->id)
+            ->orderByDesc('id')
+            ->paginate((int) $request->input('per_page', 15));
+
+        return response()->json(['success' => true, 'data' => $payments]);
+    }
+
+    public function storePayment(Request $request, Customer $customer): JsonResponse
+    {
+        $this->authorize('update', $customer);
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+            'payment_method' => ['nullable', 'string', 'in:bank_transfer,cash,check'],
+            'payment_date' => ['nullable', 'date'],
+            'bank_reference' => ['nullable', 'string', 'max:200'],
+            'receipt_url' => ['nullable', 'string', 'max:500'],
+            'note' => ['nullable', 'string'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $payment = PaymentRecord::query()->create([
+            'company_id' => $customer->company_id,
+            'customer_id' => $customer->id,
+            'payment_date' => $validated['payment_date'] ?? now()->toDateString(),
+            'amount' => $validated['amount'],
+            'payment_method' => $validated['payment_method'] ?? 'bank_transfer',
+            'bank_reference' => $validated['bank_reference'] ?? null,
+            'receipt_url' => $validated['receipt_url'] ?? null,
+            'notes' => $validated['notes'] ?? $validated['note'] ?? null,
+        ]);
+
+        return $this->successResponse($payment, 'api.common.ok', 201);
+    }
+
+    public function destroyPayment(PaymentRecord $paymentRecord): JsonResponse
+    {
+        $customer = Customer::query()->findOrFail($paymentRecord->customer_id);
+        $this->authorize('update', $customer);
+
+        $paymentRecord->delete();
 
         return response()->json(null, 204);
     }

@@ -40,8 +40,22 @@ class TripResource extends JsonResource
             'surcharges' => TripSurchargeResource::collection($this->whenLoaded('surcharges')),
             'costs' => TripCostResource::collection($this->whenLoaded('costs')),
             'documents' => TripDocumentResource::collection($this->whenLoaded('documents')),
-            'created_at' => $this->created_at?->toDateTimeString(),
-            'updated_at' => $this->updated_at?->toDateTimeString(),
+            'assigned_at'         => $this->assigned_at?->toDateTimeString(),
+            'cancellation_reason' => $this->cancellation_reason,
+            'cancelled_at'        => $this->cancelled_at?->toDateTimeString(),
+            'cancelled_by'        => $this->cancelled_by,
+            'actual_delivered_at' => $this->actual_delivered_at?->toDateTimeString(),
+            'payment_status'      => $this->payment_status,
+            'dispatcher_id'       => $this->dispatcher_id,
+            'status_histories'    => $this->whenLoaded('statusHistories', fn () => $this->statusHistories->map(fn ($h) => [
+                'from_status' => $h->from_status,
+                'to_status'   => $h->to_status,
+                'changed_by'  => $h->changed_by,
+                'changed_at'  => $h->changed_at,
+                'note'        => $h->note,
+            ])),
+            'created_at'          => $this->created_at?->toDateTimeString(),
+            'updated_at'          => $this->updated_at?->toDateTimeString(),
         ];
     }
 }

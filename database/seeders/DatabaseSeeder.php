@@ -12,6 +12,9 @@ final class DatabaseSeeder extends Seeder
     {
         $this->call([
             CleanDatabaseSeeder::class,
+            EnsureAdminAbcTransportSeeder::class,
+            KnowledgeArticleSeeder::class,
+            ChatContextSeeder::class,
         ]);
     }
 }

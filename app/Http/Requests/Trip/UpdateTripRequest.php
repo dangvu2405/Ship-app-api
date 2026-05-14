@@ -30,7 +30,7 @@ class UpdateTripRequest extends AppFormRequest
             'start_time' => 'nullable|date',
             'end_time' => 'nullable|date|after_or_equal:start_time',
             'price' => 'nullable|numeric|min:0',
-            'status' => 'sometimes|in:pending,in_progress,completed,cancelled',
+            'status' => 'sometimes|in:pending,assigned,in_progress,delivered,completed,cancelled',
         ];
     }
 
@@ -55,8 +55,10 @@ class UpdateTripRequest extends AppFormRequest
 
             $newStatus = (string) $this->input('status', $trip->status);
             $allowedTransitions = [
-                'pending' => ['pending', 'in_progress', 'cancelled'],
-                'in_progress' => ['in_progress', 'completed', 'cancelled'],
+                'pending' => ['pending', 'assigned', 'in_progress', 'cancelled'],
+                'assigned' => ['assigned', 'in_progress', 'cancelled'],
+                'in_progress' => ['in_progress', 'delivered', 'completed', 'cancelled'],
+                'delivered' => ['delivered', 'completed'],
                 'completed' => ['completed'],
                 'cancelled' => ['cancelled'],
             ];

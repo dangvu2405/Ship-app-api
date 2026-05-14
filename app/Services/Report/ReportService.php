@@ -58,6 +58,7 @@ final class ReportService extends BaseService
     private function getRevenueReport(int $companyId, ?string $dateFrom, ?string $dateTo): array
     {
         $query = DB::table('trips')->where('company_id', $companyId);
+        $revenueColumn = $this->tripRevenueColumn();
 
         if ($dateFrom) {
             $query->whereDate('created_at', '>=', $dateFrom);
@@ -66,11 +67,14 @@ final class ReportService extends BaseService
             $query->whereDate('created_at', '<=', $dateTo);
         }
 
+        $totalRevenue = $revenueColumn !== null ? (float) ((clone $query)->sum($revenueColumn) ?? 0) : 0.0;
+        $tripsCount = (clone $query)->count();
+
         return [
             'type' => 'revenue',
-            'total_revenue' => $query->sum('fare_amount') ?? 0,
-            'trips_count' => $query->count(),
-            'average_revenue_per_trip' => $query->avg('fare_amount') ?? 0,
+            'total_revenue' => $totalRevenue,
+            'trips_count' => $tripsCount,
+            'average_revenue_per_trip' => $tripsCount > 0 ? round($totalRevenue / $tripsCount, 2) : 0,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
         ];
@@ -241,6 +245,15 @@ final class ReportService extends BaseService
 
     private function getDebtReport(int $companyId): array
     {
+        if (! Schema::hasTable('debt_overviews')) {
+            return [
+                'type' => 'debt',
+                'total_debt' => 0,
+                'debt_count' => 0,
+                'rows' => [],
+            ];
+        }
+
         return [
             'type' => 'debt',
             'total_debt' => DB::table('debt_overviews')
@@ -254,16 +267,22 @@ final class ReportService extends BaseService
 
     private function getMaintenanceReport(int $companyId): array
     {
+        $licenseExpiryColumn = Schema::hasColumn('drivers', 'expired_date')
+            ? 'expired_date'
+            : (Schema::hasColumn('drivers', 'license_expiry_date') ? 'license_expiry_date' : null);
+
         return [
             'type' => 'maintenance',
             'vehicles_due_maintenance' => DB::table('vehicles')
                 ->where('company_id', $companyId)
                 ->where('status', 'maintenance')
                 ->count(),
-            'drivers_expiring_docs' => DB::table('drivers')
-                ->where('company_id', $companyId)
-                ->whereDate('license_expiry_date', '<', now()->addDays(30)->toDateString())
-                ->count(),
+            'drivers_expiring_docs' => $licenseExpiryColumn !== null
+                ? DB::table('drivers')
+                    ->where('company_id', $companyId)
+                    ->whereDate($licenseExpiryColumn, '<', now()->addDays(30)->toDateString())
+                    ->count()
+                : 0,
         ];
     }
 
@@ -318,6 +337,17 @@ final class ReportService extends BaseService
     private function countCustomers(int $companyId): int
     {
         return Schema::hasTable('customers') ? DB::table('customers')->where('company_id', $companyId)->count() : 0;
+    }
+
+    private function tripRevenueColumn(): ?string
+    {
+        foreach (['total_revenue', 'base_price', 'price', 'fare_amount'] as $column) {
+            if (Schema::hasColumn('trips', $column)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     public function getDispatchData(string $date): array

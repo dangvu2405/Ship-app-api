@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Models\Company;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -42,6 +43,18 @@ final class EnsureAdminAbcTransportSeeder extends Seeder
                 $user->restore();
             }
             $user->save();
+        }
+
+        $company = Company::query()
+            ->where('name', 'ABC Transport')
+            ->orWhere('code', 'ABC')
+            ->orderBy('id')
+            ->first();
+
+        if ($company !== null) {
+            $user->companies()->syncWithoutDetaching([
+                $company->id => ['is_default' => true],
+            ]);
         }
 
         $this->command?->info('Admin ready: admin@abctransport.com / password');

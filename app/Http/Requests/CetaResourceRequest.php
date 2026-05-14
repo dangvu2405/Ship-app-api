@@ -97,7 +97,7 @@ final class CetaResourceRequest extends FormRequest
             ],
             'trips' => [
 
-                'status' => ['sometimes', Rule::in(['pending', 'in_progress', 'completed', 'cancelled'])],
+                'status' => ['sometimes', Rule::in(['pending', 'assigned', 'in_progress', 'delivered', 'completed', 'cancelled'])],
                 'payment_status' => ['sometimes', Rule::in(['unpaid', 'invoiced', 'paid'])],
             ],
             'vehicles' => [

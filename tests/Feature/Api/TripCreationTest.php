@@ -56,7 +56,7 @@ final class TripCreationTest extends TestCase
                     'surcharges',
                 ],
             ])
-            ->assertJsonPath('data.status', 'new')
+            ->assertJsonPath('data.status', 'pending')
             ->assertJsonPath('data.total_revenue', (int) self::TOTAL_REVENUE)
             ->assertJsonCount(2, 'data.stops')
             ->assertJsonCount(1, 'data.surcharges');

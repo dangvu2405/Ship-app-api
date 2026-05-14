@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Repositories\Trip\TripRepository;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class TripService
@@ -43,13 +44,16 @@ class TripService
             ]);
         }
 
-        $tripDate = $trip->scheduled_date ?? $trip->created_at?->toDateString() ?? now()->toDateString();
+        $tripDate = $trip->scheduled_date?->toDateString()
+            ?? $trip->created_at?->toDateString()
+            ?? now()->toDateString();
+        $companyId = $trip->company_id;
 
         // 1. Vehicle Checks
-        $this->validateVehicle($vehicleId, $tripId, $tripDate);
+        $this->validateVehicle($vehicleId, $tripId, $tripDate, $companyId);
 
         // 2. Driver Checks
-        $this->validateDriver($driverId, $tripId, $tripDate);
+        $this->validateDriver($driverId, $tripId, $tripDate, $companyId);
 
         $fromStatus = $trip->status;
         $trip->update([
@@ -73,9 +77,9 @@ class TripService
     /**
      * Validate vehicle availability and status.
      */
-    protected function validateVehicle(int $vehicleId, int $tripId, string $date): void
+    protected function validateVehicle(int $vehicleId, int $tripId, string $date, int $companyId): void
     {
-        $vehicle = Vehicle::find($vehicleId);
+        $vehicle = Vehicle::query()->where('company_id', $companyId)->find($vehicleId);
         if (! $vehicle || $vehicle->status !== 'active') {
             throw ValidationException::withMessages([
                 'vehicle_id' => ['Vehicle is not active or not found.'],
@@ -109,9 +113,9 @@ class TripService
     /**
      * Validate driver availability and license.
      */
-    protected function validateDriver(int $driverId, int $tripId, string $date): void
+    protected function validateDriver(int $driverId, int $tripId, string $date, int $companyId): void
     {
-        $driver = Driver::find($driverId);
+        $driver = Driver::query()->where('company_id', $companyId)->find($driverId);
         if (! $driver || $driver->status !== 'active') {
             throw ValidationException::withMessages([
                 'driver_id' => ['Driver is not active or not found.'],
@@ -119,13 +123,17 @@ class TripService
         }
 
         if ($driver->expired_date !== null && now()->toDateString() > (string) $driver->expired_date) {
-            // Depending on requirements, this could be a warning or an error.
-            // Requirement says "prevent N+1", "Scalable", doesn't explicitly say block expired license.
-            // Controller logic had it as a warning.
+            // R03: warn + log, không block assign
+            Log::warning('Driver GPLX expired on assign', [
+                'driver_id'    => $driver->id,
+                'expired_date' => $driver->expired_date,
+                'trip_id'      => $tripId,
+            ]);
         }
 
         $isOnLeave = DB::table('leave_requests')
             ->where('driver_id', $driverId)
+            ->where('company_id', $companyId)
             ->where('status', 'approved')
             ->where(function ($query) use ($date) {
                 $query->whereDate('from_date', '<=', $date)
