@@ -65,7 +65,8 @@ return [
     'rag' => [
         'agent_enabled' => env('RAG_AGENT_ENABLED', false),
         'sql_enabled' => env('RAG_SQL_ENABLED', false),
-        'top_k' => (int) env('RAG_TOP_K', 3),
+        'top_k' => (int) env('RAG_TOP_K', 5),
+        'min_score' => (float) env('RAG_MIN_SCORE', 0.72),
         'max_context_length' => (int) env('RAG_MAX_CONTEXT_LENGTH', 4000),
     ],
 

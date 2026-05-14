@@ -35,14 +35,25 @@ final class ChatRagService
         if (mb_strlen($query) >= 6 && $this->databaseSupportsFullText()) {
             $results = $this->fullTextSearch($query, $intent, $companyId);
             if ($results->count() >= 1) {
-                return $this->formatDocs($results, $query);
+                return $this->filterByMinScore($this->formatDocs($results, $query));
             }
         }
 
         // Fallback: LIKE search theo từ khoá + lọc theo category
         $results = $this->keywordSearch($query, $intent, $companyId);
 
-        return $this->formatDocs($results, $query);
+        return $this->filterByMinScore($this->formatDocs($results, $query));
+    }
+
+    public function hasVisibleKnowledge(?int $companyId = null): bool
+    {
+        if (! Schema::hasTable('knowledge_articles')) {
+            return false;
+        }
+
+        return KnowledgeArticle::query()
+            ->visibleTo($companyId)
+            ->exists();
     }
 
     private function databaseSupportsFullText(): bool
@@ -77,12 +88,7 @@ final class ChatRagService
 
     private function keywordSearch(string $query, string $intent, ?int $companyId): Collection
     {
-        $keywords = collect(explode(' ', mb_strtolower($query)))
-            ->map(fn (string $w): string => trim($w))
-            ->filter(fn (string $w): bool => mb_strlen($w) >= 2)
-            ->unique()
-            ->take(5)
-            ->values();
+        $keywords = $this->keywordsFromQuery($query)->take(6)->values();
 
         if ($keywords->isEmpty()) {
             // Không có từ khoá → trả về bài thuộc intent
@@ -117,7 +123,22 @@ final class ChatRagService
 
     private function maxDocs(): int
     {
-        return max(1, min((int) config('services.rag.top_k', 3), 10));
+        return max(1, min((int) config('services.rag.top_k', 5), 10));
+    }
+
+    /**
+     * @param  list<array{title: string, snippet: string, category: string, score: float}>  $docs
+     * @return list<array{title: string, snippet: string, category: string, score: float}>
+     */
+    private function filterByMinScore(array $docs): array
+    {
+        $minScore = max(0.0, min((float) config('services.rag.min_score', 0.72), 1.0));
+
+        return collect($docs)
+            ->filter(fn (array $doc): bool => (float) ($doc['score'] ?? 0.0) >= $minScore)
+            ->take($this->maxDocs())
+            ->values()
+            ->all();
     }
 
     private function applyTenantPriorityOrdering(Builder $query, ?int $companyId): void
@@ -150,11 +171,7 @@ final class ChatRagService
      */
     private function formatDocs(Collection $articles, string $query): array
     {
-        $keywords = collect(explode(' ', mb_strtolower($query)))
-            ->map(fn (string $w): string => trim($w))
-            ->filter(fn (string $w): bool => mb_strlen($w) >= 2)
-            ->unique()
-            ->values();
+        $keywords = $this->keywordsFromQuery($query);
 
         return $articles->map(function (KnowledgeArticle $article) use ($keywords): array {
             $content = $article->content;
@@ -184,10 +201,34 @@ final class ChatRagService
             return 0.5;
         }
 
+        $title = mb_strtolower($article->title);
         $haystack = mb_strtolower($article->title.' '.$article->content.' '.implode(' ', $article->tags ?? []));
         $matches = $keywords->filter(fn (string $keyword): bool => str_contains($haystack, $keyword))->count();
+        $titleMatches = $keywords->filter(fn (string $keyword): bool => str_contains($title, $keyword))->count();
 
-        return $matches / max(1, $keywords->count());
+        $baseScore = $matches / max(1, $keywords->count());
+        $titleBoost = $titleMatches > 0 ? min(0.2, $titleMatches * 0.05) : 0.0;
+
+        return min(1.0, $baseScore + $titleBoost);
+    }
+
+    /**
+     * @return Collection<int, string>
+     */
+    private function keywordsFromQuery(string $query): Collection
+    {
+        $stopWords = [
+            'có', 'thể', 'không', 'gì', 'nào', 'như', 'thế', 'nào', 'cần', 'và',
+            'là', 'cho', 'của', 'trong', 'được', 'khi', 'với', 'một', 'các',
+        ];
+
+        $normalized = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($query)) ?? $query;
+
+        return collect(explode(' ', $normalized))
+            ->map(fn (string $w): string => trim($w))
+            ->filter(fn (string $w): bool => mb_strlen($w) >= 2 && ! in_array($w, $stopWords, true))
+            ->unique()
+            ->values();
     }
 
     private function sanitizeFullTextQuery(string $query): string

@@ -11,11 +11,16 @@ use App\Tenancy\TenantContext;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
 class ChatService
 {
+    private const NO_KNOWLEDGE_MESSAGE = 'Hiện chưa có tài liệu được cung cấp để trả lời câu hỏi này.';
+
+    private const NO_MATCH_MESSAGE = 'Tôi không tìm thấy thông tin này trong tài liệu được cung cấp.';
+
     public function __construct(
         private readonly GroqService $groqService,
         private readonly ChatRagService $chatRagService,
@@ -41,6 +46,14 @@ class ChatService
             throw new ApiException('Message is required', 422);
         }
 
+        Log::info('ChatService: received message', [
+            'user_id' => $user->id,
+            'session_id' => $sessionId,
+            'task' => $task,
+            'model' => $resolvedModel,
+            'message_length' => mb_strlen($message),
+        ]);
+
         if (mb_strlen($message) < 3) {
             $chat = ChatMessage::create([
                 'user_id' => $user->id,
@@ -57,33 +70,14 @@ class ChatService
                 'message' => $chat,
                 'answer' => (string) $chat->response,
                 'response_text' => (string) $chat->response,
+                'sources' => [],
+                'confidence' => 'none',
                 'cached' => false,
                 'guarded' => true,
             ];
         }
 
         $cacheKey = $this->buildCacheKey($user->id, $message, $task, $context, $resolvedModel);
-        $cachedText = Cache::get($cacheKey);
-        if (is_string($cachedText) && $cachedText !== '') {
-            $chat = ChatMessage::create([
-                'user_id' => $user->id,
-                'session_id' => $sessionId,
-                'message' => $message,
-                'response' => $cachedText,
-                'context' => $context,
-                'model' => $resolvedModel,
-                'status' => 'success',
-            ]);
-
-            return [
-                'session_id' => $sessionId,
-                'message' => $chat,
-                'answer' => (string) $chat->response,
-                'response_text' => (string) $chat->response,
-                'cached' => true,
-                'guarded' => false,
-            ];
-        }
 
         $history = ChatMessage::query()
             ->where('user_id', $user->id)
@@ -94,13 +88,78 @@ class ChatService
             ->reverse()
             ->values();
 
+        $companyId = $this->tenantContext->getCompanyId();
         $ragDocs = $task === 'chat'
-            ? $this->chatRagService->search($message, 'GENERAL', $this->tenantContext->getCompanyId())
+            ? $this->chatRagService->search($message, 'GENERAL', $companyId)
             : [];
+
+        Log::info('ChatService: retrieved RAG context', [
+            'user_id' => $user->id,
+            'session_id' => $sessionId,
+            'task' => $task,
+            'source_count' => count($ragDocs),
+            'top_score' => $ragDocs[0]['score'] ?? null,
+        ]);
+
+        $hasVisibleKnowledge = $task === 'chat'
+            ? $this->chatRagService->hasVisibleKnowledge($companyId)
+            : false;
+
+        if ($task === 'chat' && $this->requiresRuntimeData($message) && $hasVisibleKnowledge && ! $this->hasRuntimeData($context)) {
+            Log::warning('ChatService: runtime-data question without runtime context', [
+                'user_id' => $user->id,
+                'session_id' => $sessionId,
+            ]);
+
+            return $this->persistAnswer($user, $sessionId, $message, self::NO_MATCH_MESSAGE, $context, 'local-rag-missing-runtime-data', [
+                'sources' => $this->sourcesFromRagDocs($ragDocs),
+                'confidence' => $ragDocs === [] ? 'none' : 'low',
+                'cached' => false,
+                'guarded' => true,
+                'error_code' => 'RAG_RUNTIME_CONTEXT_NOT_FOUND',
+            ]);
+        }
+
+        if ($task === 'chat' && $ragDocs === []) {
+            $answer = $hasVisibleKnowledge
+                ? self::NO_MATCH_MESSAGE
+                : self::NO_KNOWLEDGE_MESSAGE;
+
+            Log::warning('ChatService: no usable RAG context', [
+                'user_id' => $user->id,
+                'session_id' => $sessionId,
+                'has_visible_knowledge' => $hasVisibleKnowledge,
+            ]);
+
+            return $this->persistAnswer($user, $sessionId, $message, $answer, $context, 'local-rag-no-context', [
+                'sources' => [],
+                'confidence' => 'none',
+                'cached' => false,
+                'guarded' => true,
+                'error_code' => $answer === self::NO_KNOWLEDGE_MESSAGE ? 'RAG_CONTEXT_EMPTY' : 'RAG_CONTEXT_NOT_FOUND',
+            ]);
+        }
+
+        $cachedText = Cache::get($cacheKey);
+        if (is_string($cachedText) && $cachedText !== '') {
+            return $this->persistAnswer($user, $sessionId, $message, $cachedText, $context, $resolvedModel, [
+                'sources' => $this->sourcesFromRagDocs($ragDocs),
+                'confidence' => $this->confidenceFromRagDocs($ragDocs),
+                'cached' => true,
+                'guarded' => false,
+            ]);
+        }
 
         $prompt = $this->buildPrompt($history, $message, $context, $task, $ragDocs);
 
         try {
+            Log::info('ChatService: calling Groq', [
+                'user_id' => $user->id,
+                'session_id' => $sessionId,
+                'model' => $payload['model'] ?? $resolvedModel,
+                'source_count' => count($ragDocs),
+            ]);
+
             $result = $this->groqService->generateContent($prompt, [
                 'model' => $payload['model'] ?? null,
                 'generation_config' => [
@@ -140,11 +199,12 @@ class ChatService
                     'session_id' => $sessionId,
                     'message' => $chat,
                     'answer' => (string) $chat->response,
-                    'response_text' => (string) $chat->response,
-                    'sources' => $this->sourcesFromRagDocs($ragDocs),
-                    'cached' => false,
-                    'guarded' => true,
-                ];
+                'response_text' => (string) $chat->response,
+                'sources' => $this->sourcesFromRagDocs($ragDocs),
+                'confidence' => $this->confidenceFromRagDocs($ragDocs),
+                'cached' => false,
+                'guarded' => true,
+            ];
             }
 
             if ($e->getStatusCode() >= 500 || str_contains($e->getMessage(), 'GROQ_API_KEY')) {
@@ -163,11 +223,12 @@ class ChatService
                     'session_id' => $sessionId,
                     'message' => $chat,
                     'answer' => (string) $chat->response,
-                    'response_text' => (string) $chat->response,
-                    'sources' => $this->sourcesFromRagDocs($ragDocs),
-                    'cached' => false,
-                    'guarded' => true,
-                    'llm_unavailable' => true,
+                'response_text' => (string) $chat->response,
+                'sources' => $this->sourcesFromRagDocs($ragDocs),
+                'confidence' => $this->confidenceFromRagDocs($ragDocs),
+                'cached' => false,
+                'guarded' => true,
+                'llm_unavailable' => true,
                 ];
             }
 
@@ -208,11 +269,12 @@ class ChatService
                     'session_id' => $sessionId,
                     'message' => $chat,
                     'answer' => (string) $chat->response,
-                    'response_text' => (string) $chat->response,
-                    'sources' => $this->sourcesFromRagDocs($ragDocs),
-                    'cached' => false,
-                    'guarded' => true,
-                    'llm_unavailable' => true,
+                'response_text' => (string) $chat->response,
+                'sources' => $this->sourcesFromRagDocs($ragDocs),
+                'confidence' => $this->confidenceFromRagDocs($ragDocs),
+                'cached' => false,
+                'guarded' => true,
+                'llm_unavailable' => true,
                 ];
             }
 
@@ -238,6 +300,7 @@ class ChatService
             'answer' => (string) $chat->response,
             'response_text' => (string) $chat->response,
             'sources' => $this->sourcesFromRagDocs($ragDocs),
+            'confidence' => $this->confidenceFromRagDocs($ragDocs),
             'cached' => false,
             'guarded' => false,
         ];
@@ -371,16 +434,11 @@ class ChatService
             return "Bạn là chuyên gia tư vấn vận chuyển của Ship-app. Dựa vào loại hàng là '{$item}', hãy đưa ra 1 lời khuyên duy nhất về cách đóng gói để hàng không bị hỏng khi vận chuyển từ {$from} đến {$to}. Trả lời tối đa 20 từ.";
         }
 
-        $lines = [
-            'Bạn là trợ lý chat cho hệ thống Company Ship API.',
-            'Trả lời cực ngắn, rõ ràng, tập trung nghiệp vụ logistics, nhân sự, chấm công, payroll.',
-            'Nếu câu hỏi thiếu dữ liệu, hãy nói rõ giả định.',
-        ];
+        $contextLines = [];
 
         if ($ragDocs !== []) {
-            $lines[] = 'Tài liệu nội bộ liên quan:';
             foreach ($ragDocs as $index => $doc) {
-                $lines[] = sprintf(
+                $contextLines[] = sprintf(
                     '[%d] %s (%s): %s',
                     $index + 1,
                     $doc['title'],
@@ -388,12 +446,27 @@ class ChatService
                     $doc['snippet']
                 );
             }
-            $lines[] = 'Ưu tiên trả lời dựa trên tài liệu nội bộ ở trên; nếu tài liệu không đủ, nói rõ phần thiếu dữ liệu.';
         }
 
         if ($context !== []) {
-            $lines[] = 'Context bổ sung: '.json_encode($context, JSON_UNESCAPED_UNICODE);
+            $contextLines[] = 'Context bổ sung: '.json_encode($context, JSON_UNESCAPED_UNICODE);
         }
+
+        $lines = [
+            'Bạn là trợ lý RAG Chatbot của hệ thống Company Ship / CETA.',
+            'Chỉ trả lời dựa trên nội dung trong [CONTEXT].',
+            'Không dùng kiến thức bên ngoài cho câu hỏi nghiệp vụ. Không bịa đặt.',
+            'Nếu không tìm thấy thông tin trong context, trả lời: '.self::NO_MATCH_MESSAGE,
+            'Trả lời bằng tiếng Việt, ngắn gọn, ưu tiên gạch đầu dòng.',
+            '',
+            '[CONTEXT]',
+            $contextLines !== [] ? implode("\n", $contextLines) : self::NO_KNOWLEDGE_MESSAGE,
+            '[/CONTEXT]',
+            '',
+            '[QUESTION]',
+            $message,
+            '[/QUESTION]',
+        ];
 
         if ($history->isNotEmpty()) {
             $lines[] = 'Lịch sử hội thoại gần nhất:';
@@ -404,8 +477,6 @@ class ChatService
                 }
             }
         }
-
-        $lines[] = 'User hiện tại: '.$message;
 
         return implode("\n", $lines);
     }
@@ -436,6 +507,7 @@ class ChatService
             fn (array $doc): array => [
                 'id' => sha1($doc['category'].'|'.$doc['title']),
                 'title' => $doc['title'],
+                'section' => $doc['category'],
                 'content' => $doc['snippet'],
                 'content_preview' => $doc['snippet'],
                 'category' => $doc['category'],
@@ -451,7 +523,7 @@ class ChatService
     private function buildLocalRagFallback(array $ragDocs): string
     {
         if ($ragDocs === []) {
-            return 'Hiện chưa có đủ dữ liệu knowledge base để trả lời chính xác. Vui lòng bổ sung tài liệu nội bộ hoặc cấu hình GROQ_API_KEY để dùng AI.';
+            return self::NO_KNOWLEDGE_MESSAGE;
         }
 
         $lines = ['Dựa trên tài liệu nội bộ hiện có:'];
@@ -461,5 +533,75 @@ class ChatService
         $lines[] = 'Lưu ý: đây là câu trả lời fallback khi dịch vụ AI chưa sẵn sàng.';
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function persistAnswer(User $user, string $sessionId, string $message, string $answer, array $context, string $model, array $extra = []): array
+    {
+        $chat = ChatMessage::create([
+            'user_id' => $user->id,
+            'session_id' => $sessionId,
+            'message' => $message,
+            'response' => $answer,
+            'context' => $context,
+            'model' => $model,
+            'status' => 'success',
+        ]);
+
+        Log::info('ChatService: response generated', [
+            'user_id' => $user->id,
+            'session_id' => $sessionId,
+            'model' => $model,
+            'answer_length' => mb_strlen($answer),
+            'source_count' => count($extra['sources'] ?? []),
+            'confidence' => $extra['confidence'] ?? null,
+        ]);
+
+        return array_merge([
+            'session_id' => $sessionId,
+            'message' => $chat,
+            'answer' => $answer,
+            'response_text' => $answer,
+        ], $extra);
+    }
+
+    /**
+     * @param  list<array{score?: float}>  $ragDocs
+     */
+    private function confidenceFromRagDocs(array $ragDocs): string
+    {
+        $topScore = (float) ($ragDocs[0]['score'] ?? 0.0);
+
+        if ($topScore >= 0.85) {
+            return 'high';
+        }
+
+        if ($topScore >= (float) config('services.rag.min_score', 0.72)) {
+            return 'medium';
+        }
+
+        return 'low';
+    }
+
+    /**
+     * Runtime-number questions require real context data, not descriptive KB snippets.
+     */
+    private function requiresRuntimeData(string $message): bool
+    {
+        $normalized = mb_strtolower($message);
+
+        return preg_match('/(bao nhiêu|doanh thu.*(tháng|ngày|hôm nay|năm|\d)|tổng\s+(doanh thu|chi phí|chuyến|đơn))/u', $normalized) === 1;
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function hasRuntimeData(array $context): bool
+    {
+        return isset($context['data']) && is_array($context['data']) && $context['data'] !== [];
     }
 }
