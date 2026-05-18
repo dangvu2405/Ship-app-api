@@ -79,12 +79,18 @@ class GroqService
 
     private function resolveModel(mixed $requestedModel): string
     {
+        $default = (string) config('services.groq.model', 'llama-3.3-70b-versatile');
         $model = is_string($requestedModel) ? trim($requestedModel) : '';
 
         if ($model === '' || str_contains($model, 'gemini')) {
-            return (string) config('services.groq.model', 'openai/gpt-oss-20b');
+            $model = $default;
         }
 
-        return $model;
+        // Strip provider prefix (e.g. "groq/llama-3.1-70b" → "llama-3.1-70b")
+        if (str_contains($model, '/')) {
+            $model = substr($model, strrpos($model, '/') + 1);
+        }
+
+        return $model !== '' ? $model : 'llama-3.3-70b-versatile';
     }
 }

@@ -121,22 +121,26 @@ class ChatService
         }
 
         if ($task === 'chat' && $ragDocs === []) {
-            $answer = $hasVisibleKnowledge
-                ? self::NO_MATCH_MESSAGE
-                : self::NO_KNOWLEDGE_MESSAGE;
+            if ($hasVisibleKnowledge) {
+                // KB exists but no match — return static fallback
+                Log::warning('ChatService: no usable RAG context (KB exists, no match)', [
+                    'user_id' => $user->id,
+                    'session_id' => $sessionId,
+                ]);
 
-            Log::warning('ChatService: no usable RAG context', [
+                return $this->persistAnswer($user, $sessionId, $message, self::NO_MATCH_MESSAGE, $context, 'local-rag-no-context', [
+                    'sources' => [],
+                    'confidence' => 'none',
+                    'cached' => false,
+                    'guarded' => true,
+                    'error_code' => 'RAG_CONTEXT_NOT_FOUND',
+                ]);
+            }
+
+            // No KB at all — fall through to call Groq as a general TMS assistant
+            Log::info('ChatService: no KB seeded, falling back to general Groq assistant', [
                 'user_id' => $user->id,
                 'session_id' => $sessionId,
-                'has_visible_knowledge' => $hasVisibleKnowledge,
-            ]);
-
-            return $this->persistAnswer($user, $sessionId, $message, $answer, $context, 'local-rag-no-context', [
-                'sources' => [],
-                'confidence' => 'none',
-                'cached' => false,
-                'guarded' => true,
-                'error_code' => $answer === self::NO_KNOWLEDGE_MESSAGE ? 'RAG_CONTEXT_EMPTY' : 'RAG_CONTEXT_NOT_FOUND',
             ]);
         }
 
@@ -452,15 +456,18 @@ class ChatService
             $contextLines[] = 'Context bổ sung: '.json_encode($context, JSON_UNESCAPED_UNICODE);
         }
 
+        $hasKnowledgeContext = $contextLines !== [];
+
         $lines = [
-            'Bạn là trợ lý RAG Chatbot của hệ thống Company Ship / CETA.',
-            'Chỉ trả lời dựa trên nội dung trong [CONTEXT].',
-            'Không dùng kiến thức bên ngoài cho câu hỏi nghiệp vụ. Không bịa đặt.',
-            'Nếu không tìm thấy thông tin trong context, trả lời: '.self::NO_MATCH_MESSAGE,
+            'Bạn là trợ lý AI vận hành đội xe của hệ thống Company Ship / CETA — TMS (Transportation Management System) Việt Nam.',
+            'Hỗ trợ: quản lý chuyến đi, tài xế, xe, doanh thu, chi phí, phân công, lịch trình và các nghiệp vụ vận tải.',
+            $hasKnowledgeContext
+                ? 'Ưu tiên trả lời dựa trên [CONTEXT] bên dưới. Nếu không có thông tin trong context, dùng kiến thức nghiệp vụ TMS để trả lời.'
+                : 'Trả lời dựa trên kiến thức nghiệp vụ TMS và vận tải. Không bịa số liệu cụ thể.',
             'Trả lời bằng tiếng Việt, ngắn gọn, ưu tiên gạch đầu dòng.',
             '',
             '[CONTEXT]',
-            $contextLines !== [] ? implode("\n", $contextLines) : self::NO_KNOWLEDGE_MESSAGE,
+            $hasKnowledgeContext ? implode("\n", $contextLines) : '(Chưa có tài liệu nội bộ — dùng kiến thức nghiệp vụ chung về TMS)',
             '[/CONTEXT]',
             '',
             '[QUESTION]',
